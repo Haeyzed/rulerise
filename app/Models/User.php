@@ -2,12 +2,15 @@
 
 namespace App\Models;
 
+use App\Services\Storage\StorageService;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use PHPOpenSourceSaver\JWTAuth\Contracts\JWTSubject;
 use Spatie\Permission\Traits\HasRoles;
 
@@ -38,7 +41,7 @@ use Spatie\Permission\Traits\HasRoles;
  * @property-read Candidate|null $candidate
  * @property-read Employer|null $employer
  */
-class User extends Authenticatable implements JWTSubject
+class User extends Authenticatable implements JWTSubject//, MustVerifyEmail
 {
     use HasFactory, Notifiable, SoftDeletes, HasRoles;
 
@@ -154,5 +157,59 @@ class User extends Authenticatable implements JWTSubject
     public function isAdmin(): bool
     {
         return $this->user_type === 'admin';
+    }
+
+    /**
+     * Get roles as a collection of id and name
+     *
+     * @return Collection
+     */
+    public function getRolesWithId(): Collection
+    {
+        return $this->roles->map(function ($role) {
+            return [
+                'id' => $role->id,
+                'name' => $role->name,
+            ];
+        });
+    }
+
+    /**
+     * Get permissions as a collection of id and name
+     *
+     * @return Collection
+     */
+    public function getPermissionsWithId(): Collection
+    {
+        return $this->getAllPermissions()->map(function ($permission) {
+            return [
+                'id' => $permission->id,
+                'name' => $permission->name,
+            ];
+        });
+    }
+
+    /**
+     * Get the full name of the user
+     *
+     * @return string
+     */
+    public function getFullNameAttribute(): string
+    {
+        return trim($this->first_name . ' ' . $this->last_name);
+    }
+
+    /**
+     * Get the profile image URL attribute.
+     *
+     * @return string|null
+     */
+    public function getProfilePictureUrlAttribute(): ?string
+    {
+        if (!$this->profile_picture) {
+            return null;
+        }
+
+        return app(StorageService::class)->url($this->profile_picture);
     }
 }

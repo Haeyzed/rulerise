@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\Storage\StorageService;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -149,5 +150,19 @@ class Employer extends Model
     public function hasActiveSubscription(): bool
     {
         return $this->activeSubscription()->exists();
+    }
+
+    /**
+     * Get the URL of the client's logo.
+     *
+     * @return string|null
+     */
+    public function getCompanyLogoUrlAttribute():  ?string
+    {
+        if (!$this->company_logo) {
+            return null;
+        }
+
+        return app(StorageService::class)->url($this->company_logo);
     }
 }

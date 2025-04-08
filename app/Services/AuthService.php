@@ -6,6 +6,9 @@ use App\Models\CompanyBenefit;
 use App\Models\Employer;
 use App\Models\Skill;
 use App\Models\User;
+use App\Services\Storage\StorageService;
+use Exception;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
@@ -18,18 +21,42 @@ use PHPOpenSourceSaver\JWTAuth\Facades\JWTAuth;
 class AuthService
 {
     /**
+     * @var StorageService
+     */
+    protected StorageService $storageService;
+
+    /**
+     * ClientSectionService constructor.
+     *
+     * @param StorageService $storageService
+     */
+    public function __construct(StorageService $storageService)
+    {
+        $this->storageService = $storageService;
+    }
+
+    /**
      * Register a new user
      *
      * @param array $data
      * @param string $userType
      * @return array
-     * @throws \Exception
+     * @throws Exception
      */
     public function register(array $data, string $userType = 'candidate'): array
     {
         DB::beginTransaction();
 
         try {
+            // Handle profile picture (candidate)
+            if (isset($data['profile_picture']) && $data['profile_picture'] instanceof UploadedFile) {
+                $data['profile_picture_path'] = $this->uploadImage(
+                    $data['profile_picture'],
+                    config('filestorage.paths.profile_images')
+                );
+                unset($data['profile_picture']);
+            }
+
             // Create user
             $userData = [
                 'first_name' => $data['first_name'],
@@ -43,9 +70,12 @@ class AuthService
                 'country' => $data['country'] ?? null,
                 'state' => $data['state'] ?? null,
                 'city' => $data['city'] ?? null,
-                'profile_picture' => $data['profile_picture'] ?? null,
                 'user_type' => $userType,
             ];
+
+            if (isset($data['profile_picture_path'])) {
+                $userData['profile_picture'] = $data['profile_picture_path'];
+            }
 
             $user = User::query()->create($userData);
 
@@ -65,12 +95,21 @@ class AuthService
                 // Handle skills
                 if (!empty($data['skills']) && is_array($data['skills'])) {
                     foreach ($data['skills'] as $skillName) {
-                        $skill = Skill::firstOrCreate(['name' => $skillName]);
+                        $skill = Skill::query()->firstOrCreate(['name' => $skillName]);
                         $candidate->skills()->attach($skill->id);
                     }
                 }
             } elseif ($userType === 'employer') {
-                $employer = $user->employer()->create([
+                // Handle company logo (employer)
+                if (isset($data['company_logo']) && $data['company_logo'] instanceof UploadedFile) {
+                    $data['company_logo_path'] = $this->uploadImage(
+                        $data['company_logo'],
+                        config('filestorage.paths.company_logos')
+                    );
+                    unset($data['company_logo']);
+                }
+
+                $employerData = [
                     'company_name' => $data['company_name'],
                     'company_email' => $data['company_email'] ?? null,
                     'company_description' => $data['company_description'] ?? null,
@@ -82,25 +121,18 @@ class AuthService
                     'company_address' => $data['company_address'] ?? null,
                     'company_phone_number' => $data['company_phone_number'] ?? null,
                     'company_website' => $data['company_website'] ?? null,
-                ]);
+                ];
 
-                // Handle company logo
-                if (!empty($data['company_logo']) && !empty($data['company_logo'])) {
-                    $imageData = base64_decode($data['company_logo']);
-                    $extension = $data['company_logo']['image_extension'];
-                    $filename = 'company_logos/' . $employer->id . '_' . time() . '.' . $extension;
-
-                    Storage::disk('public')->put($filename, $imageData);
-
-                    $employer->update([
-                        'company_logo' => $filename
-                    ]);
+                if (isset($data['company_logo_path'])) {
+                    $employerData['company_logo'] = $data['company_logo_path'];
                 }
+
+                $employer = $user->employer()->create($employerData);
 
                 // Handle company benefits
                 if (!empty($data['company_benefit_offered']) && is_array($data['company_benefit_offered'])) {
                     foreach ($data['company_benefit_offered'] as $benefit) {
-                        CompanyBenefit::create([
+                        CompanyBenefit::query()->create([
                             'employer_id' => $employer->id,
                             'benefit' => $benefit
                         ]);
@@ -117,7 +149,7 @@ class AuthService
                 'user' => $user,
                 'token' => $token,
             ];
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             DB::rollBack();
             throw $e;
         }
@@ -219,8 +251,21 @@ class AuthService
         try {
             JWTAuth::invalidate(JWTAuth::getToken());
             return true;
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             return false;
         }
+    }
+
+    /**
+     * Upload an image to storage.
+     *
+     * @param UploadedFile $image The image file to upload.
+     * @param string $path The storage path.
+     * @param array $options Additional options for the upload.
+     * @return string The path to the uploaded image.
+     */
+    private function uploadImage(UploadedFile $image, string $path, array $options = []): string
+    {
+        return $this->storageService->upload($image, $path, $options);
     }
 }

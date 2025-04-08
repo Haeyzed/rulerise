@@ -7,6 +7,7 @@ use App\Http\Requests\Auth\ChangePasswordRequest;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterRequest;
 use App\Http\Requests\Auth\ResetPasswordRequest;
+use App\Http\Resources\UserResource;
 use App\Models\User;
 use App\Services\AuthService;
 use Exception;
@@ -50,12 +51,20 @@ class AuthController extends Controller
             $userType = $data['user_type'];
 
             $result = $this->authService->register($data, $userType);
+            $user = $result['user'];
+
+            // Load relationships based on user type
+            if ($user->isCandidate()) {
+                $user->load(['candidate.skills']);
+            } elseif ($user->isEmployer()) {
+                $user->load(['employer.benefits']);
+            }
 
             return response()->json([
                 'success' => true,
                 'message' => 'Registration successful',
                 'data' => [
-                    'user' => $result['user'],
+                    'user' => new UserResource($user),
                     'token' => $result['token'],
                 ],
             ], 201);
@@ -87,13 +96,51 @@ class AuthController extends Controller
             ], 401);
         }
 
+        $user = $result['user'];
+
+        // Load relationships based on user type
+        if ($user->isCandidate()) {
+            $user->load(['candidate.skills']);
+        } elseif ($user->isEmployer()) {
+            $user->load(['employer.benefits']);
+        }
+
         return response()->json([
             'success' => true,
             'message' => 'Login successful',
             'data' => [
-                'user' => $result['user'],
+                'user' => new UserResource($user),
                 'token' => $result['token'],
             ],
+        ]);
+    }
+
+    /**
+     * Get the authenticated user
+     *
+     * @return JsonResponse
+     */
+    public function me(): JsonResponse
+    {
+        $user = auth()->user();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthenticated',
+            ], 401);
+        }
+
+        // Load relationships based on user type
+        if ($user->isCandidate()) {
+            $user->load(['candidate.skills']);
+        } elseif ($user->isEmployer()) {
+            $user->load(['employer.benefits']);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => new UserResource($user),
         ]);
     }
 
@@ -265,6 +312,28 @@ class AuthController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Email verified successfully',
+        ]);
+    }
+
+    /**
+     * Logout the user
+     *
+     * @return JsonResponse
+     */
+    public function logout(): JsonResponse
+    {
+        $result = $this->authService->logout();
+
+        if (!$result) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to logout',
+            ], 500);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Successfully logged out',
         ]);
     }
 }
