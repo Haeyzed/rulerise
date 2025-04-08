@@ -1,0 +1,146 @@
+<?php
+
+namespace App\Http\Controllers\Admin;
+
+use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\JobCategoryRequest;
+use App\Models\JobCategory;
+use App\Services\AdminService;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+
+/**
+ * Controller for admin job category management
+ */
+class JobCategoriesController extends Controller
+{
+    /**
+     * Admin service instance
+     *
+     * @var AdminService
+     */
+    protected AdminService $adminService;
+
+    /**
+     * Create a new controller instance.
+     *
+     * @param AdminService $adminService
+     * @return void
+     */
+    public function __construct(AdminService $adminService)
+    {
+        $this->adminService = $adminService;
+        $this->middleware('auth:api');
+        $this->middleware('role:admin');
+    }
+
+    /**
+     * Get job categories list
+     *
+     * @return JsonResponse
+     */
+    public function index(): JsonResponse
+    {
+        $categories = JobCategory::all();
+
+        return response()->json([
+            'success' => true,
+            'data' => $categories,
+        ]);
+    }
+
+    /**
+     * Create a new job category
+     *
+     * @param JobCategoryRequest $request
+     * @return JsonResponse
+     */
+    public function store(JobCategoryRequest $request): JsonResponse
+    {
+        $data = $request->validated();
+
+        $category = $this->adminService->saveJobCategory($data);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Job category created successfully',
+            'data' => $category,
+        ], 201);
+    }
+
+    /**
+     * Get job category details
+     *
+     * @param int $id
+     * @return JsonResponse
+     */
+    public function show(int $id): JsonResponse
+    {
+        $category = JobCategory::query()->findOrFail($id);
+
+        return response()->json([
+            'success' => true,
+            'data' => $category,
+        ]);
+    }
+
+    /**
+     * Update job category
+     *
+     * @param JobCategoryRequest $request
+     * @return JsonResponse
+     */
+    public function update(JobCategoryRequest $request): JsonResponse
+    {
+        $data = $request->validated();
+
+        $category = $this->adminService->saveJobCategory($data, $data['id']);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Job category updated successfully',
+            'data' => $category,
+        ]);
+    }
+
+    /**
+     * Delete job category
+     *
+     * @param int $id
+     * @return JsonResponse
+     */
+    public function delete(int $id): JsonResponse
+    {
+        $category = JobCategory::findOrFail($id);
+        $category->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Job category deleted successfully',
+        ]);
+    }
+
+    /**
+     * Set job category active status
+     *
+     * @param int $id
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function setActive(int $id, Request $request): JsonResponse
+    {
+        $isActive = $request->input('is_active', true);
+
+        $category = JobCategory::query()->findOrFail($id);
+
+        $category = $this->adminService->setJobCategoryStatus($category, $isActive);
+
+        $status = $isActive ? 'activated' : 'deactivated';
+
+        return response()->json([
+            'success' => true,
+            'message' => "Job category {$status} successfully",
+            'data' => $category,
+        ]);
+    }
+}

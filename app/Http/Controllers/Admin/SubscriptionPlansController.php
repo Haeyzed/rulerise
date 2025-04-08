@@ -1,0 +1,146 @@
+<?php
+
+namespace App\Http\Controllers\Admin;
+
+use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\SubscriptionPlanRequest;
+use App\Models\SubscriptionPlan;
+use App\Services\AdminService;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+
+/**
+ * Controller for admin subscription plan management
+ */
+class SubscriptionPlansController extends Controller
+{
+    /**
+     * Admin service instance
+     *
+     * @var AdminService
+     */
+    protected AdminService $adminService;
+
+    /**
+     * Create a new controller instance.
+     *
+     * @param AdminService $adminService
+     * @return void
+     */
+    public function __construct(AdminService $adminService)
+    {
+        $this->adminService = $adminService;
+        $this->middleware('auth:api');
+        $this->middleware('role:admin');
+    }
+
+    /**
+     * Get subscription plans list
+     *
+     * @return JsonResponse
+     */
+    public function index(): JsonResponse
+    {
+        $plans = SubscriptionPlan::all();
+
+        return response()->json([
+            'success' => true,
+            'data' => $plans,
+        ]);
+    }
+
+    /**
+     * Create a new subscription plan
+     *
+     * @param SubscriptionPlanRequest $request
+     * @return JsonResponse
+     */
+    public function store(SubscriptionPlanRequest $request): JsonResponse
+    {
+        $data = $request->validated();
+
+        $plan = $this->adminService->saveSubscriptionPlan($data);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Subscription plan created successfully',
+            'data' => $plan,
+        ], 201);
+    }
+
+    /**
+     * Get subscription plan details
+     *
+     * @param int $id
+     * @return JsonResponse
+     */
+    public function show(int $id): JsonResponse
+    {
+        $plan = SubscriptionPlan::query()->findOrFail($id);
+
+        return response()->json([
+            'success' => true,
+            'data' => $plan,
+        ]);
+    }
+
+    /**
+     * Update subscription plan
+     *
+     * @param SubscriptionPlanRequest $request
+     * @return JsonResponse
+     */
+    public function update(SubscriptionPlanRequest $request): JsonResponse
+    {
+        $data = $request->validated();
+
+        $plan = $this->adminService->saveSubscriptionPlan($data, $data['id']);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Subscription plan updated successfully',
+            'data' => $plan,
+        ]);
+    }
+
+    /**
+     * Delete subscription plan
+     *
+     * @param int $id
+     * @return JsonResponse
+     */
+    public function destroy(int $id): JsonResponse
+    {
+        $plan = SubscriptionPlan::query()->findOrFail($id);
+        $plan->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Subscription plan deleted successfully',
+        ]);
+    }
+
+    /**
+     * Set subscription plan active status
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function setActive(Request $request): JsonResponse
+    {
+        $id = $request->input('id');
+        $isActive = $request->input('is_active', true);
+
+        $plan = SubscriptionPlan::query()->findOrFail($id);
+
+        $plan = $this->adminService->setSubscriptionPlanStatus($plan, $isActive);
+
+        $status = $isActive ? 'activated' : 'deactivated';
+
+        return response()->json([
+            'success' => true,
+            'message' => "Subscription plan {$status} successfully",
+            'data' => $plan,
+        ]);
+    }
+}
