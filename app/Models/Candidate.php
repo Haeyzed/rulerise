@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
@@ -15,7 +16,10 @@ use Illuminate\Support\Carbon;
  *
  * @property int $id
  * @property int $user_id
- * @property string|null $title
+ * @property string|null $year_of_experience
+ * @property string|null $highest_qualification
+ * @property string|null $prefer_job_industry
+ * @property bool $available_to_work
  * @property string|null $bio
  * @property string|null $current_position
  * @property string|null $current_company
@@ -30,17 +34,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $updated_at
  *
  * @property-read User $user
- * @property-read Qualification|null $qualification
- * @property-read Collection|WorkExperience[] $workExperiences
- * @property-read Collection|EducationHistory[] $educationHistories
- * @property-read Collection|Language[] $languages
- * @property-read Portfolio|null $portfolio
- * @property-read Collection|CandidateCredential[] $credentials
- * @property-read Collection|JobApplication[] $jobApplications
- * @property-read Collection|SavedJob[] $savedJobs
- * @property-read Collection|Resume[] $resumes
- * @property-read Collection|ReportedJob[] $reportedJobs
- * @property-read Collection|ProfileViewCount[] $profileViewCounts
+ * @property-read Collection|Skill[] $skills
  */
 class Candidate extends Model
 {
@@ -53,7 +47,10 @@ class Candidate extends Model
      */
     protected $fillable = [
         'user_id',
-        'title',
+        'year_of_experience',
+        'highest_qualification',
+        'prefer_job_industry',
+        'available_to_work',
         'bio',
         'current_position',
         'current_company',
@@ -73,6 +70,7 @@ class Candidate extends Model
      */
     protected $casts = [
         'expected_salary' => 'float',
+        'available_to_work' => 'boolean',
         'is_available' => 'boolean',
         'is_featured' => 'boolean',
         'is_verified' => 'boolean',
@@ -84,6 +82,14 @@ class Candidate extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Get the skills for the candidate.
+     */
+    public function skills(): BelongsToMany
+    {
+        return $this->belongsToMany(Skill::class, 'candidate_skill');
     }
 
     /**

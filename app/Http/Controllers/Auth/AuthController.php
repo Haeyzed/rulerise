@@ -12,6 +12,7 @@ use App\Services\AuthService;
 use Exception;
 use Illuminate\Auth\Events\Verified;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\URL;
 
 /**
  * Controller for user registration
@@ -46,7 +47,7 @@ class AuthController extends Controller
     {
         try {
             $data = $request->validated();
-            $userType = $request->input('user_type', 'candidate');
+            $userType = $data['user_type'];
 
             $result = $this->authService->register($data, $userType);
 

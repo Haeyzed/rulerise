@@ -17,9 +17,15 @@ use Spatie\Permission\Traits\HasRoles;
  * @property int $id
  * @property string $first_name
  * @property string $last_name
+ * @property string|null $other_name
+ * @property string|null $title
  * @property string $email
  * @property string $password
  * @property string|null $phone
+ * @property string|null $phone_country_code
+ * @property string|null $country
+ * @property string|null $state
+ * @property string|null $city
  * @property string|null $profile_picture
  * @property string $user_type
  * @property bool $is_active
@@ -44,9 +50,15 @@ class User extends Authenticatable implements JWTSubject
     protected $fillable = [
         'first_name',
         'last_name',
+        'other_name',
+        'title',
         'email',
         'password',
         'phone',
+        'phone_country_code',
+        'country',
+        'state',
+        'city',
         'profile_picture',
         'user_type',
         'is_active',

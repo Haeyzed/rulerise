@@ -17,23 +17,24 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property int $user_id
  * @property string $company_name
+ * @property string|null $company_email
  * @property string|null $company_logo
  * @property string|null $company_description
- * @property string|null $industry
- * @property string|null $company_size
+ * @property string|null $company_industry
+ * @property string|null $number_of_employees
+ * @property string|null $company_founded
+ * @property string|null $company_country
+ * @property string|null $company_state
+ * @property string|null $company_address
+ * @property string|null $company_phone_number
  * @property string|null $company_website
- * @property string|null $location
  * @property bool $is_verified
  * @property bool $is_featured
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  *
  * @property-read User $user
- * @property-read Collection|Job[] $jobs
- * @property-read Collection|JobViewCount[] $jobViewCounts
- * @property-read Collection|CandidatePool[] $candidatePools
- * @property-read Collection|JobNotificationTemplate[] $notificationTemplates
- * @property-read Collection|Subscription[] $subscriptions
+ * @property-read Collection|CompanyBenefit[] $benefits
  */
 class Employer extends Model
 {
@@ -47,12 +48,17 @@ class Employer extends Model
     protected $fillable = [
         'user_id',
         'company_name',
+        'company_email',
         'company_logo',
         'company_description',
-        'industry',
-        'company_size',
+        'company_industry',
+        'number_of_employees',
+        'company_founded',
+        'company_country',
+        'company_state',
+        'company_address',
+        'company_phone_number',
         'company_website',
-        'location',
         'is_verified',
         'is_featured',
     ];
@@ -63,6 +69,7 @@ class Employer extends Model
      * @var array<string, string>
      */
     protected $casts = [
+        'company_founded' => 'date',
         'is_verified' => 'boolean',
         'is_featured' => 'boolean',
     ];
@@ -73,6 +80,14 @@ class Employer extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Get the benefits offered by the company.
+     */
+    public function benefits(): HasMany
+    {
+        return $this->hasMany(CompanyBenefit::class);
     }
 
     /**

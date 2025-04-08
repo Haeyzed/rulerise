@@ -16,7 +16,10 @@ return new class extends Migration
         Schema::create('candidates', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
-            $table->string('title')->nullable();
+            $table->string('year_of_experience')->nullable();
+            $table->string('highest_qualification')->nullable();
+            $table->string('prefer_job_industry')->nullable();
+            $table->boolean('available_to_work')->default(true);
             $table->text('bio')->nullable();
             $table->string('current_position')->nullable();
             $table->string('current_company')->nullable();
@@ -29,6 +32,21 @@ return new class extends Migration
             $table->boolean('is_verified')->default(false);
             $table->timestamps();
         });
+
+        // Create skills table
+        Schema::create('skills', function (Blueprint $table) {
+            $table->id();
+            $table->string('name')->unique();
+            $table->timestamps();
+        });
+
+        // Create candidate_skill pivot table
+        Schema::create('candidate_skill', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('candidate_id')->constrained()->onDelete('cascade');
+            $table->foreignId('skill_id')->constrained()->onDelete('cascade');
+            $table->timestamps();
+        });
     }
 
     /**
@@ -38,6 +56,8 @@ return new class extends Migration
      */
     public function down(): void
     {
+        Schema::dropIfExists('candidate_skill');
+        Schema::dropIfExists('skills');
         Schema::dropIfExists('candidates');
     }
 };

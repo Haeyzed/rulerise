@@ -16,10 +16,15 @@ return new class extends Migration
             $table->string('first_name');
             $table->string('last_name');
             $table->string('other_name')->nullable();
+            $table->string('title')->nullable();
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
             $table->string('phone')->nullable();
+            $table->string('phone_country_code')->nullable();
+            $table->string('country')->nullable();
+            $table->string('state')->nullable();
+            $table->string('city')->nullable();
             $table->string('profile_picture')->nullable();
             $table->enum('user_type', ['admin', 'candidate', 'employer'])->default('candidate');
             $table->boolean('is_active')->default(true);
