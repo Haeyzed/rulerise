@@ -99,8 +99,14 @@ class AuthController extends Controller implements HasMiddleware
     public function login(LoginRequest $request): JsonResponse
     {
         $credentials = $request->validated();
+        $userType = $credentials['user_type'] ?? null;
 
-        $result = $this->authService->login($credentials['email'], $credentials['password'], $credentials['remember_me']);
+        $result = $this->authService->login(
+            $credentials['email'],
+            $credentials['password'],
+            $credentials['remember_me'] ?? false,
+            $userType
+        );
 
         if (!$result) {
             return response()->unauthorized('Invalid credentials or account is inactive');
@@ -163,7 +169,9 @@ class AuthController extends Controller implements HasMiddleware
     public function forgotPassword(ForgotPasswordRequest $request): JsonResponse
     {
         $data = $request->validated();
-        $result = $this->authService->sendPasswordResetLink($data['email']);
+        $userType = $data['user_type'] ?? null;
+
+        $result = $this->authService->sendPasswordResetLink($data['email'], $userType);
 
         if (!$result) {
             return response()->error('Failed to send reset link', 400);
@@ -186,6 +194,7 @@ class AuthController extends Controller implements HasMiddleware
             [
                 'email' => $data['email'],
                 'token' => $data['token'],
+                'user_type' => $data['user_type'] ?? null,
             ],
             'Token is valid'
         );
@@ -242,10 +251,21 @@ class AuthController extends Controller implements HasMiddleware
      */
     public function resendVerificationEmail(Request $request): JsonResponse
     {
-        $request->validate(['email' => 'required|email|exists:users,email']);
-        $email = $request->input('email');
+        $request->validate([
+            'email' => 'required|email|exists:users,email',
+            'user_type' => 'nullable|string|in:candidate,employer,admin',
+        ]);
 
-        $user = User::query()->where('email', $email)->first();
+        $email = $request->input('email');
+        $userType = $request->input('user_type');
+
+        $query = User::query()->where('email', $email);
+
+        if ($userType) {
+            $query->where('user_type', $userType);
+        }
+
+        $user = $query->first();
 
         if (!$user) {
             return response()->notFound('User not found');
@@ -268,14 +288,21 @@ class AuthController extends Controller implements HasMiddleware
      */
     public function verifyEmail(Request $request): JsonResponse
     {
-        $userId = $request->input('id');
+        $userId = $request->input('user');
         $hash = $request->input('hash');
+        $userType = $request->input('user_type');
 
         if (!$userId || !$hash) {
             return response()->error('Invalid verification link', 400);
         }
 
-        $user = User::query()->findOrFail($userId);
+        $query = User::query()->where('id', $userId);
+
+        if ($userType) {
+            $query->where('user_type', $userType);
+        }
+
+        $user = $query->firstOrFail();
 
         if (!hash_equals((string) $hash, sha1($user->getEmailForVerification()))) {
             return response()->error('Invalid verification link', 400);

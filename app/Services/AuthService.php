@@ -161,12 +161,18 @@ class AuthService
      *
      * @param string $email
      * @param string $password
-     * @param string $remember
+     * @param string|bool $remember
+     * @param string|null $userType
      * @return array|null
      */
-    public function login(string $email, string $password, string $remember): ?array
+    public function login(string $email, string $password, $remember = false, ?string $userType = null): ?array
     {
         $credentials = ['email' => $email, 'password' => $password];
+
+        // Add user_type to credentials if provided
+        if ($userType) {
+            $credentials['user_type'] = $userType;
+        }
 
         if (!$token = Auth::attempt($credentials, $remember)) {
             return null;
@@ -189,17 +195,30 @@ class AuthService
      * Send password reset link
      *
      * @param string $email
+     * @param string|null $userType
      * @return bool
      */
-    public function sendPasswordResetLink(string $email): bool
+    public function sendPasswordResetLink(string $email, ?string $userType = null): bool
     {
-        $user = User::query()->where('email', $email)->first();
+        $query = User::query()->where('email', $email);
+
+        // Filter by user_type if provided
+        if ($userType) {
+            $query->where('user_type', $userType);
+        }
+
+        $user = $query->first();
 
         if (!$user) {
             return false;
         }
 
-        $status = Password::sendResetLink(['email' => $email]);
+        $resetData = ['email' => $email];
+        if ($userType) {
+            $resetData['user_type'] = $userType;
+        }
+
+        $status = Password::sendResetLink($resetData);
 
         return $status === Password::RESET_LINK_SENT;
     }

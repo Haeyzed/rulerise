@@ -22,6 +22,7 @@ class LoginRequest extends BaseRequest
             'email' => 'required|string|email',
             'password' => 'required|string',
             'remember_me' => 'boolean',
+            'user_type' => 'nullable|string|in:candidate,employer,admin',
         ];
     }
 
@@ -36,6 +37,7 @@ class LoginRequest extends BaseRequest
             'email.required' => 'The email field is required.',
             'email.email' => 'Please enter a valid email address.',
             'password.required' => 'The password field is required.',
+            'user_type.in' => 'The user type must be candidate, employer, or admin.',
         ];
     }
 
@@ -50,6 +52,7 @@ class LoginRequest extends BaseRequest
             'email' => 'email address',
             'password' => 'password',
             'remember_me' => 'remember me',
+            'user_type' => 'user type',
         ];
     }
 }
