@@ -26,8 +26,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        $this->customizeResetPasswordUrl();
-        $this->customizeVerificationUrl();
+//        $this->customizeResetPasswordUrl();
+//        $this->customizeVerificationUrl();
         $this->configureScramble();
     }
 
