@@ -53,10 +53,7 @@ class SubscriptionPlansController extends Controller implements HasMiddleware
     {
         $plans = SubscriptionPlan::all();
 
-        return response()->json([
-            'success' => true,
-            'data' => $plans,
-        ]);
+        return response()->success($plans, 'Subscription Plans retrieved successfully.');
     }
 
     /**
@@ -71,11 +68,7 @@ class SubscriptionPlansController extends Controller implements HasMiddleware
 
         $plan = $this->adminService->saveSubscriptionPlan($data);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Subscription plan created successfully',
-            'data' => $plan,
-        ], 201);
+        return response()->created($plan, 'Subscription plan created successfully');
     }
 
     /**
@@ -88,10 +81,7 @@ class SubscriptionPlansController extends Controller implements HasMiddleware
     {
         $plan = SubscriptionPlan::query()->findOrFail($id);
 
-        return response()->json([
-            'success' => true,
-            'data' => $plan,
-        ]);
+        return response()->success($plan, 'Subscription plan retrieved successfully');
     }
 
     /**
@@ -106,11 +96,7 @@ class SubscriptionPlansController extends Controller implements HasMiddleware
 
         $plan = $this->adminService->saveSubscriptionPlan($data, $data['id']);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Subscription plan updated successfully',
-            'data' => $plan,
-        ]);
+        return response()->success($plan, 'Subscription plan updated successfully');
     }
 
     /**
@@ -124,10 +110,7 @@ class SubscriptionPlansController extends Controller implements HasMiddleware
         $plan = SubscriptionPlan::query()->findOrFail($id);
         $plan->delete();
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Subscription plan deleted successfully',
-        ]);
+        return response()->success(null, 'Subscription plan deleted successfully');
     }
 
     /**
@@ -147,10 +130,6 @@ class SubscriptionPlansController extends Controller implements HasMiddleware
 
         $status = $isActive ? 'activated' : 'deactivated';
 
-        return response()->json([
-            'success' => true,
-            'message' => "Subscription plan {$status} successfully",
-            'data' => $plan,
-        ]);
+        return response()->success($plan,"Subscription plan {$status} successfully");
     }
 }

@@ -61,17 +61,9 @@ class RolesController extends Controller
                 ->orderBy($sortBy, $sortOrder)
                 ->paginate($perPage);
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Roles retrieved successfully',
-                'data' => $roles
-            ]);
+            return response()->paginatedSuccess($roles,'Roles retrieved successfully');
         } catch (Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to retrieve roles',
-                'error' => $e->getMessage()
-            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+            return response()->internalServerError($e->getMessage());
         }
     }
 
@@ -87,23 +79,12 @@ class RolesController extends Controller
             $role = Role::with('permissions')->where('name', $roleName)->first();
 
             if (!$role) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Role not found'
-                ], Response::HTTP_NOT_FOUND);
+                return response()->notFound('Role not found');
             }
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Role retrieved successfully',
-                'data' => $role
-            ]);
+            return response()->success($role, 'Role retrieved successfully');
         } catch (Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to retrieve role',
-                'error' => $e->getMessage()
-            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+            return response()->internalServerError($e->getMessage());
         }
     }
 
@@ -119,31 +100,22 @@ class RolesController extends Controller
             DB::beginTransaction();
 
             // Create the role
-            $role = Role::create([
+            $role = Role::query()->create([
                 'name' => $request->name,
                 'description' => $request->description,
                 'guard_name' => 'api'
             ]);
 
             // Attach permissions to the role
-            $permissions = Permission::whereIn('id', $request->permissions)->get();
+            $permissions = Permission::query()->whereIn('id', $request->permissions)->get();
             $role->syncPermissions($permissions);
 
             DB::commit();
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Role created successfully',
-                'data' => $role->load('permissions')
-            ], Response::HTTP_CREATED);
+            return response()->created($role->load('permissions'), 'Role created successfully');
         } catch (Exception $e) {
             DB::rollBack();
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to create role',
-                'error' => $e->getMessage()
-            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+            return response()->internalServerError($e->getMessage());
         }
     }
 
@@ -158,13 +130,10 @@ class RolesController extends Controller
         try {
             DB::beginTransaction();
 
-            $role = Role::findById($request->id, 'api');
+            $role = Role::query()->findById($request->id, 'api');
 
             if (!$role) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Role not found'
-                ], JsonResponse::HTTP_NOT_FOUND);
+                return response()->notFound('Role not found');
             }
 
             // Update the role
@@ -174,24 +143,16 @@ class RolesController extends Controller
             ]);
 
             // Sync permissions
-            $permissions = Permission::whereIn('id', $request->permissions)->get();
+            $permissions = Permission::query()->whereIn('id', $request->permissions)->get();
             $role->syncPermissions($permissions);
 
             DB::commit();
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Role updated successfully',
-                'data' => $role->load('permissions')
-            ]);
+            return response()->success($role->load('permissions'), 'Role updated successfully');
         } catch (Exception $e) {
             DB::rollBack();
 
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to update role',
-                'error' => $e->getMessage()
-            ], JsonResponse::HTTP_INTERNAL_SERVER_ERROR);
+            return response()->internalServerError($e->getMessage());
         }
     }
 
@@ -206,21 +167,15 @@ class RolesController extends Controller
         try {
             DB::beginTransaction();
 
-            $role = Role::where('name', $roleName)->first();
+            $role = Role::query()->where('name', $roleName)->first();
 
             if (!$role) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Role not found'
-                ], JsonResponse::HTTP_NOT_FOUND);
+                return response()->notFound('Role not found');
             }
 
             // Check if the role is assigned to any users
             if ($role->users()->count() > 0) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Cannot delete role as it is assigned to users'
-                ], JsonResponse::HTTP_BAD_REQUEST);
+                return response()->badRequest('Role cannot be deleted it is assigned to user');
             }
 
             // Delete the role
@@ -228,18 +183,10 @@ class RolesController extends Controller
 
             DB::commit();
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Role deleted successfully'
-            ]);
+            return response()->success(null, 'Role deleted successfully');
         } catch (Exception $e) {
             DB::rollBack();
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to delete role',
-                'error' => $e->getMessage()
-            ], JsonResponse::HTTP_INTERNAL_SERVER_ERROR);
+            return response()->internalServerError($e->getMessage());
         }
     }
 
@@ -253,17 +200,9 @@ class RolesController extends Controller
         try {
             $permissions = Permission::all();
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Permissions retrieved successfully',
-                'data' => $permissions
-            ]);
+            return response()->success($permissions, 'Permissions retrieved successfully');
         } catch (Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to retrieve permissions',
-                'error' => $e->getMessage()
-            ], JsonResponse::HTTP_INTERNAL_SERVER_ERROR);
+            return response()->internalServerError($e->getMessage());
         }
     }
 
@@ -286,16 +225,9 @@ class RolesController extends Controller
 
             $user->assignRole($role);
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Role assigned to user successfully'
-            ]);
+            return response()->success($user, 'Role assigned successfully');
         } catch (Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to assign role to user',
-                'error' => $e->getMessage()
-            ], JsonResponse::HTTP_INTERNAL_SERVER_ERROR);
+            return response()->internalServerError($e->getMessage());
         }
     }
 
@@ -313,21 +245,14 @@ class RolesController extends Controller
                 'role_name' => 'required|exists:roles,name'
             ]);
 
-            $user = User::findOrFail($request->user_id);
-            $role = Role::where('name', $request->role_name)->first();
+            $user = User::query()->findOrFail($request->user_id);
+            $role = Role::query()->where('name', $request->role_name)->first();
 
             $user->removeRole($role);
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Role removed from user successfully'
-            ]);
+            return response()->success($user, 'Role removed successfully');
         } catch (Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to remove role from user',
-                'error' => $e->getMessage()
-            ], JsonResponse::HTTP_INTERNAL_SERVER_ERROR);
+            return response()->internalServerError($e->getMessage());
         }
     }
 }

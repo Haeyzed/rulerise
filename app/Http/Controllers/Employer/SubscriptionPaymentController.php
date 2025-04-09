@@ -7,11 +7,13 @@ use App\Http\Requests\Employer\VerifySubscriptionRequest;
 use App\Models\SubscriptionPlan;
 use App\Services\EmployerService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 
 /**
  * Controller for subscription payments
  */
-class SubscriptionPaymentController extends Controller
+class SubscriptionPaymentController extends Controller implements HasMiddleware
 {
     /**
      * Employer service instance
@@ -29,8 +31,16 @@ class SubscriptionPaymentController extends Controller
     public function __construct(EmployerService $employerService)
     {
         $this->employerService = $employerService;
-        $this->middleware('auth:api');
-        $this->middleware('role:employer');
+    }
+
+    /**
+     * Get the middleware that should be assigned to the controller.
+     */
+    public static function middleware(): array
+    {
+        return [
+            new Middleware(['auth:api','role:employer']),
+        ];
     }
 
     /**
@@ -40,12 +50,9 @@ class SubscriptionPaymentController extends Controller
      */
     public function subscriptionList(): JsonResponse
     {
-        $plans = SubscriptionPlan::where('is_active', true)->get();
+        $plans = SubscriptionPlan::query()->where('is_active', true)->get();
 
-        return response()->json([
-            'success' => true,
-            'data' => $plans,
-        ]);
+        return response()->success($plans, 'Subscription list retrieved successfully.');
     }
 
     /**
@@ -54,23 +61,20 @@ class SubscriptionPaymentController extends Controller
      * @param int $id
      * @return JsonResponse
      */
-    public function createPaymentLink($id): JsonResponse
+    public function createPaymentLink(int $id): JsonResponse
     {
         $user = auth()->user();
         $employer = $user->employer;
 
-        $plan = SubscriptionPlan::findOrFail($id);
+        $plan = SubscriptionPlan::query()->findOrFail($id);
 
         // This would integrate with a payment gateway to create a payment link
         $paymentLink = "https://payment-gateway.com/pay/" . uniqid();
 
-        return response()->json([
-            'success' => true,
-            'data' => [
+        return response()->success([
                 'payment_link' => $paymentLink,
                 'plan' => $plan,
-            ],
-        ]);
+        ], 'Payment link created successfully.');
     }
 
     /**
@@ -85,7 +89,7 @@ class SubscriptionPaymentController extends Controller
         $employer = $user->employer;
         $data = $request->validated();
 
-        $plan = SubscriptionPlan::findOrFail($data['plan_id']);
+        $plan = SubscriptionPlan::query()->findOrFail($data['plan_id']);
 
         try {
             $subscription = $this->employerService->subscribeToPlan(
@@ -94,16 +98,9 @@ class SubscriptionPaymentController extends Controller
                 $data
             );
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Subscription activated successfully',
-                'data' => $subscription,
-            ]);
+            return response()->success($subscription, 'Subscription activated successfully');
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage(),
-            ], 400);
+            return response()->badRequest($e->getMessage());
         }
     }
 }

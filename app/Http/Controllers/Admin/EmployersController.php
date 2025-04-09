@@ -83,10 +83,7 @@ class EmployersController extends Controller implements HasMiddleware
         $perPage = $request->input('per_page', 10);
         $employers = $query->paginate($perPage);
 
-        return response()->json([
-            'success' => true,
-            'data' => $employers,
-        ]);
+        return response()->paginatedSuccess($employers, 'Employers retrieved successfully');
     }
 
     /**
@@ -105,10 +102,7 @@ class EmployersController extends Controller implements HasMiddleware
             'notificationTemplates',
         ])->findOrFail($id);
 
-        return response()->json([
-            'success' => true,
-            'data' => $employer,
-        ]);
+        return response()->success($employer, 'Employer retrieved successfully');
     }
 
     /**
@@ -125,10 +119,7 @@ class EmployersController extends Controller implements HasMiddleware
         // Soft delete the user
         $user->delete();
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Employer deleted successfully',
-        ]);
+        return response()->success('Employer deleted successfully');
     }
 
     /**
@@ -149,15 +140,11 @@ class EmployersController extends Controller implements HasMiddleware
 
         $status = $isActive ? 'activated' : 'deactivated';
 
-        return response()->json([
-            'success' => true,
-            'message' => "Employer account {$status} successfully",
-            'data' => $user,
-        ]);
+        return response()->success($user,"Employer account {$status} successfully");
     }
 
     /**
-     * Set shadow ban status
+     * Set shadow-ban status
      *
      * @param int $id
      * @param Request $request
@@ -174,10 +161,6 @@ class EmployersController extends Controller implements HasMiddleware
 
         $status = $isShadowBanned ? 'shadow banned' : 'removed from shadow ban';
 
-        return response()->json([
-            'success' => true,
-            'message' => "Employer {$status} successfully",
-            'data' => $user,
-        ]);
+        return response()->success($user,"Employer account {$status} successfully");
     }
 }

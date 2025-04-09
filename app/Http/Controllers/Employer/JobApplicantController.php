@@ -9,18 +9,20 @@ use App\Models\JobApplication;
 use App\Services\JobService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 
 /**
  * Controller for managing job applicants
  */
-class JobApplicantController extends Controller
+class JobApplicantController extends Controller implements HasMiddleware
 {
     /**
      * Job service instance
      *
      * @var JobService
      */
-    protected $jobService;
+    protected JobService $jobService;
 
     /**
      * Create a new controller instance.
@@ -31,8 +33,16 @@ class JobApplicantController extends Controller
     public function __construct(JobService $jobService)
     {
         $this->jobService = $jobService;
-        $this->middleware('auth:api');
-        $this->middleware('role:employer');
+    }
+
+    /**
+     * Get the middleware that should be assigned to the controller.
+     */
+    public static function middleware(): array
+    {
+        return [
+            new Middleware(['auth:api','role:employer']),
+        ];
     }
 
     /**
@@ -42,33 +52,30 @@ class JobApplicantController extends Controller
      * @param Request $request
      * @return JsonResponse
      */
-    public function filterApplicantsByJob($id, Request $request): JsonResponse
+    public function filterApplicantsByJob(int $id, Request $request): JsonResponse
     {
         $user = auth()->user();
         $employer = $user->employer;
-        
+
         $job = $employer->jobs()->findOrFail($id);
-        
+
         $query = $job->applications()->with(['candidate.user', 'resume']);
-        
+
         // Apply filters
         if ($request->has('status')) {
             $status = $request->input('status');
             $query->where('status', $status);
         }
-        
+
         // Sort
         $sortBy = $request->input('sort_by', 'created_at');
         $sortOrder = $request->input('sort_order', 'desc');
         $query->orderBy($sortBy, $sortOrder);
-        
+
         $perPage = $request->input('per_page', 10);
         $applications = $query->paginate($perPage);
-        
-        return response()->json([
-            'success' => true,
-            'data' => $applications,
-        ]);
+
+        return response()->paginatedSuccess($applications, 'Applicants filtered by job successfully');
     }
 
     /**
@@ -82,29 +89,22 @@ class JobApplicantController extends Controller
         $user = auth()->user();
         $employer = $user->employer;
         $data = $request->validated();
-        
-        $application = JobApplication::findOrFail($data['application_id']);
-        
+
+        $application = JobApplication::query()->findOrFail($data['application_id']);
+
         // Check if the application belongs to a job owned by this employer
-        $job = Job::findOrFail($application->job_id);
+        $job = Job::query()->findOrFail($application->job_id);
         if ($job->employer_id !== $employer->id) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unauthorized',
-            ], 403);
+            return response()->forbidden('Unauthorized');
         }
-        
+
         $application = $this->jobService->changeApplicationStatus(
             $application,
             $data['status'],
             $data['notes'] ?? null
         );
-        
-        return response()->json([
-            'success' => true,
-            'message' => 'Hiring stage updated successfully',
-            'data' => $application,
-        ]);
+
+        return response()->success($application,'Hiring stage updated successfully');
     }
 
     /**
@@ -113,25 +113,19 @@ class JobApplicantController extends Controller
      * @param int $id
      * @return JsonResponse
      */
-    public function viewApplication($id): JsonResponse
+    public function viewApplication(int $id): JsonResponse
     {
         $user = auth()->user();
         $employer = $user->employer;
-        
+
         $application = JobApplication::with(['candidate.user', 'resume', 'job'])->findOrFail($id);
-        
+
         // Check if the application belongs to a job owned by this employer
-        $job = Job::findOrFail($application->job_id);
+        $job = Job::query()->findOrFail($application->job_id);
         if ($job->employer_id !== $employer->id) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unauthorized',
-            ], 403);
+            return response()->forbidden('Unauthorized');
         }
-        
-        return response()->json([
-            'success' => true,
-            'data' => $application,
-        ]);
+
+        return response()->success($application, 'Application viewed successfully');
     }
 }

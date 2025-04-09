@@ -5,11 +5,13 @@ namespace App\Http\Controllers\Employer;
 use App\Http\Controllers\Controller;
 use App\Services\EmployerService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 
 /**
  * Controller for managing subscriptions
  */
-class SubscriptionsController extends Controller
+class SubscriptionsController extends Controller implements HasMiddleware
 {
     /**
      * Employer service instance
@@ -27,8 +29,16 @@ class SubscriptionsController extends Controller
     public function __construct(EmployerService $employerService)
     {
         $this->employerService = $employerService;
-        $this->middleware('auth:api');
-        $this->middleware('role:employer');
+    }
+
+    /**
+     * Get the middleware that should be assigned to the controller.
+     */
+    public static function middleware(): array
+    {
+        return [
+            new Middleware(['auth:api','role:employer']),
+        ];
     }
 
     /**
@@ -44,16 +54,10 @@ class SubscriptionsController extends Controller
         $subscription = $employer->activeSubscription()->with('plan')->first();
 
         if (!$subscription) {
-            return response()->json([
-                'success' => false,
-                'message' => 'No active subscription found',
-            ], 404);
+            return response()->notFound('No active subscription found');
         }
 
-        return response()->json([
-            'success' => true,
-            'data' => $subscription,
-        ]);
+        return response()->success($subscription, 'Subscription information');
     }
 
     /**
@@ -69,15 +73,9 @@ class SubscriptionsController extends Controller
         try {
             $this->employerService->updateCvDownloadUsage($employer);
 
-            return response()->json([
-                'success' => true,
-                'message' => 'CV download usage updated successfully',
-            ]);
+            return response()->success('CV download usage updated successfully');
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage(),
-            ], 400);
+            return response()->badRequest($e->getMessage());
         }
     }
 }

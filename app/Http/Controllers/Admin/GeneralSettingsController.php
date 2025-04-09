@@ -52,10 +52,7 @@ class GeneralSettingsController extends Controller implements HasMiddleware
     {
         $settings = GeneralSetting::all();
 
-        return response()->json([
-            'success' => true,
-            'data' => $settings,
-        ]);
+        return response()->success($settings,'Settings retrieved successfully');
     }
 
     /**
@@ -73,10 +70,6 @@ class GeneralSettingsController extends Controller implements HasMiddleware
             $data['value']
         );
 
-        return response()->json([
-            'success' => true,
-            'message' => 'General setting saved successfully',
-            'data' => $setting,
-        ]);
+        return response()->success($setting,'Setting updated successfully');
     }
 }

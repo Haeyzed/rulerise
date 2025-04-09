@@ -53,10 +53,7 @@ class EmployersController extends Controller implements HasMiddleware
         $user = auth()->user();
         $profile = $this->employerService->getProfile($user);
 
-        return response()->json([
-            'success' => true,
-            'data' => $profile,
-        ]);
+        return response()->success($profile, 'Profile retrieved successfully.');
     }
 
     /**
@@ -72,11 +69,7 @@ class EmployersController extends Controller implements HasMiddleware
 
         $employer = $this->employerService->updateProfile($user, $data);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Profile updated successfully',
-            'data' => $employer,
-        ]);
+        return response()->success($employer, 'Profile updated successfully');
     }
 
     /**
@@ -95,13 +88,7 @@ class EmployersController extends Controller implements HasMiddleware
             $request->file('file')
         );
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Logo uploaded successfully',
-            'data' => [
-                'company_logo' => $updatedEmployer->company_logo,
-            ],
-        ]);
+        return response()->success(['company_logo' => $updatedEmployer->company_logo,], 'Logo uploaded successfully');
     }
 
     /**
@@ -116,9 +103,6 @@ class EmployersController extends Controller implements HasMiddleware
         // Soft delete the user
         $user->delete();
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Account deleted successfully',
-        ]);
+        return response()->success(null, 'Account deleted successfully');
     }
 }

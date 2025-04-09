@@ -81,10 +81,7 @@ class JobCategoriesController extends Controller implements HasMiddleware
     {
         $category = JobCategory::query()->findOrFail($id);
 
-        return response()->json([
-            'success' => true,
-            'data' => $category,
-        ]);
+        return response()->success($category, 'Job category retrieved successfully.');
     }
 
     /**
@@ -99,11 +96,7 @@ class JobCategoriesController extends Controller implements HasMiddleware
 
         $category = $this->adminService->saveJobCategory($data, $data['id']);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Job category updated successfully',
-            'data' => $category,
-        ]);
+        return response()->success($category, 'Job category updated successfully');
     }
 
     /**
@@ -114,13 +107,10 @@ class JobCategoriesController extends Controller implements HasMiddleware
      */
     public function delete(int $id): JsonResponse
     {
-        $category = JobCategory::findOrFail($id);
+        $category = JobCategory::query()->findOrFail($id);
         $category->delete();
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Job category deleted successfully',
-        ]);
+        return response()->success(null, 'Job category deleted successfully');
     }
 
     /**
@@ -140,10 +130,6 @@ class JobCategoriesController extends Controller implements HasMiddleware
 
         $status = $isActive ? 'activated' : 'deactivated';
 
-        return response()->json([
-            'success' => true,
-            'message' => "Job category {$status} successfully",
-            'data' => $category,
-        ]);
+        return response()->success($category, "Job category {$status} successfully");
     }
 }

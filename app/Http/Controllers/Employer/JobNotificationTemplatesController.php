@@ -6,11 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Employer\NotificationTemplateRequest;
 use App\Services\EmployerService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 
 /**
  * Controller for managing job notification templates
  */
-class JobNotificationTemplatesController extends Controller
+class JobNotificationTemplatesController extends Controller implements HasMiddleware
 {
     /**
      * Employer service instance
@@ -28,8 +30,16 @@ class JobNotificationTemplatesController extends Controller
     public function __construct(EmployerService $employerService)
     {
         $this->employerService = $employerService;
-        $this->middleware('auth:api');
-        $this->middleware('role:employer');
+    }
+
+    /**
+     * Get the middleware that should be assigned to the controller.
+     */
+    public static function middleware(): array
+    {
+        return [
+            new Middleware(['auth:api','role:employer']),
+        ];
     }
 
     /**
@@ -44,10 +54,7 @@ class JobNotificationTemplatesController extends Controller
 
         $templates = $employer->notificationTemplates;
 
-        return response()->json([
-            'success' => true,
-            'data' => $templates,
-        ]);
+        return response()->json($templates, 'Job templates retrieved successfully.');
     }
 
     /**
@@ -72,10 +79,6 @@ class JobNotificationTemplatesController extends Controller
 
         $message = $templateId ? 'Template updated successfully' : 'Template created successfully';
 
-        return response()->json([
-            'success' => true,
-            'message' => $message,
-            'data' => $template,
-        ]);
+        return response()->success($template, $message);
     }
 }

@@ -54,10 +54,7 @@ class WebsiteCustomizationsController extends Controller implements HasMiddlewar
     {
         $customizations = WebsiteCustomization::query()->where('type', $type)->get();
 
-        return response()->json([
-            'success' => true,
-            'data' => $customizations,
-        ]);
+        return response()->success($customizations, 'Website customization list retrieved successfully');
     }
 
     /**
@@ -77,11 +74,7 @@ class WebsiteCustomizationsController extends Controller implements HasMiddlewar
             $data['is_active'] ?? true
         );
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Website customization saved successfully',
-            'data' => $customization,
-        ]);
+        return response()->success($customization,'Website customization saved successfully');
     }
 
     /**
@@ -101,11 +94,7 @@ class WebsiteCustomizationsController extends Controller implements HasMiddlewar
             $data['is_active'] ?? true
         );
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Contact added successfully',
-            'data' => $customization,
-        ]);
+        return response()->success($customization,'Contact added successfully');
     }
 
     /**
@@ -124,10 +113,6 @@ class WebsiteCustomizationsController extends Controller implements HasMiddlewar
             $request->file('file')
         );
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Image uploaded successfully',
-            'data' => $customization,
-        ]);
+        return response()->success($customization,'Image uploaded successfully');
     }
 }
