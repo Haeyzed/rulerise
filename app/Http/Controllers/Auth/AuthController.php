@@ -157,7 +157,7 @@ class AuthController extends Controller implements HasMiddleware
             $user->load(['employer.benefits']);
         }
 
-        return response()->success(new UserResource($user));
+        return response()->success(null, new UserResource($user));
     }
 
     /**
