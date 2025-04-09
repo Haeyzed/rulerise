@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Str;
 
 /**
  * JobCategory model representing categories of jobs
@@ -52,5 +53,40 @@ class JobCategory extends Model
     public function jobs(): HasMany
     {
         return $this->hasMany(Job::class);
+    }
+
+    protected static function boot(): void
+    {
+        parent::boot();
+
+        static::creating(function ($category) {
+            if (empty($category->slug)) {
+                $slug = Str::slug($category->name);
+                $originalSlug = $slug;
+                $i = 1;
+
+                // Check for uniqueness
+                while (self::query()->where('slug', $slug)->exists()) {
+                    $slug = $originalSlug . '-' . $i++;
+                }
+
+                $category->slug = $slug;
+            }
+        });
+
+        static::updating(function ($category) {
+            if ($category->isDirty('name')) {
+                $slug = Str::slug($category->name);
+                $originalSlug = $slug;
+                $i = 1;
+
+                // Ensure slug uniqueness on update too
+                while (self::query()->where('slug', $slug)->where('id', '!=', $category->id)->exists()) {
+                    $slug = $originalSlug . '-' . $i++;
+                }
+
+                $category->slug = $slug;
+            }
+        });
     }
 }

@@ -8,11 +8,13 @@ use App\Models\Candidate;
 use App\Services\CandidateService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 
 /**
  * Controller for candidate profile management
  */
-class CandidatesController extends Controller
+class CandidatesController extends Controller implements HasMiddleware
 {
     /**
      * Candidate service instance
@@ -30,8 +32,16 @@ class CandidatesController extends Controller
     public function __construct(CandidateService $candidateService)
     {
         $this->candidateService = $candidateService;
-        $this->middleware('auth:api');
-        $this->middleware('role:candidate');
+    }
+
+    /**
+     * Get the middleware that should be assigned to the controller.
+     */
+    public static function middleware(): array
+    {
+        return [
+            new Middleware(['auth:api','role:candidate']),
+        ];
     }
 
     /**
@@ -44,10 +54,7 @@ class CandidatesController extends Controller
         $user = auth()->user();
         $profile = $this->candidateService->getProfile($user);
 
-        return response()->json([
-            'success' => true,
-            'data' => $profile,
-        ]);
+        return response()->success($profile, 'Profile retrieved successfully.');
     }
 
     /**
@@ -63,11 +70,7 @@ class CandidatesController extends Controller
 
         $candidate = $this->candidateService->updateProfile($user, $data);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Profile updated successfully',
-            'data' => $candidate,
-        ]);
+        return response()->success($candidate, 'Profile updated successfully.');
     }
 
     /**
@@ -77,7 +80,7 @@ class CandidatesController extends Controller
      * @param Request $request
      * @return JsonResponse
      */
-    public function show($id, Request $request): JsonResponse
+    public function show(int $id, Request $request): JsonResponse
     {
         $candidate = Candidate::with([
             'user',
@@ -97,9 +100,6 @@ class CandidatesController extends Controller
             auth()->check() && auth()->user()->isEmployer() ? auth()->user()->employer->id : null
         );
 
-        return response()->json([
-            'success' => true,
-            'data' => $candidate,
-        ]);
+        return response()->success($candidate, 'Profile retrieved successfully.');
     }
 }

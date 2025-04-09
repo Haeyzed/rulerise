@@ -7,11 +7,13 @@ use App\Http\Requests\Candidate\CredentialRequest;
 use App\Models\CandidateCredential;
 use App\Services\CandidateService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 
 /**
  * Controller for managing candidate credentials
  */
-class CredentialsController extends Controller
+class CredentialsController extends Controller implements HasMiddleware
 {
     /**
      * Candidate service instance
@@ -29,8 +31,16 @@ class CredentialsController extends Controller
     public function __construct(CandidateService $candidateService)
     {
         $this->candidateService = $candidateService;
-        $this->middleware('auth:api');
-        $this->middleware('role:candidate');
+    }
+
+    /**
+     * Get the middleware that should be assigned to the controller.
+     */
+    public static function middleware(): array
+    {
+        return [
+            new Middleware(['auth:api','role:candidate']),
+        ];
     }
 
     /**
@@ -47,11 +57,7 @@ class CredentialsController extends Controller
 
         $credential = $this->candidateService->addCredential($candidate, $data);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Credential added successfully',
-            'data' => $credential,
-        ], 201);
+        return response()->created($credential, 'Credential added successfully');
     }
 
     /**
@@ -65,23 +71,16 @@ class CredentialsController extends Controller
         $user = auth()->user();
         $data = $request->validated();
 
-        $credential = CandidateCredential::findOrFail($data['id']);
+        $credential = CandidateCredential::query()->findOrFail($data['id']);
 
         // Check if the credential belongs to the authenticated user
         if ($credential->candidate_id !== $user->candidate->id) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unauthorized',
-            ], 403);
+            return response()->forbidden('Unauthorized');
         }
 
         $credential = $this->candidateService->updateCredential($credential, $data);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Credential updated successfully',
-            'data' => $credential,
-        ]);
+        return response()->success($credential, 'Credential updated successfully');
     }
 
     /**
@@ -90,24 +89,18 @@ class CredentialsController extends Controller
      * @param int $id
      * @return JsonResponse
      */
-    public function delete($id): JsonResponse
+    public function delete(int $id): JsonResponse
     {
         $user = auth()->user();
-        $credential = CandidateCredential::findOrFail($id);
+        $credential = CandidateCredential::query()->findOrFail($id);
 
         // Check if the credential belongs to the authenticated user
         if ($credential->candidate_id !== $user->candidate->id) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unauthorized',
-            ], 403);
+            return response()->forbidden('Unauthorized');
         }
 
         $this->candidateService->deleteCredential($credential);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Credential deleted successfully',
-        ]);
+        return response()->success($credential, 'Credential deleted successfully');
     }
 }

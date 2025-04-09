@@ -7,11 +7,13 @@ use App\Http\Requests\Candidate\EducationHistoryRequest;
 use App\Models\EducationHistory;
 use App\Services\CandidateService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 
 /**
  * Controller for managing candidate education histories
  */
-class EducationHistoriesController extends Controller
+class EducationHistoriesController extends Controller implements HasMiddleware
 {
     /**
      * Candidate service instance
@@ -29,8 +31,16 @@ class EducationHistoriesController extends Controller
     public function __construct(CandidateService $candidateService)
     {
         $this->candidateService = $candidateService;
-        $this->middleware('auth:api');
-        $this->middleware('role:candidate');
+    }
+
+    /**
+     * Get the middleware that should be assigned to the controller.
+     */
+    public static function middleware(): array
+    {
+        return [
+            new Middleware(['auth:api','role:candidate']),
+        ];
     }
 
     /**
@@ -47,11 +57,7 @@ class EducationHistoriesController extends Controller
 
         $educationHistory = $this->candidateService->addEducationHistory($candidate, $data);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Education history added successfully',
-            'data' => $educationHistory,
-        ], 201);
+        return response()->created($educationHistory, 'Education history added successfully');
     }
 
     /**
@@ -65,14 +71,11 @@ class EducationHistoriesController extends Controller
         $user = auth()->user();
         $data = $request->validated();
 
-        $educationHistory = EducationHistory::findOrFail($data['id']);
+        $educationHistory = EducationHistory::query()->findOrFail($data['id']);
 
         // Check if the education history belongs to the authenticated user
         if ($educationHistory->candidate_id !== $user->candidate->id) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unauthorized',
-            ], 403);
+            return response()->forbidden('Unauthorized');
         }
 
         $educationHistory = $this->candidateService->updateEducationHistory($educationHistory, $data);
@@ -90,24 +93,18 @@ class EducationHistoriesController extends Controller
      * @param int $id
      * @return JsonResponse
      */
-    public function delete($id): JsonResponse
+    public function delete(int $id): JsonResponse
     {
         $user = auth()->user();
-        $educationHistory = EducationHistory::findOrFail($id);
+        $educationHistory = EducationHistory::query()->findOrFail($id);
 
         // Check if the education history belongs to the authenticated user
         if ($educationHistory->candidate_id !== $user->candidate->id) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unauthorized',
-            ], 403);
+            return response()->forbidden('Unauthorized');
         }
 
         $this->candidateService->deleteEducationHistory($educationHistory);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Education history deleted successfully',
-        ]);
+        return response()->success('Education history deleted successfully');
     }
 }

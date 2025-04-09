@@ -7,11 +7,13 @@ use App\Http\Requests\Admin\GeneralSettingRequest;
 use App\Models\GeneralSetting;
 use App\Services\AdminService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 
 /**
  * Controller for admin general settings
  */
-class GeneralSettingsController extends Controller
+class GeneralSettingsController extends Controller implements HasMiddleware
 {
     /**
      * Admin service instance
@@ -29,8 +31,16 @@ class GeneralSettingsController extends Controller
     public function __construct(AdminService $adminService)
     {
         $this->adminService = $adminService;
-        $this->middleware('auth:api');
-        $this->middleware('role:admin');
+    }
+
+    /**
+     * Get the middleware that should be assigned to the controller.
+     */
+    public static function middleware(): array
+    {
+        return [
+            new Middleware(['auth:api','role:admin']),
+        ];
     }
 
     /**

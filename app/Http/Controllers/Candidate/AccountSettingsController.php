@@ -6,12 +6,14 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Candidate\UpdateAccountSettingRequest;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\Hash;
 
 /**
  * Controller for candidate account settings
  */
-class AccountSettingsController extends Controller
+class AccountSettingsController extends Controller implements HasMiddleware
 {
     /**
      * Create a new controller instance.
@@ -20,8 +22,16 @@ class AccountSettingsController extends Controller
      */
     public function __construct()
     {
-        $this->middleware('auth:api');
-        $this->middleware('role:candidate');
+    }
+
+    /**
+     * Get the middleware that should be assigned to the controller.
+     */
+    public static function middleware(): array
+    {
+        return [
+            new Middleware(['auth:api','role:candidate']),
+        ];
     }
 
     /**
@@ -33,16 +43,7 @@ class AccountSettingsController extends Controller
     {
         $user = auth()->user();
 
-        return response()->json([
-            'success' => true,
-            'data' => [
-                'name' => $user->name,
-                'email' => $user->email,
-                'phone' => $user->phone,
-                'profile_picture' => $user->profile_picture,
-                'is_active' => $user->is_active,
-            ],
-        ]);
+        return response()->success($user, 'Account settings retrieved successfully');
     }
 
     /**
@@ -57,8 +58,12 @@ class AccountSettingsController extends Controller
         $data = $request->validated();
 
         // Update user data
-        if (isset($data['name'])) {
-            $user->name = $data['name'];
+        if (isset($data['first_name'])) {
+            $user->first_name = $data['first_name'];
+        }
+
+        if (isset($data['last_name'])) {
+            $user->last_name = $data['last_name'];
         }
 
         if (isset($data['phone'])) {
@@ -67,12 +72,9 @@ class AccountSettingsController extends Controller
 
         if (isset($data['email']) && $data['email'] !== $user->email) {
             // Check if email is already taken
-            $existingUser = User::where('email', $data['email'])->first();
+            $existingUser = User::query()->where('email', $data['email'])->first();
             if ($existingUser && $existingUser->id !== $user->id) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Email is already taken',
-                ], 400);
+                return response()->badRequest('Email is already taken');
             }
 
             $user->email = $data['email'];
@@ -81,11 +83,7 @@ class AccountSettingsController extends Controller
 
         $user->save();
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Account settings updated successfully',
-            'data' => $user,
-        ]);
+        return response()->success($user, 'Account settings updated successfully');
     }
 
     /**
@@ -100,9 +98,6 @@ class AccountSettingsController extends Controller
         // Soft delete the user
         $user->delete();
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Account deleted successfully',
-        ]);
+        return response()->success($user, 'Account deleted successfully');
     }
 }

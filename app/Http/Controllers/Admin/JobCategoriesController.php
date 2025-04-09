@@ -8,11 +8,13 @@ use App\Models\JobCategory;
 use App\Services\AdminService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 
 /**
  * Controller for admin job category management
  */
-class JobCategoriesController extends Controller
+class JobCategoriesController extends Controller implements HasMiddleware
 {
     /**
      * Admin service instance
@@ -30,8 +32,16 @@ class JobCategoriesController extends Controller
     public function __construct(AdminService $adminService)
     {
         $this->adminService = $adminService;
-        $this->middleware('auth:api');
-        $this->middleware('role:admin');
+    }
+
+    /**
+     * Get the middleware that should be assigned to the controller.
+     */
+    public static function middleware(): array
+    {
+        return [
+            new Middleware(['auth:api','role:admin']),
+        ];
     }
 
     /**
@@ -43,10 +53,7 @@ class JobCategoriesController extends Controller
     {
         $categories = JobCategory::all();
 
-        return response()->json([
-            'success' => true,
-            'data' => $categories,
-        ]);
+        return response()->success($categories, 'Job Categories retrieved successfully.');
     }
 
     /**
@@ -61,11 +68,7 @@ class JobCategoriesController extends Controller
 
         $category = $this->adminService->saveJobCategory($data);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Job category created successfully',
-            'data' => $category,
-        ], 201);
+        return response()->success($category, 'Job category created successfully');
     }
 
     /**

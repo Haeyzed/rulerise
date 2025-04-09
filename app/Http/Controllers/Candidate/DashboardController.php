@@ -4,11 +4,13 @@ namespace App\Http\Controllers\Candidate;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 
 /**
  * Controller for candidate dashboard
  */
-class DashboardController extends Controller
+class DashboardController extends Controller implements HasMiddleware
 {
     /**
      * Create a new controller instance.
@@ -17,8 +19,16 @@ class DashboardController extends Controller
      */
     public function __construct()
     {
-        $this->middleware('auth:api');
-        $this->middleware('role:candidate');
+    }
+
+    /**
+     * Get the middleware that should be assigned to the controller.
+     */
+    public static function middleware(): array
+    {
+        return [
+            new Middleware(['auth:api','role:candidate']),
+        ];
     }
 
     /**
@@ -30,7 +40,7 @@ class DashboardController extends Controller
     {
         $user = auth()->user();
         $candidate = $user->candidate;
-        
+
         // Get metrics
         $totalApplications = $candidate->jobApplications()->count();
         $pendingApplications = $candidate->jobApplications()->whereIn('status', ['applied', 'screening'])->count();
@@ -39,17 +49,15 @@ class DashboardController extends Controller
         $rejectedApplications = $candidate->jobApplications()->where('status', 'rejected')->count();
         $savedJobs = $candidate->savedJobs()->count();
         $profileViews = $candidate->profileViewCounts()->count();
-        
+
         // Get recent applications
         $recentApplications = $candidate->jobApplications()
             ->with(['job.employer'])
             ->latest()
             ->limit(5)
             ->get();
-        
-        return response()->json([
-            'success' => true,
-            'data' => [
+
+        return response()->success([
                 'totalApplications' => $totalApplications,
                 'pendingApplications' => $pendingApplications,
                 'interviewApplications' => $interviewApplications,
@@ -58,7 +66,6 @@ class DashboardController extends Controller
                 'savedJobs' => $savedJobs,
                 'profileViews' => $profileViews,
                 'recentApplications' => $recentApplications,
-            ],
-        ]);
+            ], 'Dashboard metrics retrieved successfully');
     }
 }

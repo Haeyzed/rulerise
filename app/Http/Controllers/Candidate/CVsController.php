@@ -7,11 +7,13 @@ use App\Http\Requests\Candidate\UploadCvRequest;
 use App\Models\Resume;
 use App\Services\CandidateService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 
 /**
  * Controller for managing candidate CVs/resumes
  */
-class CVsController extends Controller
+class CVsController extends Controller implements HasMiddleware
 {
     /**
      * Candidate service instance
@@ -29,8 +31,16 @@ class CVsController extends Controller
     public function __construct(CandidateService $candidateService)
     {
         $this->candidateService = $candidateService;
-        $this->middleware('auth:api');
-        $this->middleware('role:candidate');
+    }
+
+    /**
+     * Get the middleware that should be assigned to the controller.
+     */
+    public static function middleware(): array
+    {
+        return [
+            new Middleware(['auth:api','role:candidate']),
+        ];
     }
 
     /**
@@ -52,11 +62,7 @@ class CVsController extends Controller
             $data['is_primary'] ?? false
         );
 
-        return response()->json([
-            'success' => true,
-            'message' => 'CV uploaded successfully',
-            'data' => $resume,
-        ], 201);
+        return response()->created($resume, 'CV uploaded successfully');
     }
 
     /**
@@ -69,10 +75,7 @@ class CVsController extends Controller
         $user = auth()->user();
         $resumes = $user->candidate->resumes;
 
-        return response()->json([
-            'success' => true,
-            'data' => $resumes,
-        ]);
+        return response()->success($resumes, 'CV detail retrieved successfully');
     }
 
     /**
@@ -81,24 +84,18 @@ class CVsController extends Controller
      * @param int $id
      * @return JsonResponse
      */
-    public function delete($id): JsonResponse
+    public function delete(int $id): JsonResponse
     {
         $user = auth()->user();
-        $resume = Resume::findOrFail($id);
+        $resume = Resume::query()->findOrFail($id);
 
         // Check if the resume belongs to the authenticated user
         if ($resume->candidate_id !== $user->candidate->id) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unauthorized',
-            ], 403);
+            return response()->forbidden('Unauthorized');
         }
 
         $this->candidateService->deleteResume($resume);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'CV deleted successfully',
-        ]);
+        return response()->success($resume, 'CV deleted successfully');
     }
 }

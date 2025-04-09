@@ -19,7 +19,6 @@ class JobRequest extends BaseRequest
     public function rules(): array
     {
         return [
-            'id' => 'sometimes|required|integer|exists:jobs,id',
             'title' => 'required|string|max:255',
             'description' => 'required|string',
             'job_category_id' => 'required|integer|exists:job_categories,id',

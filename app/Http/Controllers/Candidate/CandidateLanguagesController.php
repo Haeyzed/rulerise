@@ -7,11 +7,13 @@ use App\Http\Requests\Candidate\LanguageRequest;
 use App\Models\Language;
 use App\Services\CandidateService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 
 /**
  * Controller for managing candidate languages
  */
-class CandidateLanguagesController extends Controller
+class CandidateLanguagesController extends Controller implements HasMiddleware
 {
     /**
      * Candidate service instance
@@ -29,8 +31,16 @@ class CandidateLanguagesController extends Controller
     public function __construct(CandidateService $candidateService)
     {
         $this->candidateService = $candidateService;
-        $this->middleware('auth:api');
-        $this->middleware('role:candidate');
+    }
+
+    /**
+     * Get the middleware that should be assigned to the controller.
+     */
+    public static function middleware(): array
+    {
+        return [
+            new Middleware(['auth:api','role:candidate']),
+        ];
     }
 
     /**
@@ -47,11 +57,7 @@ class CandidateLanguagesController extends Controller
 
         $language = $this->candidateService->addLanguage($candidate, $data);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Language added successfully',
-            'data' => $language,
-        ], 201);
+        return response()->created($language,'Language created successfully');
     }
 
     /**
@@ -69,19 +75,12 @@ class CandidateLanguagesController extends Controller
 
         // Check if the language belongs to the authenticated user
         if ($language->candidate_id !== $user->candidate->id) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unauthorized',
-            ], 403);
+            return response()->forbidden('Unauthorized');
         }
 
         $language = $this->candidateService->updateLanguage($language, $data);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Language updated successfully',
-            'data' => $language,
-        ]);
+        return response()->success($language,'Language updated successfully');
     }
 
     /**
@@ -97,17 +96,11 @@ class CandidateLanguagesController extends Controller
 
         // Check if the language belongs to the authenticated user
         if ($language->candidate_id !== $user->candidate->id) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unauthorized',
-            ], 403);
+            return response()->forbidden('Unauthorized');
         }
 
         $this->candidateService->deleteLanguage($language);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Language deleted successfully',
-        ]);
+        return response()->success($language,'Language deleted successfully');
     }
 }

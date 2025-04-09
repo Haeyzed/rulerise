@@ -7,11 +7,13 @@ use App\Models\Candidate;
 use App\Services\AdminService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 
 /**
  * Controller for admin candidate management
  */
-class CandidatesController extends Controller
+class CandidatesController extends Controller implements HasMiddleware
 {
     /**
      * Admin service instance
@@ -29,8 +31,16 @@ class CandidatesController extends Controller
     public function __construct(AdminService $adminService)
     {
         $this->adminService = $adminService;
-        $this->middleware('auth:api');
-        $this->middleware('role:admin');
+    }
+
+    /**
+     * Get the middleware that should be assigned to the controller.
+     */
+    public static function middleware(): array
+    {
+        return [
+            new Middleware(['auth:api','role:admin']),
+        ];
     }
 
     /**
@@ -47,8 +57,9 @@ class CandidatesController extends Controller
         if ($request->has('search')) {
             $search = $request->input('search');
             $query->whereHas('user', function($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%");
+                $q->where('first_name', 'like', "%{$search}%")
+                    ->orWhere('last_name', 'like', "%{$search}%")
+                    ->orWhere('email', 'like', "%{$search}%");
             });
         }
 
@@ -70,10 +81,7 @@ class CandidatesController extends Controller
         $perPage = $request->input('per_page', 10);
         $candidates = $query->paginate($perPage);
 
-        return response()->json([
-            'success' => true,
-            'data' => $candidates,
-        ]);
+        return response()->paginatedSuccess($candidates, 'Candidates retrieved successfully');
     }
 
     /**
@@ -96,10 +104,7 @@ class CandidatesController extends Controller
             'jobApplications',
         ])->findOrFail($id);
 
-        return response()->json([
-            'success' => true,
-            'data' => $candidate,
-        ]);
+        return response()->success($candidate, 'Candidate details retrieved successfully.');
     }
 
     /**
@@ -116,10 +121,7 @@ class CandidatesController extends Controller
         // Soft delete the user
         $user->delete();
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Candidate deleted successfully',
-        ]);
+        return response()->success($candidate, 'Candidate deleted successfully.');
     }
 
     /**
@@ -140,11 +142,7 @@ class CandidatesController extends Controller
 
         $status = $isActive ? 'activated' : 'deactivated';
 
-        return response()->json([
-            'success' => true,
-            'message' => "Candidate account {$status} successfully",
-            'data' => $user,
-        ]);
+        return response()->success($user,"Candidate account {$status} successfully");
     }
 
     /**
@@ -165,10 +163,6 @@ class CandidatesController extends Controller
 
         $status = $isShadowBanned ? 'shadow banned' : 'removed from shadow ban';
 
-        return response()->json([
-            'success' => true,
-            'message' => "Candidate {$status} successfully",
-            'data' => $user,
-        ]);
+        return response()->success($user,"Candidate account {$status} successfully");
     }
 }

@@ -7,11 +7,13 @@ use App\Models\Employer;
 use App\Services\AdminService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 
 /**
  * Controller for admin employer management
  */
-class EmployersController extends Controller
+class EmployersController extends Controller implements HasMiddleware
 {
     /**
      * Admin service instance
@@ -29,8 +31,16 @@ class EmployersController extends Controller
     public function __construct(AdminService $adminService)
     {
         $this->adminService = $adminService;
-        $this->middleware('auth:api');
-        $this->middleware('role:admin');
+    }
+
+    /**
+     * Get the middleware that should be assigned to the controller.
+     */
+    public static function middleware(): array
+    {
+        return [
+            new Middleware(['auth:api','role:admin']),
+        ];
     }
 
     /**

@@ -63,7 +63,7 @@ class JobsController extends Controller
      * @param Request $request
      * @return JsonResponse
      */
-    public function show($id, Request $request): JsonResponse
+    public function show(int $id, Request $request): JsonResponse
     {
         $job = Job::with(['employer.user', 'category'])->findOrFail($id);
 

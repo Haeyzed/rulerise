@@ -8,11 +8,13 @@ use App\Http\Requests\Admin\UploadImageRequest;
 use App\Models\WebsiteCustomization;
 use App\Services\AdminService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 
 /**
  * Controller for admin website customization
  */
-class WebsiteCustomizationsController extends Controller
+class WebsiteCustomizationsController extends Controller implements HasMiddleware
 {
     /**
      * Admin service instance
@@ -30,8 +32,16 @@ class WebsiteCustomizationsController extends Controller
     public function __construct(AdminService $adminService)
     {
         $this->adminService = $adminService;
-        $this->middleware('auth:api');
-        $this->middleware('role:admin');
+    }
+
+    /**
+     * Get the middleware that should be assigned to the controller.
+     */
+    public static function middleware(): array
+    {
+        return [
+            new Middleware(['auth:api','role:admin']),
+        ];
     }
 
     /**
