@@ -8,13 +8,16 @@ use App\Http\Requests\Employer\AttachCandidatePoolRequest;
 use App\Models\Candidate;
 use App\Models\CandidatePool;
 use App\Services\EmployerService;
+use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 
 /**
  * Controller for managing candidate pools
  */
-class CandidateJobPoolsController extends Controller
+class CandidateJobPoolsController extends Controller implements HasMiddleware
 {
     /**
      * Employer service instance
@@ -32,8 +35,16 @@ class CandidateJobPoolsController extends Controller
     public function __construct(EmployerService $employerService)
     {
         $this->employerService = $employerService;
-        $this->middleware('auth:api');
-        $this->middleware('role:employer');
+    }
+
+    /**
+     * Get the middleware that should be assigned to the controller.
+     */
+    public static function middleware(): array
+    {
+        return [
+            new Middleware(['auth:api','role:employer']),
+        ];
     }
 
     /**
@@ -57,10 +68,7 @@ class CandidateJobPoolsController extends Controller
         $perPage = $request->input('per_page', 10);
         $pools = $query->paginate($perPage);
 
-        return response()->json([
-            'success' => true,
-            'data' => $pools,
-        ]);
+        return response()->paginatedSuccess($pools, 'Candidate retrieved successfully');
     }
 
     /**
@@ -82,16 +90,9 @@ class CandidateJobPoolsController extends Controller
                 $data['description'] ?? null
             );
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Candidate pool created successfully',
-                'data' => $pool,
-            ], 201);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage(),
-            ], 400);
+            return response()->created($pool, 'Candidate pool created successfully');
+        } catch (Exception $e) {
+            return response()->badrequest($e->getMessage());
         }
     }
 
@@ -102,7 +103,7 @@ class CandidateJobPoolsController extends Controller
      * @param Request $request
      * @return JsonResponse
      */
-    public function viewCandidate($id, Request $request): JsonResponse
+    public function viewCandidate(int $id, Request $request): JsonResponse
     {
         $user = auth()->user();
         $employer = $user->employer;
@@ -119,13 +120,10 @@ class CandidateJobPoolsController extends Controller
         $perPage = $request->input('per_page', 10);
         $candidates = $query->paginate($perPage);
 
-        return response()->json([
-            'success' => true,
-            'data' => [
+        return response()->success([
                 'pool' => $pool,
                 'candidates' => $candidates,
-            ],
-        ]);
+        ], 'Candidate retrieved successfully');
     }
 
     /**
@@ -141,7 +139,7 @@ class CandidateJobPoolsController extends Controller
         $data = $request->validated();
 
         $pool = $employer->candidatePools()->findOrFail($data['pool_id']);
-        $candidate = Candidate::findOrFail($data['candidate_id']);
+        $candidate = Candidate::query()->findOrFail($data['candidate_id']);
 
         try {
             $this->employerService->addCandidateToPool(
@@ -150,15 +148,9 @@ class CandidateJobPoolsController extends Controller
                 $data['notes'] ?? null
             );
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Candidate added to pool successfully',
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage(),
-            ], 400);
+            return response()->success(null,'Candidate added to pool successfully');
+        } catch (Exception $e) {
+            return response()->baseRequest($e->getMessage());
         }
     }
 }

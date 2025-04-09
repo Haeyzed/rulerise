@@ -80,7 +80,7 @@ class AppServiceProvider extends ServiceProvider
                 ]
             );
 
-            return $this->buildCustomUrl('verify-email', [
+            return $this->buildCustomUrl('candidate/verifyEmail', [
                 'url' => urlencode($verifyUrl),
             ]);
         });

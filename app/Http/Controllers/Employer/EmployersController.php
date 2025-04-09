@@ -7,18 +7,20 @@ use App\Http\Requests\Employer\UpdateProfileRequest;
 use App\Http\Requests\Employer\UploadLogoRequest;
 use App\Services\EmployerService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 
 /**
  * Controller for employer profile management
  */
-class EmployersController extends Controller
+class EmployersController extends Controller implements HasMiddleware
 {
     /**
      * Employer service instance
      *
      * @var EmployerService
      */
-    protected $employerService;
+    protected EmployerService $employerService;
 
     /**
      * Create a new controller instance.
@@ -29,8 +31,16 @@ class EmployersController extends Controller
     public function __construct(EmployerService $employerService)
     {
         $this->employerService = $employerService;
-        $this->middleware('auth:api');
-        $this->middleware('role:employer');
+    }
+
+    /**
+     * Get the middleware that should be assigned to the controller.
+     */
+    public static function middleware(): array
+    {
+        return [
+            new Middleware(['auth:api','role:employer']),
+        ];
     }
 
     /**
@@ -42,7 +52,7 @@ class EmployersController extends Controller
     {
         $user = auth()->user();
         $profile = $this->employerService->getProfile($user);
-        
+
         return response()->json([
             'success' => true,
             'data' => $profile,
@@ -59,9 +69,9 @@ class EmployersController extends Controller
     {
         $user = auth()->user();
         $data = $request->validated();
-        
+
         $employer = $this->employerService->updateProfile($user, $data);
-        
+
         return response()->json([
             'success' => true,
             'message' => 'Profile updated successfully',
@@ -79,12 +89,12 @@ class EmployersController extends Controller
     {
         $user = auth()->user();
         $employer = $user->employer;
-        
+
         $updatedEmployer = $this->employerService->uploadLogo(
             $employer,
             $request->file('file')
         );
-        
+
         return response()->json([
             'success' => true,
             'message' => 'Logo uploaded successfully',
@@ -102,10 +112,10 @@ class EmployersController extends Controller
     public function deleteAccount(): JsonResponse
     {
         $user = auth()->user();
-        
+
         // Soft delete the user
         $user->delete();
-        
+
         return response()->json([
             'success' => true,
             'message' => 'Account deleted successfully',

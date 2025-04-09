@@ -81,7 +81,7 @@ class EmployerJobsController extends Controller implements HasMiddleware
         $perPage = $request->input('per_page', 10);
         $jobs = $query->paginate($perPage);
 
-        return response()->success($jobs, 'Jobs retrieved successfully.');
+        return response()->paginatedSuccess($jobs, 'Jobs retrieved successfully.');
     }
 
     /**
@@ -146,7 +146,7 @@ class EmployerJobsController extends Controller implements HasMiddleware
      * @param int $id
      * @return JsonResponse
      */
-    public function delete($id): JsonResponse
+    public function delete(int $id): JsonResponse
     {
         $user = auth()->user();
         $employer = $user->employer;
@@ -165,7 +165,7 @@ class EmployerJobsController extends Controller implements HasMiddleware
      * @param Request $request
      * @return JsonResponse
      */
-    public function setOpenClose($id, Request $request): JsonResponse
+    public function setOpenClose(int $id, Request $request): JsonResponse
     {
         $user = auth()->user();
         $employer = $user->employer;
