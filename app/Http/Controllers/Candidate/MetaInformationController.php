@@ -25,10 +25,7 @@ class MetaInformationController extends Controller
             ['value' => 'native', 'label' => 'Native'],
         ];
 
-        return response()->json([
-            'success' => true,
-            'data' => $proficiencies,
-        ]);
+        return response()->success($proficiencies,'Language proficiency retrieved successfully');
     }
 
     /**
@@ -38,12 +35,9 @@ class MetaInformationController extends Controller
      */
     public function getJobCategory(): JsonResponse
     {
-        $categories = JobCategory::where('is_active', true)->get();
+        $categories = JobCategory::query()->where('is_active', true)->get();
 
-        return response()->json([
-            'success' => true,
-            'data' => $categories,
-        ]);
+        return response()->success($categories,'Categories retrieved successfully');
     }
 
     /**
@@ -54,11 +48,8 @@ class MetaInformationController extends Controller
      */
     public function getSingleCategory(int $id): JsonResponse
     {
-        $category = JobCategory::findOrFail($id);
+        $category = JobCategory::query()->findOrFail($id);
 
-        return response()->json([
-            'success' => true,
-            'data' => $category,
-        ]);
+        return response()->success($category,'Category retrieved successfully');
     }
 }

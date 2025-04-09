@@ -9,13 +9,16 @@ use App\Http\Requests\Candidate\SearchJobsRequest;
 use App\Models\Job;
 use App\Models\Resume;
 use App\Services\JobService;
+use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 
 /**
  * Controller for job-related operations for candidates
  */
-class JobsController extends Controller
+class JobsController extends Controller implements HasMiddleware
 {
     /**
      * Job service instance
@@ -33,8 +36,17 @@ class JobsController extends Controller
     public function __construct(JobService $jobService)
     {
         $this->jobService = $jobService;
-        $this->middleware('auth:api')->except(['index', 'show', 'similarJobs']);
-        $this->middleware('role:candidate')->except(['index', 'show', 'similarJobs']);
+    }
+
+    /**
+     * Get the middleware that should be assigned to the controller.
+     */
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('auth:api', ['except' => ['index', 'show', 'similarJobs']]),
+            new Middleware('role:candidate', ['except' => ['index', 'show', 'similarJobs']]),
+        ];
     }
 
     /**
@@ -50,10 +62,7 @@ class JobsController extends Controller
 
         $jobs = $this->jobService->searchJobs($filters, $perPage);
 
-        return response()->json([
-            'success' => true,
-            'data' => $jobs,
-        ]);
+        return response()->paginatedSuccess($jobs, 'Jobs retrieved successfully');
     }
 
     /**
@@ -75,10 +84,7 @@ class JobsController extends Controller
             auth()->check() && auth()->user()->isCandidate() ? auth()->user()->candidate->id : null
         );
 
-        return response()->json([
-            'success' => true,
-            'data' => $job,
-        ]);
+        return response()->success($job, 'Job details retrieved successfully');
     }
 
     /**
@@ -87,24 +93,17 @@ class JobsController extends Controller
      * @param int $id
      * @return JsonResponse
      */
-    public function saveJob($id): JsonResponse
+    public function saveJob(int $id): JsonResponse
     {
         $user = auth()->user();
-        $job = Job::findOrFail($id);
+        $job = Job::query()->findOrFail($id);
 
         try {
             $savedJob = $this->jobService->saveJob($job, $user->candidate);
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Job saved successfully',
-                'data' => $savedJob,
-            ], 201);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage(),
-            ], 400);
+            return response()->created($savedJob, 'Job saved successfully');
+        } catch (Exception $e) {
+            return response()->badRequest($e->getMessage());
         }
     }
 
@@ -119,19 +118,16 @@ class JobsController extends Controller
         $user = auth()->user();
         $data = $request->validated();
 
-        $job = Job::findOrFail($data['job_id']);
+        $job = Job::query()->findOrFail($data['job_id']);
 
         // Check if resume is provided
         $resume = null;
         if (!empty($data['resume_id'])) {
-            $resume = Resume::findOrFail($data['resume_id']);
+            $resume = Resume::query()->findOrFail($data['resume_id']);
 
             // Check if the resume belongs to the authenticated user
             if ($resume->candidate_id !== $user->candidate->id) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Unauthorized resume',
-                ], 403);
+                return response()->forbidden('Unauthorized resume');
             }
         }
 
@@ -143,16 +139,9 @@ class JobsController extends Controller
                 $data['cover_letter'] ?? null
             );
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Job application submitted successfully',
-                'data' => $application,
-            ], 201);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage(),
-            ], 400);
+            return response()->success($application, 'Job application submitted successfully');
+        } catch (Exception $e) {
+            return response()->badRequest($e->getMessage());
         }
     }
 
@@ -162,15 +151,12 @@ class JobsController extends Controller
      * @param int $id
      * @return JsonResponse
      */
-    public function similarJobs($id): JsonResponse
+    public function similarJobs(int $id): JsonResponse
     {
-        $job = Job::findOrFail($id);
+        $job = Job::query()->findOrFail($id);
         $similarJobs = $this->jobService->getSimilarJobs($job);
 
-        return response()->json([
-            'success' => true,
-            'data' => $similarJobs,
-        ]);
+        return response()->success($similarJobs, 'Similar jobs retrieved successfully');
     }
 
     /**
@@ -180,10 +166,10 @@ class JobsController extends Controller
      * @param ReportJobRequest $request
      * @return JsonResponse
      */
-    public function reportJob($id, ReportJobRequest $request): JsonResponse
+    public function reportJob(int $id, ReportJobRequest $request): JsonResponse
     {
         $user = auth()->user();
-        $job = Job::findOrFail($id);
+        $job = Job::query()->findOrFail($id);
         $data = $request->validated();
 
         try {
@@ -194,16 +180,9 @@ class JobsController extends Controller
                 $data['description'] ?? null
             );
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Job reported successfully',
-                'data' => $report,
-            ], 201);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage(),
-            ], 400);
+            return response()->created($report, 'Report submitted successfully');
+        } catch (Exception $e) {
+            return response()->badRequest($e->getMessage());
         }
     }
 }

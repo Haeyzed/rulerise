@@ -7,11 +7,13 @@ use App\Http\Requests\Candidate\WorkExperienceRequest;
 use App\Models\WorkExperience;
 use App\Services\CandidateService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 
 /**
  * Controller for managing candidate work experiences
  */
-class WorkExperiencesController extends Controller
+class WorkExperiencesController extends Controller implements HasMiddleware
 {
     /**
      * Candidate service instance
@@ -29,8 +31,16 @@ class WorkExperiencesController extends Controller
     public function __construct(CandidateService $candidateService)
     {
         $this->candidateService = $candidateService;
-        $this->middleware('auth:api');
-        $this->middleware('role:candidate');
+    }
+
+    /**
+     * Get the middleware that should be assigned to the controller.
+     */
+    public static function middleware(): array
+    {
+        return [
+            new Middleware(['auth:api','role:candidate']),
+        ];
     }
 
     /**
@@ -47,11 +57,7 @@ class WorkExperiencesController extends Controller
 
         $workExperience = $this->candidateService->addWorkExperience($candidate, $data);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Work experience added successfully',
-            'data' => $workExperience,
-        ], 201);
+        return response()->created($workExperience, 'Work experience added successfully');
     }
 
     /**
@@ -65,23 +71,16 @@ class WorkExperiencesController extends Controller
         $user = auth()->user();
         $data = $request->validated();
 
-        $workExperience = WorkExperience::findOrFail($data['id']);
+        $workExperience = WorkExperience::query()->findOrFail($data['id']);
 
         // Check if the work experience belongs to the authenticated user
         if ($workExperience->candidate_id !== $user->candidate->id) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unauthorized',
-            ], 403);
+            return response()->forbidden('Unauthorized');
         }
 
         $workExperience = $this->candidateService->updateWorkExperience($workExperience, $data);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Work experience updated successfully',
-            'data' => $workExperience,
-        ]);
+        return response()->json($workExperience,'Work experience updated successfully');
     }
 
     /**
@@ -93,21 +92,15 @@ class WorkExperiencesController extends Controller
     public function delete(int $id): JsonResponse
     {
         $user = auth()->user();
-        $workExperience = WorkExperience::findOrFail($id);
+        $workExperience = WorkExperience::query()->findOrFail($id);
 
         // Check if the work experience belongs to the authenticated user
         if ($workExperience->candidate_id !== $user->candidate->id) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unauthorized',
-            ], 403);
+            return response()->forbidden('Unauthorized');
         }
 
         $this->candidateService->deleteWorkExperience($workExperience);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Work experience deleted successfully',
-        ]);
+        return response()->success($workExperience, 'Work experience deleted successfully');
     }
 }

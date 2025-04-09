@@ -46,12 +46,6 @@ class UserAccountSettingsController extends Controller
             $request->file('file')
         );
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Profile picture uploaded successfully',
-            'data' => [
-                'profile_picture' => $updatedUser->profile_picture,
-            ],
-        ]);
+        return response()->success(['profile_picture' => $updatedUser->profile_picture,],'Profile picture uploaded successfully');
     }
 }
