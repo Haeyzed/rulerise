@@ -8,12 +8,13 @@ use App\Models\Skill;
 use App\Models\User;
 use App\Services\Storage\StorageService;
 use Exception;
+use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
-use Illuminate\Support\Facades\Storage;
-use PHPOpenSourceSaver\JWTAuth\Facades\JWTAuth;
+use Illuminate\Support\Str;
 
 /**
  * Service class for authentication related operations
@@ -114,7 +115,7 @@ class AuthService
                     'company_email' => $data['company_email'] ?? null,
                     'company_description' => $data['company_description'] ?? null,
                     'company_industry' => $data['company_industry'] ?? null,
-                    'number_of_employees' => $data['number_of_employees'] ?? null,
+                    'company_size' => $data['company_size'] ?? null,
                     'company_founded' => $data['company_founded'] ?? null,
                     'company_country' => $data['company_country'] ?? null,
                     'company_state' => $data['company_state'] ?? null,
@@ -141,13 +142,13 @@ class AuthService
             }
 
             // Generate token
-            $token = JWTAuth::fromUser($user);
+//            $token = Auth::login($user);
 
             DB::commit();
 
             return [
                 'user' => $user,
-                'token' => $token,
+//                'token' => $token,
             ];
         } catch (Exception $e) {
             DB::rollBack();
@@ -160,17 +161,18 @@ class AuthService
      *
      * @param string $email
      * @param string $password
+     * @param string $remember
      * @return array|null
      */
-    public function login(string $email, string $password): ?array
+    public function login(string $email, string $password, string $remember): ?array
     {
         $credentials = ['email' => $email, 'password' => $password];
 
-        if (!$token = JWTAuth::attempt($credentials)) {
+        if (!$token = Auth::attempt($credentials, $remember)) {
             return null;
         }
 
-        $user = JWTAuth::user();
+        $user = Auth::user();
 
         // Check if user is active
         if (!$user->is_active) {
@@ -214,7 +216,10 @@ class AuthService
             $data,
             function ($user, $password) {
                 $user->password = Hash::make($password);
+                $user->setRememberToken(Str::random(60));
                 $user->save();
+
+                event(new PasswordReset($user));
             }
         );
 
@@ -236,6 +241,7 @@ class AuthService
         }
 
         $user->password = Hash::make($newPassword);
+        $user->setRememberToken(Str::random(60));
         $user->save();
 
         return true;
@@ -249,7 +255,7 @@ class AuthService
     public function logout(): bool
     {
         try {
-            JWTAuth::invalidate(JWTAuth::getToken());
+            Auth::logout();
             return true;
         } catch (Exception $e) {
             return false;

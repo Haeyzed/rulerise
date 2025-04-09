@@ -3,27 +3,23 @@
 namespace App\Http\Requests\Auth;
 
 use App\Http\Requests\BaseRequest;
+use Illuminate\Validation\Rule;
 
-/**
- * Request for user registration.
- *
- * @package App\Http\Requests\Auth
- */
 class RegisterRequest extends BaseRequest
 {
-    /**
-     * Get the validation rules that apply to the request.
-     *
-     * @return array
-     */
     public function rules(): array
     {
         return [
-            // Base rules for all user types
             'first_name' => 'required|string|max:255',
             'last_name' => 'required|string|max:255',
             'other_name' => 'nullable|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
+            'email' => [
+                'required',
+                'email',
+                Rule::unique('users')->where(function ($query) {
+                    return $query->where('user_type', $this->input('user_type'));
+                }),
+            ],
             'password' => 'required|string|min:8',
             'phone' => 'nullable|string|max:20',
             'phone_country_code' => 'nullable|string|max:10',
@@ -34,7 +30,6 @@ class RegisterRequest extends BaseRequest
             'title' => 'nullable|string|max:50',
             'user_type' => 'required|string|in:candidate,employer,admin',
 
-            // Candidate specific rules
             'year_of_experience' => 'nullable|required_if:user_type,candidate|string|max:10',
             'highest_qualification' => 'nullable|required_if:user_type,candidate|string|max:255',
             'prefer_job_industry' => 'nullable|required_if:user_type,candidate|string|max:255',
@@ -42,11 +37,10 @@ class RegisterRequest extends BaseRequest
             'skills' => 'nullable|required_if:user_type,candidate|array',
             'skills.*' => 'nullable|string|max:100',
 
-            // Employer specific rules
             'company_name' => 'required_if:user_type,employer|string|max:255',
             'company_email' => 'nullable|required_if:user_type,employer|string|email|max:255',
             'company_industry' => 'nullable|required_if:user_type,employer|string|max:255',
-            'number_of_employees' => 'nullable|required_if:user_type,employer|string|max:50',
+            'company_size' => 'nullable|required_if:user_type,employer|string|max:100000',
             'company_founded' => 'nullable|required_if:user_type,employer|date',
             'company_country' => 'nullable|required_if:user_type,employer|string|max:100',
             'company_state' => 'nullable|required_if:user_type,employer|string|max:100',
@@ -60,11 +54,6 @@ class RegisterRequest extends BaseRequest
         ];
     }
 
-    /**
-     * Get custom messages for validator errors.
-     *
-     * @return array
-     */
     public function messages(): array
     {
         return [
@@ -72,7 +61,7 @@ class RegisterRequest extends BaseRequest
             'last_name.required' => 'The last name field is required.',
             'email.required' => 'The email field is required.',
             'email.email' => 'Please enter a valid email address.',
-            'email.unique' => 'This email is already registered.',
+            'email.unique' => 'This email is already registered for this user type.',
             'password.required' => 'The password field is required.',
             'password.min' => 'The password must be at least 8 characters.',
             'user_type.required' => 'The user type field is required.',
@@ -92,11 +81,6 @@ class RegisterRequest extends BaseRequest
         ];
     }
 
-    /**
-     * Get custom attributes for validator errors.
-     *
-     * @return array
-     */
     public function attributes(): array
     {
         return [
@@ -116,7 +100,7 @@ class RegisterRequest extends BaseRequest
             'company_email' => 'company email',
             'company_logo' => 'company logo',
             'company_industry' => 'company industry',
-            'number_of_employees' => 'number of employees',
+            'company_size' => 'company size',
             'company_founded' => 'company founded date',
             'company_country' => 'company country',
             'company_state' => 'company state',

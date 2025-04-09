@@ -21,7 +21,7 @@ return new class extends Migration
             $table->string('company_logo')->nullable();
             $table->text('company_description')->nullable();
             $table->string('company_industry')->nullable();
-            $table->string('number_of_employees')->nullable();
+            $table->string('company_size')->nullable();
             $table->date('company_founded')->nullable();
             $table->string('company_country')->nullable();
             $table->string('company_state')->nullable();

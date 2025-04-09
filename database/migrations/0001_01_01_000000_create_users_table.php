@@ -17,7 +17,7 @@ return new class extends Migration
             $table->string('last_name');
             $table->string('other_name')->nullable();
             $table->string('title')->nullable();
-            $table->string('email')->unique();
+            $table->string('email');
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
             $table->string('phone')->nullable();
@@ -32,6 +32,8 @@ return new class extends Migration
             $table->rememberToken();
             $table->timestamps();
             $table->softDeletes();
+
+            $table->unique(['email', 'user_type']);
         });
 
         Schema::create('password_reset_tokens', function (Blueprint $table) {

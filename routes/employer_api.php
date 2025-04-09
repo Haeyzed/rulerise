@@ -26,15 +26,15 @@ use App\Http\Controllers\Employer\UsersController;
 */
 
 // Auth routes (no auth required)
-Route::group(['prefix' => 'auth'], function () {
-    Route::post('register', [AuthController::class, 'register']);
-    Route::post('resendEmailVerification/{id}', [AuthController::class, 'resendEmailVerification']);
-    Route::post('verifyEmail', [AuthController::class, 'verifyEmail']);
-    Route::post('login', [AuthController::class, 'login']);
-    Route::post('forgot-password/{id}', [AuthController::class, 'sendResetPasswordLink']);
-    Route::post('verify-forgot-password', [AuthController::class, 'verifyResetPasswordLink']);
-    Route::post('reset-password', [AuthController::class, 'resetPassword']);
-});
+//Route::group(['prefix' => 'auth'], function () {
+//    Route::post('register', [AuthController::class, 'register']);
+//    Route::post('resendEmailVerification/{id}', [AuthController::class, 'resendEmailVerification']);
+//    Route::post('verifyEmail', [AuthController::class, 'verifyEmail']);
+//    Route::post('login', [AuthController::class, 'login']);
+//    Route::post('forgot-password/{id}', [AuthController::class, 'sendResetPasswordLink']);
+//    Route::post('verify-forgot-password', [AuthController::class, 'verifyResetPasswordLink']);
+//    Route::post('reset-password', [AuthController::class, 'resetPassword']);
+//});
 
 // Routes that require authentication
 Route::middleware(['auth:api', 'role:employer'])->group(function () {
@@ -83,7 +83,7 @@ Route::middleware(['auth:api', 'role:employer'])->group(function () {
         Route::post('/', [EmployersController::class, 'updateProfile']);
         Route::post('upload-logo', [EmployersController::class, 'uploadLogo']);
         Route::post('delete-account', [EmployersController::class, 'deleteAccount']);
-        Route::post('change-password', [AuthController::class, 'changePassword']);
+//        Route::post('change-password', [AuthController::class, 'changePassword']);
         Route::post('upload-profile-picture', [UserAccountSettingsController::class, 'uploadProfilePicture']);
     });
 

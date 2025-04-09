@@ -53,7 +53,7 @@ class Employer extends Model
         'company_logo',
         'company_description',
         'company_industry',
-        'number_of_employees',
+        'company_size',
         'company_founded',
         'company_country',
         'company_state',

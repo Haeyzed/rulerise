@@ -4,21 +4,27 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\ChangePasswordRequest;
+use App\Http\Requests\Auth\ForgotPasswordRequest;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterRequest;
 use App\Http\Requests\Auth\ResetPasswordRequest;
+use App\Http\Requests\Auth\VerifyEmailRequest;
+use App\Http\Requests\Auth\VerifyResetTokenRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
 use App\Services\AuthService;
 use Exception;
 use Illuminate\Auth\Events\Verified;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\URL;
 
 /**
- * Controller for user registration
+ * Controller for user authentication
  */
-class AuthController extends Controller
+class AuthController extends Controller implements HasMiddleware
 {
     /**
      * Auth service instance
@@ -39,6 +45,16 @@ class AuthController extends Controller
     }
 
     /**
+     * Get the middleware that should be assigned to the controller.
+     */
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('auth:api', only: ['me', 'changePassword', 'logout']),
+        ];
+    }
+
+    /**
      * Register a new user
      *
      * @param RegisterRequest $request
@@ -53,6 +69,9 @@ class AuthController extends Controller
             $result = $this->authService->register($data, $userType);
             $user = $result['user'];
 
+            // Send verification email
+            $user->sendEmailVerificationNotification();
+
             // Load relationships based on user type
             if ($user->isCandidate()) {
                 $user->load(['candidate.skills']);
@@ -60,20 +79,14 @@ class AuthController extends Controller
                 $user->load(['employer.benefits']);
             }
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Registration successful',
-                'data' => [
+            return response()->created(
+                [
                     'user' => new UserResource($user),
-                    'token' => $result['token'],
                 ],
-            ], 201);
+                'Registration successful. Please check your email to verify your account.'
+            );
         } catch (Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Registration failed',
-                'error' => $e->getMessage(),
-            ], 500);
+            return response()->error('Registration failed: ' . $e->getMessage(), 500);
         }
     }
 
@@ -87,16 +100,24 @@ class AuthController extends Controller
     {
         $credentials = $request->validated();
 
-        $result = $this->authService->login($credentials['email'], $credentials['password']);
+        $result = $this->authService->login($credentials['email'], $credentials['password'], $credentials['remember_me']);
 
         if (!$result) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Invalid credentials or account is inactive',
-            ], 401);
+            return response()->unauthorized('Invalid credentials or account is inactive');
         }
 
         $user = $result['user'];
+
+        // Check if email is verified
+        if (!$user->hasVerifiedEmail()) {
+            // Resend verification email
+            $user->sendEmailVerificationNotification();
+
+            return response()->error(
+                'Email not verified. A new verification link has been sent to your email address.',
+                403
+            );
+        }
 
         // Load relationships based on user type
         if ($user->isCandidate()) {
@@ -105,14 +126,13 @@ class AuthController extends Controller
             $user->load(['employer.benefits']);
         }
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Login successful',
-            'data' => [
-                'user' => new UserResource($user),
+        return response()->success(
+            [
                 'token' => $result['token'],
+                'user' => new UserResource($user),
             ],
-        ]);
+            'Login successful'
+        );
     }
 
     /**
@@ -124,13 +144,6 @@ class AuthController extends Controller
     {
         $user = auth()->user();
 
-        if (!$user) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unauthenticated',
-            ], 401);
-        }
-
         // Load relationships based on user type
         if ($user->isCandidate()) {
             $user->load(['candidate.skills']);
@@ -138,33 +151,25 @@ class AuthController extends Controller
             $user->load(['employer.benefits']);
         }
 
-        return response()->json([
-            'success' => true,
-            'data' => new UserResource($user),
-        ]);
+        return response()->success(new UserResource($user));
     }
 
     /**
      * Send password reset link
      *
-     * @param string $email
+     * @param ForgotPasswordRequest $request
      * @return JsonResponse
      */
-    public function sendResetPasswordLink(string $email): JsonResponse
+    public function forgotPassword(ForgotPasswordRequest $request): JsonResponse
     {
-        $result = $this->authService->sendPasswordResetLink($email);
+        $data = $request->validated();
+        $result = $this->authService->sendPasswordResetLink($data['email']);
 
         if (!$result) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to send reset link',
-            ], 400);
+            return response()->error('Failed to send reset link', 400);
         }
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Password reset link sent successfully',
-        ]);
+        return response()->success(null, 'Password reset link sent successfully');
     }
 
     /**
@@ -173,18 +178,17 @@ class AuthController extends Controller
      * @param VerifyResetTokenRequest $request
      * @return JsonResponse
      */
-    public function verifyResetPasswordLink(VerifyResetTokenRequest $request): JsonResponse
+    public function verifyResetToken(VerifyResetTokenRequest $request): JsonResponse
     {
         $data = $request->validated();
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Token is valid',
-            'data' => [
+        return response()->success(
+            [
                 'email' => $data['email'],
                 'token' => $data['token'],
             ],
-        ]);
+            'Token is valid'
+        );
     }
 
     /**
@@ -200,16 +204,10 @@ class AuthController extends Controller
         $result = $this->authService->resetPassword($data);
 
         if (!$result) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to reset password',
-            ], 400);
+            return response()->error('Failed to reset password', 400);
         }
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Password has been reset successfully',
-        ]);
+        return response()->success(null, 'Password has been reset successfully');
     }
 
     /**
@@ -230,89 +228,68 @@ class AuthController extends Controller
         );
 
         if (!$result) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Current password is incorrect',
-            ], 400);
+            return response()->error('Current password is incorrect', 400);
         }
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Password changed successfully',
-        ]);
+        return response()->success(null, 'Password changed successfully');
     }
 
     /**
      * Resend email verification link
      *
-     * @param string $email
+     * @param Request $request
      * @return JsonResponse
      */
-    public function resendEmailVerification(string $email): JsonResponse
+    public function resendVerificationEmail(Request $request): JsonResponse
     {
+        $request->validate(['email' => 'required|email|exists:users,email']);
+        $email = $request->input('email');
+
         $user = User::query()->where('email', $email)->first();
 
         if (!$user) {
-            return response()->json([
-                'success' => false,
-                'message' => 'User not found',
-            ], 404);
+            return response()->notFound('User not found');
         }
 
         if ($user->hasVerifiedEmail()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Email already verified',
-            ], 400);
+            return response()->error('Email already verified', 400);
         }
 
         $user->sendEmailVerificationNotification();
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Verification link sent successfully',
-        ]);
+        return response()->success(null, 'Verification link sent successfully');
     }
 
     /**
      * Verify email
      *
-     * @param VerifyEmailRequest $request
+     * @param Request $request
      * @return JsonResponse
      */
-    public function verifyEmail(VerifyEmailRequest $request): JsonResponse
+    public function verifyEmail(Request $request): JsonResponse
     {
-        $user = User::query()->find($request->id);
+        $userId = $request->input('id');
+        $hash = $request->input('hash');
 
-        if (!$user) {
-            return response()->json([
-                'success' => false,
-                'message' => 'User not found',
-            ], 404);
+        if (!$userId || !$hash) {
+            return response()->error('Invalid verification link', 400);
+        }
+
+        $user = User::query()->findOrFail($userId);
+
+        if (!hash_equals((string) $hash, sha1($user->getEmailForVerification()))) {
+            return response()->error('Invalid verification link', 400);
         }
 
         if ($user->hasVerifiedEmail()) {
-            return response()->json([
-                'success' => true,
-                'message' => 'Email already verified',
-            ]);
-        }
-
-        if (!URL::hasValidSignature($request)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Invalid verification link',
-            ], 400);
+            return response()->success(null, 'Email already verified');
         }
 
         if ($user->markEmailAsVerified()) {
             event(new Verified($user));
         }
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Email verified successfully',
-        ]);
+        return response()->success(null, 'Email verified successfully');
     }
 
     /**
@@ -325,15 +302,9 @@ class AuthController extends Controller
         $result = $this->authService->logout();
 
         if (!$result) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to logout',
-            ], 500);
+            return response()->error('Failed to logout', 500);
         }
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Successfully logged out',
-        ]);
+        return response()->success(null, 'Successfully logged out');
     }
 }

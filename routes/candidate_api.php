@@ -26,15 +26,15 @@ use App\Http\Controllers\Candidate\JobsController;
 */
 
 // Auth routes (no auth required)
-Route::group(['prefix' => 'auth'], function () {
-    Route::post('register', [AuthController::class, 'register']);
-    Route::post('resendEmailVerification/{email}', [AuthController::class, 'resendEmailVerification']);
-    Route::post('verifyEmail', [AuthController::class, 'verifyEmail']);
-    Route::post('login', [AuthController::class, 'login']);
-    Route::post('forgot-password/{email}', [AuthController::class, 'sendResetPasswordLink']);
-    Route::post('verify-forgot-password', [AuthController::class, 'verifyResetPasswordLink']);
-    Route::post('reset-password', [AuthController::class, 'resetPassword']);
-});
+//Route::group(['prefix' => 'auth'], function () {
+//    Route::post('register', [AuthController::class, 'register']);
+//    Route::post('resendEmailVerification/{email}', [AuthController::class, 'resendEmailVerification']);
+//    Route::post('verifyEmail', [AuthController::class, 'verifyEmail']);
+//    Route::post('login', [AuthController::class, 'login']);
+//    Route::post('forgot-password/{email}', [AuthController::class, 'sendResetPasswordLink']);
+//    Route::post('verify-forgot-password', [AuthController::class, 'verifyResetPasswordLink']);
+//    Route::post('reset-password', [AuthController::class, 'resetPassword']);
+//});
 
 // Routes that require authentication
 Route::middleware(['auth:api', 'role:candidate'])->group(function () {
@@ -52,7 +52,7 @@ Route::middleware(['auth:api', 'role:candidate'])->group(function () {
     Route::get('account-setting', [AccountSettingsController::class, 'index']);
     Route::post('update-account-setting', [AccountSettingsController::class, 'updateAccountSetting']);
     Route::post('delete-account', [AccountSettingsController::class, 'deleteAccount']);
-    Route::post('change-password', [AuthController::class, 'changePassword']);
+//    Route::post('change-password', [AuthController::class, 'changePassword']);
     Route::post('upload-profile-picture', [UserAccountSettingsController::class, 'uploadProfilePicture']);
 
     // CV

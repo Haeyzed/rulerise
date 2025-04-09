@@ -4,7 +4,7 @@ namespace App\Http\Requests\Auth;
 
 use App\Http\Requests\BaseRequest;
 
-class ChangePasswordRequest extends BaseRequest
+class VerifyResetTokenRequest extends BaseRequest
 {
     /**
      * Get the validation rules that apply to the request.
@@ -14,8 +14,8 @@ class ChangePasswordRequest extends BaseRequest
     public function rules(): array
     {
         return [
-            'current_password' => 'required|string',
-            'new_password' => 'required|string|min:8|confirmed',
+            'email' => 'required|email|exists:users,email',
+            'token' => 'required|string',
         ];
     }
 }

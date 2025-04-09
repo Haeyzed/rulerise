@@ -25,7 +25,7 @@ use App\Http\Controllers\Admin\PermissionController;
 */
 
 // Auth routes (no auth required)
-Route::post('auth/login', [AuthController::class, 'login']);
+//Route::post('auth/login', [AuthController::class, 'login']);
 
 // Routes that require authentication
 Route::middleware(['auth:api', 'role:admin'])->group(function () {
@@ -33,7 +33,7 @@ Route::middleware(['auth:api', 'role:admin'])->group(function () {
     Route::get('dashboard-overview', [DashboardController::class, 'index']);
 
     // Change password
-    Route::post('change-password', [AuthController::class, 'changePassword']);
+//    Route::post('change-password', [AuthController::class, 'changePassword']);
 
     // Candidates
     Route::prefix('candidate')->group(function () {

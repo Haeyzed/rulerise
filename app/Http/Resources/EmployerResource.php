@@ -22,7 +22,7 @@ class EmployerResource extends JsonResource
             'company_logo_url' => $this->company_logo_url,
             'company_description' => $this->company_description,
             'company_industry' => $this->company_industry,
-            'number_of_employees' => $this->number_of_employees,
+            'company_size' => $this->company_size,
             'company_founded' => $this->company_founded,
             'company_country' => $this->company_country,
             'company_state' => $this->company_state,
