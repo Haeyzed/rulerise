@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\ChangePasswordRequest;
+use App\Http\Requests\Auth\DeleteAccountRequest;
 use App\Http\Requests\Auth\ForgotPasswordRequest;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterRequest;
@@ -19,6 +20,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\URL;
 
 /**
@@ -50,7 +52,7 @@ class AuthController extends Controller implements HasMiddleware
     public static function middleware(): array
     {
         return [
-            new Middleware('auth:api', only: ['me', 'changePassword', 'logout']),
+            new Middleware('auth:api', only: ['me', 'changePassword', 'logout', 'deleteAccount']),
         ];
     }
 
@@ -241,6 +243,38 @@ class AuthController extends Controller implements HasMiddleware
         }
 
         return response()->success(null, 'Password changed successfully');
+    }
+
+    /**
+     * Delete user account
+     *
+     * @param DeleteAccountRequest $request
+     * @return JsonResponse
+     */
+    public function deleteAccount(DeleteAccountRequest $request): JsonResponse
+    {
+        $user = auth()->user();
+        $password = $request->input('password');
+        $permanent = $request->input('permanent', false);
+
+        // Verify password
+        if (!Hash::check($password, $user->password)) {
+            return response()->badRequest('Password is incorrect');
+        }
+
+        // Check if user is an admin trying to permanently delete
+        if ($permanent && !$user->isAdmin()) {
+            return response()->forbidden('You do not have permission to permanently delete accounts');
+        }
+
+        // Delete the user
+        $result = $this->authService->deleteUser($user, $permanent);
+
+        if (!$result) {
+            return response()->serverError('Failed to delete account');
+        }
+
+        return response()->success(null, 'Account deleted successfully');
     }
 
     /**

@@ -38,4 +38,6 @@ Route::middleware('auth:api')->group(function () {
     Route::get('me', [AuthController::class, 'me']);
     Route::post('change-password', [AuthController::class, 'changePassword']);
     Route::post('logout', [AuthController::class, 'logout']);
+    Route::delete('delete-account', [AuthController::class, 'deleteAccount'])
+        ->name('auth.delete-account');
 });

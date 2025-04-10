@@ -14,6 +14,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
 
@@ -308,6 +309,80 @@ class AuthService
         $user->save();
 
         return true;
+    }
+
+    /**
+     * Delete a user and all related data
+     *
+     * @param User $user
+     * @param bool $permanent Whether to permanently delete the user (true) or soft delete (false)
+     * @return bool
+     */
+    public function deleteUser(User $user, bool $permanent = false): bool
+    {
+        return DB::transaction(function () use ($user, $permanent) {
+            try {
+                // Delete related data based on user type
+                if ($user->isCandidate() && $user->candidate) {
+                    // Detach skills
+                    $user->candidate->skills()->detach();
+
+                    // Delete candidate profile
+                    if ($permanent) {
+                        $user->candidate->forceDelete();
+                    } else {
+                        $user->candidate->delete();
+                    }
+                } elseif ($user->isEmployer() && $user->employer) {
+                    // Delete company benefits
+                    if ($user->employer->benefits) {
+                        foreach ($user->employer->benefits as $benefit) {
+                            if ($permanent) {
+                                $benefit->forceDelete();
+                            } else {
+                                $benefit->delete();
+                            }
+                        }
+                    }
+
+                    // Delete notification templates
+                    if ($user->employer->notificationTemplates) {
+                        foreach ($user->employer->notificationTemplates as $template) {
+                            if ($permanent) {
+                                $template->forceDelete();
+                            } else {
+                                $template->delete();
+                            }
+                        }
+                    }
+
+                    // Delete employer profile
+                    if ($permanent) {
+                        $user->employer->forceDelete();
+                    } else {
+                        $user->employer->delete();
+                    }
+                }
+
+                // Delete user's profile picture if exists
+                if ($user->profile_picture) {
+                    $this->storageService->delete($user->profile_picture);
+                }
+
+                // Delete user
+                if ($permanent) {
+                    $user->forceDelete();
+                } else {
+                    $user->delete();
+                }
+
+                return true;
+            } catch (Exception $e) {
+                // Log the error
+                Log::error('Failed to delete user: ' . $e->getMessage());
+                return false;
+            }
+        });
     }
 
     /**
