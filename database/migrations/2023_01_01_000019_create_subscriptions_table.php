@@ -23,6 +23,8 @@ return new class extends Migration
             $table->string('currency')->default('USD');
             $table->string('payment_method')->nullable();
             $table->string('transaction_id')->nullable();
+            $table->string('payment_reference')->nullable();
+            $table->string('receipt_path')->nullable();
             $table->integer('job_posts_left')->default(0);
             $table->integer('featured_jobs_left')->default(0);
             $table->integer('cv_downloads_left')->default(0);

@@ -1,11 +1,11 @@
 <?php
 
+use App\Http\Controllers\Public\CandidatesController;
+use App\Http\Controllers\Public\JobsController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Public\FrontPagesController;
-use App\Http\Controllers\Public\JobsController;
 use App\Http\Controllers\Public\MetaInformationController;
 use App\Http\Controllers\Public\EmployersController;
-use App\Http\Controllers\Public\CandidatesController;
 
 /*
 |--------------------------------------------------------------------------
@@ -19,12 +19,13 @@ use App\Http\Controllers\Public\CandidatesController;
 */
 
 // Front page
-Route::get('front-page', [FrontPagesController::class, 'index']);
+//Route::get('front-page', [FrontPagesController::class, 'index']);
 
 // Jobs
-Route::get('search-jobs', [JobsController::class, 'searchJobs']);
+Route::get('search-jobs', [JobsController::class, 'index']);
+Route::get('similar-jobs', [JobsController::class, 'similarJobs']);
 Route::get('latest-jobs', [JobsController::class, 'latestJobs']);
-Route::get('job/{id}', [JobsController::class, 'singleJob']);
+Route::get('job/{id}', [JobsController::class, 'show']);
 
 // Job categories
 Route::get('job-categories', [MetaInformationController::class, 'getJobCategory']);

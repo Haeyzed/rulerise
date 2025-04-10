@@ -110,4 +110,32 @@ Route::middleware(['auth:api', 'role:employer'])->group(function () {
         Route::post('update', [UsersController::class, 'update']);
         Route::post('{id}/delete', [UsersController::class, 'delete']);
     });
+
+    // Subscription routes
+    Route::prefix('subscriptions')->group(function () {
+        // Get subscription plans
+        Route::get('/plans', [SubscriptionPaymentController::class, 'subscriptionList']);
+
+        // Create payment link
+        Route::get('/payment-link/{id}', [SubscriptionPaymentController::class, 'createPaymentLink']);
+
+        // Verify subscription payment
+        Route::post('/verify', [SubscriptionPaymentController::class, 'verifySubscription'])
+            ->name('employer.subscription.verify');
+
+        // Update subscription
+        Route::put('/{id}', [SubscriptionPaymentController::class, 'updateSubscription']);
+
+        // Cancel subscription
+        Route::delete('/{id}', [SubscriptionsController::class, 'cancelSubscription']);
+
+        // Get subscription information
+        Route::get('/info', [SubscriptionsController::class, 'subscriptionInformation']);
+
+        // List all subscriptions
+        Route::get('/', [SubscriptionsController::class, 'listSubscriptions']);
+
+        // Update CV download usage
+        Route::post('/cv-download', [SubscriptionsController::class, 'updateCVDownloadUsage']);
+    });
 });

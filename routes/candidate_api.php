@@ -1,18 +1,17 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Auth\AuthController;
-use App\Http\Controllers\Candidate\DashboardController;
-use App\Http\Controllers\Candidate\MetaInformationController;
-use App\Http\Controllers\Candidate\CandidatesController;
 use App\Http\Controllers\Candidate\AccountSettingsController;
-use App\Http\Controllers\Candidate\UserAccountSettingsController;
-use App\Http\Controllers\Candidate\CVsController;
-use App\Http\Controllers\Candidate\WorkExperiencesController;
-use App\Http\Controllers\Candidate\EducationHistoriesController;
-use App\Http\Controllers\Candidate\CredentialsController;
 use App\Http\Controllers\Candidate\CandidateLanguagesController;
+use App\Http\Controllers\Candidate\CandidatesController;
+use App\Http\Controllers\Candidate\CredentialsController;
+use App\Http\Controllers\Candidate\CVsController;
+use App\Http\Controllers\Candidate\DashboardController;
+use App\Http\Controllers\Candidate\EducationHistoriesController;
 use App\Http\Controllers\Candidate\JobsController;
+use App\Http\Controllers\Candidate\UserAccountSettingsController;
+use App\Http\Controllers\Candidate\WorkExperiencesController;
+use App\Http\Controllers\Public\MetaInformationController;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------

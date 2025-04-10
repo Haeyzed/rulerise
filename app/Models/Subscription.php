@@ -47,6 +47,8 @@ class Subscription extends Model
         'currency',
         'payment_method',
         'transaction_id',
+        'payment_reference',
+        'receipt_path',
         'job_posts_left',
         'featured_jobs_left',
         'cv_downloads_left',
