@@ -34,7 +34,7 @@ class RegisterRequest extends BaseRequest
             'highest_qualification' => 'nullable|required_if:user_type,candidate|string|max:255',
             'prefer_job_industry' => 'nullable|required_if:user_type,candidate|string|max:255',
             'available_to_work' => 'nullable|required_if:user_type,candidate|boolean',
-            'skills' => 'nullable|required_if:user_type,candidate|array',
+            'skills' => 'nullable|array',
             'skills.*' => 'nullable|string|max:100',
 
             'company_name' => 'required_if:user_type,employer|string|max:255',

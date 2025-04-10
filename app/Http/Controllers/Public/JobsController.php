@@ -18,7 +18,7 @@ use Illuminate\Routing\Controllers\Middleware;
 /**
  * Controller for job-related operations for candidates
  */
-class JobsController extends Controller// implements HasMiddleware
+class JobsController extends Controller
 {
     /**
      * Job service instance
@@ -38,24 +38,13 @@ class JobsController extends Controller// implements HasMiddleware
         $this->jobService = $jobService;
     }
 
-//    /**
-//     * Get the middleware that should be assigned to the controller.
-//     */
-//    public static function middleware(): array
-//    {
-//        return [
-//            new Middleware('auth:api', ['except' => ['index', 'show', 'similarJobs']]),
-//            new Middleware('role:candidate', ['except' => ['index', 'show', 'similarJobs']]),
-//        ];
-//    }
-
     /**
      * Get jobs list
      *
      * @param SearchJobsRequest $request
      * @return JsonResponse
      */
-    public function index(SearchJobsRequest $request): JsonResponse
+    public function searchJobs(SearchJobsRequest $request): JsonResponse
     {
         $filters = $request->validated();
         $perPage = $request->input('per_page', 10);
@@ -88,64 +77,6 @@ class JobsController extends Controller// implements HasMiddleware
     }
 
     /**
-     * Save job
-     *
-     * @param int $id
-     * @return JsonResponse
-     */
-    public function saveJob(int $id): JsonResponse
-    {
-        $user = auth()->user();
-        $job = Job::query()->findOrFail($id);
-
-        try {
-            $savedJob = $this->jobService->saveJob($job, $user->candidate);
-
-            return response()->created($savedJob, 'Job saved successfully');
-        } catch (Exception $e) {
-            return response()->badRequest($e->getMessage());
-        }
-    }
-
-    /**
-     * Apply for job
-     *
-     * @param ApplyJobRequest $request
-     * @return JsonResponse
-     */
-    public function applyJob(ApplyJobRequest $request): JsonResponse
-    {
-        $user = auth()->user();
-        $data = $request->validated();
-
-        $job = Job::query()->findOrFail($data['job_id']);
-
-        // Check if resume is provided
-        $resume = null;
-        if (!empty($data['resume_id'])) {
-            $resume = Resume::query()->findOrFail($data['resume_id']);
-
-            // Check if the resume belongs to the authenticated user
-            if ($resume->candidate_id !== $user->candidate->id) {
-                return response()->forbidden('Unauthorized resume');
-            }
-        }
-
-        try {
-            $application = $this->jobService->applyForJob(
-                $job,
-                $user->candidate,
-                $resume,
-                $data['cover_letter'] ?? null
-            );
-
-            return response()->success($application, 'Job application submitted successfully');
-        } catch (Exception $e) {
-            return response()->badRequest($e->getMessage());
-        }
-    }
-
-    /**
      * Get similar jobs
      *
      * @param int $id
@@ -157,32 +88,5 @@ class JobsController extends Controller// implements HasMiddleware
         $similarJobs = $this->jobService->getSimilarJobs($job);
 
         return response()->success($similarJobs, 'Similar jobs retrieved successfully');
-    }
-
-    /**
-     * Report job
-     *
-     * @param int $id
-     * @param ReportJobRequest $request
-     * @return JsonResponse
-     */
-    public function reportJob(int $id, ReportJobRequest $request): JsonResponse
-    {
-        $user = auth()->user();
-        $job = Job::query()->findOrFail($id);
-        $data = $request->validated();
-
-        try {
-            $report = $this->jobService->reportJob(
-                $job,
-                $user->candidate,
-                $data['reason'],
-                $data['description'] ?? null
-            );
-
-            return response()->created($report, 'Report submitted successfully');
-        } catch (Exception $e) {
-            return response()->badRequest($e->getMessage());
-        }
     }
 }
