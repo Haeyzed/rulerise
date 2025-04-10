@@ -37,7 +37,7 @@ class AppServiceProvider extends ServiceProvider
     private function customizeResetPasswordUrl(): void
     {
         ResetPassword::createUrlUsing(function (object $notifiable, string $token) {
-            return $this->buildCustomUrl('reset-password', [
+            return $this->buildCustomUrl('candidate/resetPassword', [
                 'token' => $token,
                 'email' => $notifiable->getEmailForPasswordReset(),
 //                'user_type' => $notifiable->user_type,
