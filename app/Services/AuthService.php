@@ -256,8 +256,27 @@ class AuthService
      */
     public function resetPassword(array $data): bool
     {
+        // Extract user_type from data but don't pass it to Password::reset
+        $userType = $data['user_type'] ?? null;
+        $resetData = $data;
+
+        if (isset($resetData['user_type'])) {
+            unset($resetData['user_type']);
+        }
+
+        // If user_type is provided, verify the user exists with that type
+        if ($userType) {
+            $user = User::where('email', $data['email'])
+                ->where('user_type', $userType)
+                ->first();
+
+            if (!$user) {
+                return false;
+            }
+        }
+
         $status = Password::reset(
-            $data,
+            $resetData,
             function ($user, $password) {
                 $user->password = Hash::make($password);
                 $user->setRememberToken(Str::random(60));

@@ -37,10 +37,12 @@ class AppServiceProvider extends ServiceProvider
     private function customizeResetPasswordUrl(): void
     {
         ResetPassword::createUrlUsing(function (object $notifiable, string $token) {
-            return $this->buildCustomUrl('candidate/resetPassword', [
+            $userType = $notifiable->user_type ?? 'candidate';
+
+            return $this->buildCustomUrl("{$userType}/resetPassword", [
                 'token' => $token,
                 'email' => $notifiable->getEmailForPasswordReset(),
-//                'user_type' => $notifiable->user_type,
+                'user_type' => $userType,
             ]);
         });
     }
@@ -56,10 +58,8 @@ class AppServiceProvider extends ServiceProvider
     {
         $request = app(Request::class);
         $language = $request->header('Accept-Language', config('app.locale'));
-//        $baseUrl = $request->header('Origin', config('app.frontend_url'));
         $baseUrl = config('app.frontend_url');
 
-//        $url = "{$baseUrl}/{$language}/{$path}";
         $url = "{$baseUrl}/{$path}";
         $query = http_build_query($params);
 
@@ -72,19 +72,21 @@ class AppServiceProvider extends ServiceProvider
     private function customizeVerificationUrl(): void
     {
         VerifyEmail::createUrlUsing(function (object $notifiable) {
+            $userType = $notifiable->user_type ?? 'candidate';
+
             $verifyUrl = URL::temporarySignedRoute(
                 'verification.verify',
                 Carbon::now()->addMinutes(config('auth.verification.expire', 60)),
                 [
                     'user' => $notifiable->getKey(),
                     'hash' => sha1($notifiable->getEmailForVerification()),
-//                    'user_type' => $notifiable->user_type,
+                    'user_type' => $userType,
                 ]
             );
 
-            return $this->buildCustomUrl('candidate/verifyEmail', [
+            return $this->buildCustomUrl("{$userType}/verifyEmail", [
                 'url' => urlencode($verifyUrl),
-//                'user_type' => $notifiable->user_type,
+                'user_type' => $userType,
             ]);
         });
     }

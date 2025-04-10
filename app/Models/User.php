@@ -41,7 +41,7 @@ use Spatie\Permission\Traits\HasRoles;
  * @property-read Candidate|null $candidate
  * @property-read Employer|null $employer
  */
-class User extends Authenticatable implements JWTSubject//, MustVerifyEmail
+class User extends Authenticatable implements JWTSubject, MustVerifyEmail
 {
     use HasFactory, Notifiable, SoftDeletes, HasRoles;
 
