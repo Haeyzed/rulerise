@@ -76,7 +76,7 @@ class AuthController extends Controller implements HasMiddleware
             if ($user->isCandidate()) {
                 $user->load(['candidate.skills']);
             } elseif ($user->isEmployer()) {
-                $user->load(['employer.benefits']);
+                $user->load(['employer.benefits', 'employer.notificationTemplates']);
             }
 
             return response()->created(

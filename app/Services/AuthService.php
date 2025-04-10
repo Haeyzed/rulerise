@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\JobNotificationTemplateTypeEnum;
 use App\Models\CompanyBenefit;
 use App\Models\Employer;
 use App\Models\Skill;
@@ -27,13 +28,19 @@ class AuthService
     protected StorageService $storageService;
 
     /**
+     * @var EmployerService
+     */
+    protected EmployerService $employerService;
+
+    /**
      * ClientSectionService constructor.
      *
      * @param StorageService $storageService
      */
-    public function __construct(StorageService $storageService)
+    public function __construct(StorageService $storageService, EmployerService $employerService)
     {
         $this->storageService = $storageService;
+        $this->employerService = $employerService;
     }
 
     /**
@@ -46,9 +53,7 @@ class AuthService
      */
     public function register(array $data, string $userType = 'candidate'): array
     {
-        DB::beginTransaction();
-
-        try {
+        return DB::transaction(function () use ($data, $userType) {
             // Handle profile picture (candidate)
             if (isset($data['profile_picture']) && $data['profile_picture'] instanceof UploadedFile) {
                 $data['profile_picture_path'] = $this->uploadImage(
@@ -130,6 +135,31 @@ class AuthService
 
                 $employer = $user->employer()->create($employerData);
 
+                $defaultTemplates = [
+                    [
+                        'name' => 'Rejected Template',
+                        'subject' => '{JOB_TITLE}: Application Update Notification',
+                        'content' => 'We regret to inform you about your application for the {JOB_TITLE} role.',
+                        'type' => JobNotificationTemplateTypeEnum::REJECTION->value,
+                    ],
+                    [
+                        'name' => 'Shortlisted Template',
+                        'subject' => '{JOB_TITLE}: Application Update Notification',
+                        'content' => 'You have been shortlisted for the {JOB_TITLE} role.',
+                        'type' => JobNotificationTemplateTypeEnum::INTERVIEW_INVITATION->value,
+                    ],
+                    [
+                        'name' => 'Offer Sent Template',
+                        'subject' => '{JOB_TITLE}: Application Update Notification',
+                        'content' => 'We are happy to extend an offer to you for the {JOB_TITLE} role.',
+                        'type' => JobNotificationTemplateTypeEnum::OFFER->value,
+                    ],
+                ];
+
+                foreach ($defaultTemplates as $templateData) {
+                    $this->employerService->saveNotificationTemplate($employer, $templateData);
+                }
+
                 // Handle company benefits
                 if (!empty($data['company_benefit_offered']) && is_array($data['company_benefit_offered'])) {
                     foreach ($data['company_benefit_offered'] as $benefit) {
@@ -141,19 +171,14 @@ class AuthService
                 }
             }
 
-            // Generate token
-//            $token = Auth::login($user);
-
-            DB::commit();
+            // Generate token (optional)
+            // $token = Auth::login($user);
 
             return [
                 'user' => $user,
-//                'token' => $token,
+                // 'token' => $token,
             ];
-        } catch (Exception $e) {
-            DB::rollBack();
-            throw $e;
-        }
+        });
     }
 
     /**

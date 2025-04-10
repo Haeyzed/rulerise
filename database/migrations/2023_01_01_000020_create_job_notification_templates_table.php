@@ -19,7 +19,7 @@ return new class extends Migration
             $table->string('name');
             $table->string('subject');
             $table->text('content');
-            $table->enum('type', ['application_received', 'interview_invitation', 'rejection', 'offer', 'custom'])->default('custom');
+            $table->string('type')->default('custom');
             $table->timestamps();
         });
     }
