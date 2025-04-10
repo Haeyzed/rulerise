@@ -2,16 +2,17 @@
 
 namespace App\Http\Requests\Candidate;
 
+use App\Http\Requests\BaseRequest;
 use Illuminate\Foundation\Http\FormRequest;
 
-class ApplyJobRequest extends FormRequest
+class ApplyJobRequest extends BaseRequest
 {
     /**
      * Determine if the user is authorized to make this request.
      */
     public function authorize(): bool
     {
-        return false;
+        return true;
     }
 
     /**
@@ -22,7 +23,23 @@ class ApplyJobRequest extends FormRequest
     public function rules(): array
     {
         return [
-            //
+            'job_id' => ['required', 'exists:job_listings,id'],
+            'resume_id' => ['nullable', 'exists:resumes,id'],
+            'cover_letter' => ['nullable', 'string'],
+        ];
+    }
+
+    /**
+     * Get custom attributes for validator errors.
+     *
+     * @return array<string, string>
+     */
+    public function attributes(): array
+    {
+        return [
+            'job_id' => 'job',
+            'resume_id' => 'resume',
+            'cover_letter' => 'cover letter',
         ];
     }
 }

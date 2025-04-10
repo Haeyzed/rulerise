@@ -11,29 +11,31 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
 /**
- * Job model representing job listings
+ * Job model representing job listings.
  *
  * @property int $id
  * @property int $employer_id
  * @property int $job_category_id
  * @property string $title
  * @property string $slug
+ * @property string $short_description
  * @property string $description
- * @property string|null $requirements
- * @property string|null $benefits
- * @property string $location
- * @property bool $is_remote
  * @property string $job_type
+ * @property string $employment_type
+ * @property string $job_industry
+ * @property string $location
+ * @property string $job_level
  * @property string $experience_level
- * @property float|null $min_salary
- * @property float|null $max_salary
- * @property string $currency
- * @property bool $hide_salary
+ * @property float|null $salary
+ * @property string $salary_payment_mode
+ * @property string $email_to_apply
+ * @property bool $easy_apply
+ * @property bool $email_apply
+ * @property int $vacancies
  * @property Carbon|null $deadline
  * @property bool $is_active
  * @property bool $is_featured
  * @property bool $is_approved
- * @property int $vacancies
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  *
@@ -44,6 +46,7 @@ use Illuminate\Support\Carbon;
  * @property-read Collection|JobViewCount[] $viewCounts
  * @property-read Collection|ReportedJob[] $reports
  */
+
 class Job extends Model
 {
     use HasFactory;
@@ -56,26 +59,38 @@ class Job extends Model
      * @var array<int, string>
      */
     protected $fillable = [
+        // Foreign keys
         'employer_id',
         'job_category_id',
+
+        // Basic info
         'title',
         'slug',
+        'short_description',
         'description',
-        'requirements',
-        'benefits',
-        'location',
-        'is_remote',
         'job_type',
+        'employment_type',
+        'job_industry',
+        'location',
+        'job_level',
         'experience_level',
-        'min_salary',
-        'max_salary',
-        'currency',
-        'hide_salary',
+        'skills_required',
+
+        // Salary
+        'salary',
+        'salary_payment_mode',
+
+        // Application info
+        'email_to_apply',
+        'easy_apply',
+        'email_apply',
+        'vacancies',
         'deadline',
+
+        // Flags
         'is_active',
         'is_featured',
         'is_approved',
-        'vacancies',
     ];
 
     /**
@@ -84,15 +99,15 @@ class Job extends Model
      * @var array<string, string>
      */
     protected $casts = [
-        'min_salary' => 'float',
-        'max_salary' => 'float',
+        'salary' => 'float',
         'deadline' => 'date',
-        'is_remote' => 'boolean',
-        'hide_salary' => 'boolean',
         'is_active' => 'boolean',
         'is_featured' => 'boolean',
         'is_approved' => 'boolean',
+        'easy_apply' => 'boolean',
+        'email_apply' => 'boolean',
         'vacancies' => 'integer',
+        'skills_required' => 'array',
     ];
 
     /**

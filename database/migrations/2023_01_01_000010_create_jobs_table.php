@@ -15,27 +15,43 @@ return new class extends Migration
     {
         Schema::create('job_listings', function (Blueprint $table) {
             $table->id();
+
+            // Foreign keys
             $table->foreignId('employer_id')->constrained()->onDelete('cascade');
-            $table->foreignId('job_category_id')->constrained()->onDelete('cascade');
+            $table->foreignId('job_category_id')->nullable()->constrained()->onDelete('cascade');
+
+            // Basic info
             $table->string('title');
             $table->string('slug')->unique();
+            $table->text('short_description')->nullable(); // Optional if not explicitly required
             $table->text('description');
-            $table->text('requirements')->nullable();
-            $table->text('benefits')->nullable();
+            $table->string('job_type');
+            $table->string('employment_type')->nullable();
+            $table->string('job_industry')->nullable();
             $table->string('location');
-            $table->boolean('is_remote')->default(false);
-            $table->enum('job_type', ['full_time', 'part_time', 'contract', 'internship', 'remote'])->default('full_time');
-            $table->enum('experience_level', ['entry', 'mid', 'senior', 'executive'])->default('mid');
-            $table->decimal('min_salary', 10, 2)->nullable();
-            $table->decimal('max_salary', 10, 2)->nullable();
-            $table->string('currency')->default('USD');
-            $table->boolean('hide_salary')->default(false);
+            $table->string('job_level')->nullable();
+            $table->string('experience_level');
+            $table->json('skills_required')->nullable();
+
+
+            // Salary
+            $table->decimal('salary', 10, 2)->nullable();
+            $table->string('salary_payment_mode')->nullable();
+
+            // Application
+            $table->string('email_to_apply')->nullable();
+            $table->boolean('easy_apply')->default(false);
+            $table->boolean('email_apply')->default(false);
+            $table->integer('vacancies')->default(1);
             $table->date('deadline')->nullable();
+
+            // Flags
             $table->boolean('is_active')->default(true);
             $table->boolean('is_featured')->default(false);
             $table->boolean('is_approved')->default(false);
-            $table->integer('vacancies')->default(1);
+
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 

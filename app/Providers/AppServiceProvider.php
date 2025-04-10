@@ -40,7 +40,7 @@ class AppServiceProvider extends ServiceProvider
             return $this->buildCustomUrl('reset-password', [
                 'token' => $token,
                 'email' => $notifiable->getEmailForPasswordReset(),
-                'user_type' => $notifiable->user_type,
+//                'user_type' => $notifiable->user_type,
             ]);
         });
     }
@@ -78,13 +78,13 @@ class AppServiceProvider extends ServiceProvider
                 [
                     'user' => $notifiable->getKey(),
                     'hash' => sha1($notifiable->getEmailForVerification()),
-                    'user_type' => $notifiable->user_type,
+//                    'user_type' => $notifiable->user_type,
                 ]
             );
 
             return $this->buildCustomUrl('candidate/verifyEmail', [
                 'url' => urlencode($verifyUrl),
-                'user_type' => $notifiable->user_type,
+//                'user_type' => $notifiable->user_type,
             ]);
         });
     }
