@@ -180,14 +180,27 @@ class AuthController extends Controller implements HasMiddleware
         $data = $request->validated();
         $userType = $data['user_type'] ?? null;
 
+        $userQuery = User::query()->where('email', $data['email']);
+
+        if ($userType) {
+            $userQuery->where('user_type', $userType);
+        }
+
+        $user = $userQuery->first();
+
+        if (!$user) {
+            return response()->badRequest('No user found with this email and user type.');
+        }
+
         $result = $this->authService->sendPasswordResetLink($data['email'], $userType);
 
         if (!$result) {
-            return response()->error('Failed to send reset link', 400);
+            return response()->badRequest('Failed to send reset link');
         }
 
         return response()->success(null, 'Password reset link sent successfully');
     }
+
 
     /**
      * Verify reset password token
