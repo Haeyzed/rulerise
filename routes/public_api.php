@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Public\CandidatesController;
+use App\Http\Controllers\Public\JobCategoriesController;
 use App\Http\Controllers\Public\JobsController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Public\FrontPagesController;
@@ -28,8 +29,8 @@ Route::get('latest-jobs', [JobsController::class, 'latestJobs']);
 Route::get('job/{id}', [JobsController::class, 'show']);
 
 // Job categories
-Route::get('job-categories', [MetaInformationController::class, 'getJobCategory']);
-Route::get('job-categories/{id}', [MetaInformationController::class, 'getSingleCategory']);
+//Route::get('job-categories', [MetaInformationController::class, 'getJobCategory']);
+//Route::get('job-categories/{id}', [MetaInformationController::class, 'getSingleCategory']);
 
 // Update the job categories routes
 Route::get('job-categories', [JobCategoriesController::class, 'index']);

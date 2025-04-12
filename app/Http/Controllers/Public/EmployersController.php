@@ -76,7 +76,7 @@ class EmployersController extends Controller// implements HasMiddleware
     public function index(Request $request): JsonResponse
     {
         $perPage = $request->input('per_page', config('app.pagination.per_page'));
-        $employers = Employer::where('is_verified', true)
+        $employers = Employer::query()->where('is_verified', true)
             ->withCount(['jobs' => function ($query) {
                 $query->publiclyAvailable();
             }])
