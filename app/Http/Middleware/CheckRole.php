@@ -44,9 +44,6 @@ class CheckRole
             }
         }
 
-        return response()->json([
-            'success' => false,
-            'message' => 'Access denied. You do not have the required permissions.'
-        ], 403);
+        return response()->forbidden('Access denied. You do not have the required permissions.');
     }
 }

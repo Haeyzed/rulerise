@@ -3,6 +3,9 @@
 namespace App\Http\Requests\Auth;
 
 use App\Http\Requests\BaseRequest;
+use Illuminate\Contracts\Validation\Validator;
+use Illuminate\Validation\ValidationException;
+use App\Models\User; // Adjust this based on your actual User model location
 
 /**
  * Request for forgot password.
@@ -22,6 +25,27 @@ class ForgotPasswordRequest extends BaseRequest
             'email' => 'required|string|email',
             'user_type' => 'nullable|string|in:candidate,employer,admin',
         ];
+    }
+
+    /**
+     * Configure the validator instance.
+     *
+     * @param  \Illuminate\Contracts\Validation\Validator  $validator
+     * @return void
+     */
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function ($validator) {
+            $query = User::query()->where('email', $this->email);
+
+            if ($this->filled('user_type')) {
+                $query->where('user_type', $this->user_type);
+            }
+
+            if (!$query->exists()) {
+                $validator->errors()->add('email', 'No user found with this email and user type.');
+            }
+        });
     }
 
     /**

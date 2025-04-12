@@ -91,13 +91,13 @@ class AuthService
 
             // Create profile based on user type
             if ($userType === 'candidate') {
-                $candidate = $user->candidate()->create([
+                $candidateData = [
                     'year_of_experience' => $data['year_of_experience'] ?? null,
                     'highest_qualification' => $data['highest_qualification'] ?? null,
                     'prefer_job_industry' => $data['prefer_job_industry'] ?? null,
                     'available_to_work' => $data['available_to_work'] ?? true,
                     'is_available' => $data['available_to_work'] ?? true,
-                ]);
+                ];
 
                 // Handle skills as array
                 if (!empty($data['skills']) && is_array($data['skills'])) {
