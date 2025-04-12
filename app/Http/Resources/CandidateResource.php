@@ -33,7 +33,8 @@ class CandidateResource extends JsonResource
             'is_verified' => $this->is_verified,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
-            'skills' => SkillResource::collection($this->whenLoaded('skills')),
+            'skills' => $this->skills,
+//            'skills' => SkillResource::collection($this->whenLoaded('skills')),
         ];
     }
 }

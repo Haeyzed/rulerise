@@ -29,13 +29,13 @@ use Illuminate\Support\Carbon;
  * @property string|null $company_address
  * @property string|null $company_phone_number
  * @property string|null $company_website
+ * @property array|null $company_benefits
  * @property bool $is_verified
  * @property bool $is_featured
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  *
  * @property-read User $user
- * @property-read Collection|CompanyBenefit[] $benefits
  */
 class Employer extends Model
 {
@@ -60,6 +60,7 @@ class Employer extends Model
         'company_address',
         'company_phone_number',
         'company_website',
+        'company_benefits',
         'is_verified',
         'is_featured',
     ];
@@ -73,6 +74,7 @@ class Employer extends Model
         'company_founded' => 'date',
         'is_verified' => 'boolean',
         'is_featured' => 'boolean',
+        'company_benefits' => 'array',
     ];
 
     /**
@@ -83,13 +85,13 @@ class Employer extends Model
         return $this->belongsTo(User::class);
     }
 
-    /**
-     * Get the benefits offered by the company.
-     */
-    public function benefits(): HasMany
-    {
-        return $this->hasMany(CompanyBenefit::class);
-    }
+//    /**
+//     * Get the benefits offered by the company.
+//     */
+//    public function benefits(): HasMany
+//    {
+//        return $this->hasMany(CompanyBenefit::class);
+//    }
 
     /**
      * Get the jobs for the employer.

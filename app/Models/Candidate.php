@@ -27,6 +27,7 @@ use Illuminate\Support\Carbon;
  * @property float|null $expected_salary
  * @property string $currency
  * @property string|null $job_type
+ * @property array|null $skills
  * @property bool $is_available
  * @property bool $is_featured
  * @property bool $is_verified
@@ -34,7 +35,6 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $updated_at
  *
  * @property-read User $user
- * @property-read Collection|Skill[] $skills
  */
 class Candidate extends Model
 {
@@ -58,6 +58,7 @@ class Candidate extends Model
         'expected_salary',
         'currency',
         'job_type',
+        'skills',
         'is_available',
         'is_featured',
         'is_verified',
@@ -74,6 +75,7 @@ class Candidate extends Model
         'is_available' => 'boolean',
         'is_featured' => 'boolean',
         'is_verified' => 'boolean',
+        'skills' => 'array',
     ];
 
     /**
@@ -84,13 +86,13 @@ class Candidate extends Model
         return $this->belongsTo(User::class);
     }
 
-    /**
-     * Get the skills for the candidate.
-     */
-    public function skills(): BelongsToMany
-    {
-        return $this->belongsToMany(Skill::class, 'candidate_skill');
-    }
+//    /**
+//     * Get the skills for the candidate.
+//     */
+//    public function skills(): BelongsToMany
+//    {
+//        return $this->belongsToMany(Skill::class, 'candidate_skill');
+//    }
 
     /**
      * Get the qualification associated with the candidate.

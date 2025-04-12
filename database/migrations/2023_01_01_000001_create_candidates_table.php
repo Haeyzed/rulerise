@@ -26,6 +26,7 @@ return new class extends Migration
             $table->string('location')->nullable();
             $table->decimal('expected_salary', 10, 2)->nullable();
             $table->string('currency')->default('USD');
+            $table->json('skills')->nullable();
             $table->enum('job_type', ['full_time', 'part_time', 'contract', 'internship', 'remote'])->nullable();
             $table->boolean('is_available')->default(true);
             $table->boolean('is_featured')->default(false);
@@ -34,19 +35,19 @@ return new class extends Migration
         });
 
         // Create skills table
-        Schema::create('skills', function (Blueprint $table) {
-            $table->id();
-            $table->string('name')->unique();
-            $table->timestamps();
-        });
+//        Schema::create('skills', function (Blueprint $table) {
+//            $table->id();
+//            $table->string('name')->unique();
+//            $table->timestamps();
+//        });
 
         // Create candidate_skill pivot table
-        Schema::create('candidate_skill', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('candidate_id')->constrained()->onDelete('cascade');
-            $table->foreignId('skill_id')->constrained()->onDelete('cascade');
-            $table->timestamps();
-        });
+//        Schema::create('candidate_skill', function (Blueprint $table) {
+//            $table->id();
+//            $table->foreignId('candidate_id')->constrained()->onDelete('cascade');
+//            $table->foreignId('skill_id')->constrained()->onDelete('cascade');
+//            $table->timestamps();
+//        });
     }
 
     /**
@@ -56,8 +57,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('candidate_skill');
-        Schema::dropIfExists('skills');
+//        Schema::dropIfExists('candidate_skill');
+//        Schema::dropIfExists('skills');
         Schema::dropIfExists('candidates');
     }
 };

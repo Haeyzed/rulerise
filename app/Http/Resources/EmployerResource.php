@@ -33,8 +33,9 @@ class EmployerResource extends JsonResource
             'is_featured' => $this->is_featured,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
-            'benefits' => CompanyBenefitResource::collection($this->whenLoaded('benefits')),
-            'notificationTemplates' => JobNotificationTemplateResource::collection($this->whenLoaded('notificationTemplates')),
+            'company_benefits' => $this->company_benefits,
+//            'benefits' => CompanyBenefitResource::collection($this->whenLoaded('benefits')),
+            'notification_templates' => JobNotificationTemplateResource::collection($this->whenLoaded('notificationTemplates')),
         ];
     }
 }

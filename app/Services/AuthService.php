@@ -99,13 +99,19 @@ class AuthService
                     'is_available' => $data['available_to_work'] ?? true,
                 ]);
 
-                // Handle skills
+                // Handle skills as array
                 if (!empty($data['skills']) && is_array($data['skills'])) {
-                    foreach ($data['skills'] as $skillName) {
-                        $skill = Skill::query()->firstOrCreate(['name' => $skillName]);
-                        $candidate->skills()->attach($skill->id);
-                    }
+                    $candidateData['skills'] = $data['skills'];
                 }
+
+                $user->candidate()->create($candidateData);
+                // Handle skills
+//                if (!empty($data['skills']) && is_array($data['skills'])) {
+//                    foreach ($data['skills'] as $skillName) {
+//                        $skill = Skill::query()->firstOrCreate(['name' => $skillName]);
+//                        $candidate->skills()->attach($skill->id);
+//                    }
+//                }
             } elseif ($userType === 'employer') {
                 // Handle company logo (employer)
                 if (isset($data['company_logo']) && $data['company_logo'] instanceof UploadedFile) {
@@ -132,6 +138,11 @@ class AuthService
 
                 if (isset($data['company_logo_path'])) {
                     $employerData['company_logo'] = $data['company_logo_path'];
+                }
+
+                // Handle company benefits as array
+                if (!empty($data['company_benefit_offered']) && is_array($data['company_benefit_offered'])) {
+                    $employerData['company_benefits'] = $data['company_benefit_offered'];
                 }
 
                 $employer = $user->employer()->create($employerData);
@@ -162,14 +173,14 @@ class AuthService
                 }
 
                 // Handle company benefits
-                if (!empty($data['company_benefit_offered']) && is_array($data['company_benefit_offered'])) {
-                    foreach ($data['company_benefit_offered'] as $benefit) {
-                        CompanyBenefit::query()->create([
-                            'employer_id' => $employer->id,
-                            'benefit' => $benefit
-                        ]);
-                    }
-                }
+//                if (!empty($data['company_benefit_offered']) && is_array($data['company_benefit_offered'])) {
+//                    foreach ($data['company_benefit_offered'] as $benefit) {
+//                        CompanyBenefit::query()->create([
+//                            'employer_id' => $employer->id,
+//                            'benefit' => $benefit
+//                        ]);
+//                    }
+//                }
             }
 
             // Generate token (optional)

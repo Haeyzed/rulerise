@@ -9,7 +9,6 @@ use App\Http\Requests\Auth\ForgotPasswordRequest;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterRequest;
 use App\Http\Requests\Auth\ResetPasswordRequest;
-use App\Http\Requests\Auth\VerifyEmailRequest;
 use App\Http\Requests\Auth\VerifyResetTokenRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
@@ -21,7 +20,6 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\URL;
 
 /**
  * Controller for user authentication
@@ -75,10 +73,14 @@ class AuthController extends Controller implements HasMiddleware
             $user->sendEmailVerificationNotification();
 
             // Load relationships based on user type
+//            if ($user->isCandidate()) {
+//                    $user->load(['candidate.skills']);
+//                } elseif ($user->isEmployer()) {
+//                    $user->load(['employer.benefits', 'employer.notificationTemplates']);
             if ($user->isCandidate()) {
-                $user->load(['candidate.skills']);
+                $user->load(['candidate']);
             } elseif ($user->isEmployer()) {
-                $user->load(['employer.benefits', 'employer.notificationTemplates']);
+                $user->load(['employer', 'employer.notificationTemplates']);
             }
 
             return response()->created(
@@ -128,10 +130,14 @@ class AuthController extends Controller implements HasMiddleware
         }
 
         // Load relationships based on user type
+//        if ($user->isCandidate()) {
+//            $user->load(['candidate.skills']);
+//        } elseif ($user->isEmployer()) {
+//            $user->load(['employer.benefits']);
         if ($user->isCandidate()) {
-            $user->load(['candidate.skills']);
+            $user->load(['candidate']);
         } elseif ($user->isEmployer()) {
-            $user->load(['employer.benefits']);
+            $user->load(['employer']);
         }
 
         return response()->success(
@@ -154,13 +160,14 @@ class AuthController extends Controller implements HasMiddleware
 
         // Load relationships based on user type
         if ($user->isCandidate()) {
-            $user->load(['candidate.skills']);
+            $user->load(['candidate']);
         } elseif ($user->isEmployer()) {
-            $user->load(['employer.benefits']);
+            $user->load(['employer']);
         }
 
         return response()->success(new UserResource($user), 'User profile retrieved successfully');
     }
+
 
     /**
      * Send password reset link
@@ -338,7 +345,7 @@ class AuthController extends Controller implements HasMiddleware
 
         $user = $query->firstOrFail();
 
-        if (!hash_equals((string) $hash, sha1($user->getEmailForVerification()))) {
+        if (!hash_equals((string)$hash, sha1($user->getEmailForVerification()))) {
             return response()->error('Invalid verification link', 400);
         }
 

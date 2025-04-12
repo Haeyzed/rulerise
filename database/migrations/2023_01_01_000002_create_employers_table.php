@@ -28,18 +28,19 @@ return new class extends Migration
             $table->string('company_address')->nullable();
             $table->string('company_phone_number')->nullable();
             $table->string('company_website')->nullable();
+            $table->json('company_benefits')->nullable();
             $table->boolean('is_verified')->default(false);
             $table->boolean('is_featured')->default(false);
             $table->timestamps();
         });
 
         // Create company benefits table
-        Schema::create('company_benefits', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('employer_id')->constrained()->onDelete('cascade');
-            $table->string('benefit');
-            $table->timestamps();
-        });
+//        Schema::create('company_benefits', function (Blueprint $table) {
+//            $table->id();
+//            $table->foreignId('employer_id')->constrained()->onDelete('cascade');
+//            $table->string('benefit');
+//            $table->timestamps();
+//        });
     }
 
     /**
@@ -49,7 +50,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('company_benefits');
+//        Schema::dropIfExists('company_benefits');
         Schema::dropIfExists('employers');
     }
 };
