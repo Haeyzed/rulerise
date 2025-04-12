@@ -188,26 +188,26 @@ class User extends Authenticatable implements JWTSubject, MustVerifyEmail
             ];
         });
     }
-
-    /**
-     * Assign a role to the user, ensuring only one role is assigned
-     *
-     * @param string|array $roles
-     * @return $this
-     */
-    public function assignRole($roles): static
-    {
-        // If an array is passed, take only the first role
-        if (is_array($roles)) {
-            $roles = reset($roles);
-        }
-
-        // Remove all existing roles first
-        $this->roles()->detach();
-
-        // Assign the new role
-        return parent::assignRole($roles);
-    }
+//
+//    /**
+//     * Assign a role to the user, ensuring only one role is assigned
+//     *
+//     * @param string|array $roles
+//     * @return $this
+//     */
+//    public function assignRole($roles): static
+//    {
+//        // If an array is passed, take only the first role
+//        if (is_array($roles)) {
+//            $roles = reset($roles);
+//        }
+//
+//        // Remove all existing roles first
+//        $this->roles()->detach();
+//
+//        // Assign the new role
+//        return parent::assignRole($roles);
+//    }
 
     /**
      * Get the full name of the user
