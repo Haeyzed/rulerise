@@ -66,6 +66,14 @@ class AuthController extends Controller implements HasMiddleware
             $data = $request->validated();
             $userType = $data['user_type'];
 
+            // Check if user is trying to register as admin
+            if ($userType === 'admin') {
+                // Only existing admins can create new admins
+                if (!auth()->check() || !auth()->user()->hasRole('admin')) {
+                    return response()->forbidden('You do not have permission to create admin accounts');
+                }
+            }
+
             $result = $this->authService->register($data, $userType);
             $user = $result['user'];
 
@@ -73,14 +81,12 @@ class AuthController extends Controller implements HasMiddleware
             $user->sendEmailVerificationNotification();
 
             // Load relationships based on user type
-//            if ($user->isCandidate()) {
-//                    $user->load(['candidate.skills']);
-//                } elseif ($user->isEmployer()) {
-//                    $user->load(['employer.benefits', 'employer.notificationTemplates']);
             if ($user->isCandidate()) {
                 $user->load(['candidate']);
             } elseif ($user->isEmployer()) {
                 $user->load(['employer', 'employer.notificationTemplates']);
+            } elseif ($user->isAdmin()) {
+                // No specific relationships to load for admin
             }
 
             return response()->created(
@@ -130,14 +136,12 @@ class AuthController extends Controller implements HasMiddleware
         }
 
         // Load relationships based on user type
-//        if ($user->isCandidate()) {
-//            $user->load(['candidate.skills']);
-//        } elseif ($user->isEmployer()) {
-//            $user->load(['employer.benefits']);
         if ($user->isCandidate()) {
             $user->load(['candidate']);
         } elseif ($user->isEmployer()) {
             $user->load(['employer']);
+        } elseif ($user->isAdmin()) {
+            // No specific relationships to load for admin
         }
 
         return response()->success(

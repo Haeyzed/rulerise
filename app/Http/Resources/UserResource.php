@@ -33,8 +33,18 @@ class UserResource extends JsonResource
             'email_verified_at' => $this->email_verified_at,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
-            'roles' => $this->getRoleNames(),
-            'permissions' => $this->getAllPermissions()->pluck('name'),
+            'role' => $this->roles->first() ? [
+                'id' => $this->roles->first()->id,
+                'name' => $this->roles->first()->name,
+                'description' => $this->roles->first()->description,
+            ] : null,
+            'permissions' => $this->getAllPermissions()->map(function ($permission) {
+                return [
+                    'id' => $permission->id,
+                    'name' => $permission->name,
+                    'description' => $permission->description,
+                ];
+            }),
             'candidate' => $this->when($this->isCandidate(), new CandidateResource($this->whenLoaded('candidate'))),
             'employer' => $this->when($this->isEmployer(), new EmployerResource($this->whenLoaded('employer'))),
         ];

@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
+use Spatie\Permission\Models\Permission;
 
 /**
  * Service class for authentication related operations
@@ -181,6 +182,11 @@ class AuthService
 //                        ]);
 //                    }
 //                }
+                } elseif ($userType === 'admin') {
+                    // No specific profile to create for admin
+                    // Assign all permissions to admin by default
+                    $permissions = app(Permission::class)->pluck('name')->toArray();
+                    $user->syncPermissions($permissions);
             }
 
             // Generate token (optional)

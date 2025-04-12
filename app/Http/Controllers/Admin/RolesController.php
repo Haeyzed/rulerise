@@ -5,38 +5,49 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\RoleRequest;
 use App\Models\User;
-use App\Services\AdminService;
+use App\Services\ACLService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
 use Illuminate\Support\Facades\DB;
 use Exception;
-use Symfony\Component\HttpFoundation\Response;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 
 /**
  * Controller for managing roles.
  *
  * @package App\Http\Controllers\Admin
  */
-class RolesController extends Controller
+class RolesController extends Controller implements HasMiddleware
 {
     /**
-     * The admin service instance.
+     * The ACL service instance.
      *
-     * @var AdminService
+     * @var ACLService
      */
-    protected AdminService $adminService;
+    protected ACLService $aclService;
 
     /**
      * Create a new controller instance.
      *
-     * @param AdminService $adminService
+     * @param ACLService $aclService
      * @return void
      */
-    public function __construct(AdminService $adminService)
+    public function __construct(ACLService $aclService)
     {
-        $this->adminService = $adminService;
+        $this->aclService = $aclService;
+    }
+
+    /**
+     * Get the middleware that should be assigned to the controller.
+     */
+    public static function middleware(): array
+    {
+        return [
+            new Middleware(['auth:api', 'role:admin']),
+        ];
     }
 
     /**
@@ -70,17 +81,13 @@ class RolesController extends Controller
     /**
      * Display the specified role.
      *
-     * @param  string  $roleName
+     * @param  int  $id
      * @return JsonResponse
      */
-    public function show(string $roleName): JsonResponse
+    public function show(int $id): JsonResponse
     {
         try {
-            $role = Role::with('permissions')->where('name', $roleName)->first();
-
-            if (!$role) {
-                return response()->notFound('Role not found');
-            }
+            $role = Role::with('permissions')->findOrFail($id);
 
             return response()->success($role, 'Role retrieved successfully');
         } catch (Exception $e) {
@@ -99,16 +106,12 @@ class RolesController extends Controller
         try {
             DB::beginTransaction();
 
-            // Create the role
-            $role = Role::query()->create([
-                'name' => $request->name,
-                'description' => $request->description,
-                'guard_name' => 'api'
-            ]);
-
-            // Attach permissions to the role
-            $permissions = Permission::query()->whereIn('id', $request->permissions)->get();
-            $role->syncPermissions($permissions);
+            // Create the role using ACL service
+            $role = $this->aclService->createRole(
+                $request->name,
+                $request->description ?? null,
+                $request->permissions ?? []
+            );
 
             DB::commit();
 
@@ -123,35 +126,32 @@ class RolesController extends Controller
      * Update the specified role in storage.
      *
      * @param RoleRequest $request
+     * @param int $id
      * @return JsonResponse
      */
-    public function update(RoleRequest $request): JsonResponse
+    public function update(RoleRequest $request, int $id): JsonResponse
     {
         try {
             DB::beginTransaction();
 
-            $role = Role::query()->findById($request->id, 'api');
-
-            if (!$role) {
-                return response()->notFound('Role not found');
-            }
+            $role = Role::findOrFail($id);
 
             // Update the role
             $role->update([
                 'name' => $request->name,
-                'description' => $request->description
+                'description' => $request->description ?? null
             ]);
 
-            // Sync permissions
-            $permissions = Permission::query()->whereIn('id', $request->permissions)->get();
-            $role->syncPermissions($permissions);
+            // Sync permissions using ACL service
+            if ($request->has('permissions')) {
+                $this->aclService->syncRolePermissions($role->name, $request->permissions);
+            }
 
             DB::commit();
 
             return response()->success($role->load('permissions'), 'Role updated successfully');
         } catch (Exception $e) {
             DB::rollBack();
-
             return response()->internalServerError($e->getMessage());
         }
     }
@@ -159,23 +159,19 @@ class RolesController extends Controller
     /**
      * Remove the specified role from storage.
      *
-     * @param  string  $roleName
+     * @param  int  $id
      * @return JsonResponse
      */
-    public function delete(string $roleName): JsonResponse
+    public function destroy(int $id): JsonResponse
     {
         try {
             DB::beginTransaction();
 
-            $role = Role::query()->where('name', $roleName)->first();
-
-            if (!$role) {
-                return response()->notFound('Role not found');
-            }
+            $role = Role::findOrFail($id);
 
             // Check if the role is assigned to any users
             if ($role->users()->count() > 0) {
-                return response()->badRequest('Role cannot be deleted it is assigned to user');
+                return response()->badRequest('Role cannot be deleted as it is assigned to one or more users');
             }
 
             // Delete the role
@@ -198,7 +194,7 @@ class RolesController extends Controller
     public function getAllPermissions(): JsonResponse
     {
         try {
-            $permissions = Permission::all();
+            $permissions = $this->aclService->getAllPermissions();
 
             return response()->success($permissions, 'Permissions retrieved successfully');
         } catch (Exception $e) {
@@ -221,36 +217,37 @@ class RolesController extends Controller
             ]);
 
             $user = User::findOrFail($request->user_id);
-            $role = Role::where('name', $request->role_name)->first();
+            
+            // Use ACL service to assign role (ensuring only one role per user)
+            $this->aclService->assignRole($user, $request->role_name);
 
-            $user->assignRole($role);
-
-            return response()->success($user, 'Role assigned successfully');
+            return response()->success($user->load('roles'), 'Role assigned successfully');
         } catch (Exception $e) {
             return response()->internalServerError($e->getMessage());
         }
     }
 
     /**
-     * Remove role from user.
+     * Assign permissions to user.
      *
      * @param Request $request
      * @return JsonResponse
      */
-    public function removeRoleFromUser(Request $request): JsonResponse
+    public function assignPermissionsToUser(Request $request): JsonResponse
     {
         try {
             $request->validate([
                 'user_id' => 'required|exists:users,id',
-                'role_name' => 'required|exists:roles,name'
+                'permissions' => 'required|array',
+                'permissions.*' => 'exists:permissions,name'
             ]);
 
-            $user = User::query()->findOrFail($request->user_id);
-            $role = Role::query()->where('name', $request->role_name)->first();
+            $user = User::findOrFail($request->user_id);
+            
+            // Use ACL service to assign permissions
+            $this->aclService->syncPermissions($user, $request->permissions);
 
-            $user->removeRole($role);
-
-            return response()->success($user, 'Role removed successfully');
+            return response()->success($user->load('permissions'), 'Permissions assigned successfully');
         } catch (Exception $e) {
             return response()->internalServerError($e->getMessage());
         }

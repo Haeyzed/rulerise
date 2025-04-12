@@ -5,7 +5,7 @@ namespace App\Http\Requests\Admin;
 use App\Http\Requests\BaseRequest;
 use Illuminate\Validation\Rule;
 
-class RoleRequest extends BaseRequest
+class PermissionRequest extends BaseRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -29,18 +29,16 @@ class RoleRequest extends BaseRequest
                 'max:255',
             ],
             'description' => 'nullable|string|max:1000',
-            'permissions' => 'nullable|array',
-            'permissions.*' => 'exists:permissions,id',
         ];
 
-        // Add unique rule for name when creating a new role
+        // Add unique rule for name when creating a new permission
         if ($this->isMethod('post')) {
-            $rules['name'][] = Rule::unique('roles', 'name')->where('guard_name', 'api');
+            $rules['name'][] = Rule::unique('permissions', 'name')->where('guard_name', 'api');
         } 
-        // Add unique rule for name when updating a role, excluding the current role
+        // Add unique rule for name when updating a permission, excluding the current permission
         elseif ($this->isMethod('put') || $this->isMethod('patch')) {
-            $rules['id'] = 'required|exists:roles,id';
-            $rules['name'][] = Rule::unique('roles', 'name')
+            $rules['id'] = 'required|exists:permissions,id';
+            $rules['name'][] = Rule::unique('permissions', 'name')
                 ->where('guard_name', 'api')
                 ->ignore($this->id);
         }
@@ -56,10 +54,8 @@ class RoleRequest extends BaseRequest
     public function attributes(): array
     {
         return [
-            'name' => 'role name',
-            'description' => 'role description',
-            'permissions' => 'permissions',
-            'permissions.*' => 'permission',
+            'name' => 'permission name',
+            'description' => 'permission description',
         ];
     }
 }
