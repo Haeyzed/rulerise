@@ -346,15 +346,15 @@ class AuthController extends Controller implements HasMiddleware
      */
     public function verifyEmail(Request $request): JsonResponse
     {
-        $userId = $request->input('user');
+        $userEmail = $request->input('user');
         $hash = $request->input('hash');
         $userType = $request->input('user_type');
 
-        if (!$userId || !$hash) {
+        if (!$userEmail || !$hash) {
             return response()->error('Invalid verification link', 400);
         }
 
-        $query = User::query()->where('id', $userId);
+        $query = User::query()->where('email', $userEmail);
 
         if ($userType) {
             $query->where('user_type', $userType);
