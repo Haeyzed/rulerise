@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Employer;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Employer\JobRequest;
+use App\Http\Resources\JobResource;
 use App\Models\Job;
 use App\Services\JobService;
 use Exception;
@@ -81,7 +82,7 @@ class EmployerJobsController extends Controller implements HasMiddleware
         $perPage = $request->input('per_page', 10);
         $jobs = $query->paginate($perPage);
 
-        return response()->paginatedSuccess($jobs, 'Jobs retrieved successfully.');
+        return response()->paginatedSuccess(new JobResource($jobs), 'Jobs retrieved successfully.');
     }
 
     /**
@@ -99,7 +100,7 @@ class EmployerJobsController extends Controller implements HasMiddleware
         try {
             $job = $this->jobService->createJob($employer, $data);
 
-            return response()->created($job, 'Job created successfully');
+            return response()->created(new JobResource($job), 'Job created successfully');
         } catch (Exception $e) {
             return response()->badRequest($e->getMessage());
         }
