@@ -281,7 +281,7 @@ class JobService
         // Apply filters
         if (!empty($filters['keyword'])) {
             $keyword = $filters['keyword'];
-            $query->where(function ($q) use ($keyword) {
+            $query->where(function($q) use ($keyword) {
                 $q->where('title', 'like', "%{$keyword}%")
                     ->orWhere('description', 'like', "%{$keyword}%");
             });
@@ -299,6 +299,7 @@ class JobService
         // Filter by date posted
         if (!empty($filters['date_posted'])) {
             $datePosted = $filters['date_posted'];
+
             if ($datePosted === 'today') {
                 $query->whereDate('created_at', now()->toDateString());
             } elseif ($datePosted === '3days') {
@@ -336,6 +337,56 @@ class JobService
 
         return $query->with('employer')->paginate($perPage);
     }
+
+    /**
+     * Get latest jobs
+     *
+     * @param int $perPage
+     * @param bool $withEmployer Include employer information
+     * @param bool $withCategory Include category information
+     * @return Collection
+     */
+    public function getLatestJobs(int $perPage = 10, bool $withEmployer = true, bool $withCategory = true): Collection
+    {
+        $query = Job::query()->publiclyAvailable()->latest();
+
+        if ($withEmployer) {
+            $query->with('employer');
+        }
+
+        if ($withCategory) {
+            $query->with('category');
+        }
+
+        return $query->limit($perPage)->get();
+    }
+
+    /**
+     * Get featured jobs
+     *
+     * @param int $limit Maximum number of jobs to return
+     * @param bool $withEmployer Include employer information
+     * @param bool $withCategory Include category information
+     * @return Collection
+     */
+    public function getFeaturedJobs(int $limit = 10, bool $withEmployer = true, bool $withCategory = true): Collection
+    {
+        $query = Job::query()
+            ->publiclyAvailable()
+            ->featured()
+            ->latest();
+
+        if ($withEmployer) {
+            $query->with('employer');
+        }
+
+        if ($withCategory) {
+            $query->with('category');
+        }
+
+        return $query->limit($limit)->get();
+    }
+
 
     /**
      * Change job application status

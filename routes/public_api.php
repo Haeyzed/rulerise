@@ -31,6 +31,13 @@ Route::get('job/{id}', [JobsController::class, 'show']);
 Route::get('job-categories', [MetaInformationController::class, 'getJobCategory']);
 Route::get('job-categories/{id}', [MetaInformationController::class, 'getSingleCategory']);
 
+// Update the job categories routes
+Route::get('job-categories', [JobCategoriesController::class, 'index']);
+Route::get('job-categories/featured', [JobCategoriesController::class, 'featured']);
+Route::get('job-categories/popular', [JobCategoriesController::class, 'popular']);
+Route::get('job-categories/{idOrSlug}', [JobCategoriesController::class, 'show']);
+
+
 // Employers
 Route::get('employers', [EmployersController::class, 'index']);
 Route::get('employers/{id}', [EmployersController::class, 'show']);

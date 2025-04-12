@@ -77,10 +77,7 @@ class JobsController extends Controller
             auth()->check() && auth()->user()->isCandidate() ? auth()->user()->candidate->id : null
         );
 
-        return response()->success(
-            new JobResource($job),
-            'Job details retrieved successfully'
-        );
+        return response()->success(new JobResource($job), 'Job details retrieved successfully');
     }
 
     /**
@@ -94,9 +91,23 @@ class JobsController extends Controller
         $job = Job::query()->findOrFail($id);
         $similarJobs = $this->jobService->getSimilarJobs($job);
 
+        return response()->success(JobResource::collection($similarJobs), 'Similar jobs retrieved successfully');
+    }
+
+    /**
+     * Get latest jobs
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function latestJobs(Request $request): JsonResponse
+    {
+        $perPage = $request->input('per_page', config('app.pagination.per_page'));
+        $jobs = $this->jobService->getLatestJobs($perPage);
+
         return response()->success(
-            JobResource::collection($similarJobs),
-            'Similar jobs retrieved successfully'
+            JobResource::collection($jobs),
+            'Latest jobs retrieved successfully'
         );
     }
 }

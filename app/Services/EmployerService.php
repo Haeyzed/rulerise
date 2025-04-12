@@ -11,6 +11,7 @@ use App\Models\SubscriptionPlan;
 use App\Models\User;
 use Exception;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
@@ -19,6 +20,67 @@ use Illuminate\Support\Facades\Storage;
  */
 class EmployerService
 {
+    /**
+     * Get employer details with open jobs
+     *
+     * @param int $employerId
+     * @param int|null $jobsPerPage Number of jobs per page, null for all
+     * @return array
+     */
+    public function getEmployerDetails(int $employerId, ?int $jobsPerPage = null): array
+    {
+        $employer = Employer::with(['user', 'benefits'])->findOrFail($employerId);
+
+        // Get open jobs
+        $jobsQuery = $employer->jobs()
+            ->publiclyAvailable()
+            ->latest();
+
+        // Count all open jobs
+        $openJobsCount = $jobsQuery->count();
+
+        // Get paginated jobs or all jobs
+        if ($jobsPerPage) {
+            $jobs = $jobsQuery->paginate($jobsPerPage);
+        } else {
+            $jobs = $jobsQuery->get();
+        }
+
+        // Get job view statistics
+        $totalJobViews = $employer->jobViewCounts()->count();
+
+        return [
+            'employer' => $employer,
+            'jobs' => $jobs,
+            'open_jobs_count' => $openJobsCount,
+            'total_job_views' => $totalJobViews,
+        ];
+    }
+
+    /**
+     * Get featured employers
+     *
+     * @param int $limit Maximum number of employers to return
+     * @param bool $withJobCount Include count of open jobs
+     * @return Collection
+     */
+    public function getFeaturedEmployers(int $limit = 10, bool $withJobCount = true): Collection
+    {
+        $query = Employer::query()
+            ->where('is_featured', true)
+            ->where('is_verified', true);
+
+        if ($withJobCount) {
+            $query->withCount([
+                'jobs' => function ($query) {
+                    $query->publiclyAvailable();
+                }
+            ]);
+        }
+
+        return $query->limit($limit)->get();
+    }
+
     /**
      * Get employer profile
      *
