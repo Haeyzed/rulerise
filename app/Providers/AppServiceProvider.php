@@ -78,7 +78,7 @@ class AppServiceProvider extends ServiceProvider
                 'verification.verify',
                 Carbon::now()->addMinutes(config('auth.verification.expire', 60)),
                 [
-                    'email' => $notifiable->getEmailForVerification(),
+                    'user' => $notifiable->getEmailForVerification(),
                     'hash' => sha1($notifiable->getEmailForVerification()),
                     'user_type' => $userType,
                 ]
