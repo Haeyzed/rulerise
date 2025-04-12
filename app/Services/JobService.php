@@ -33,9 +33,9 @@ class JobService
         // Check if employer has an active subscription with job posts left
         $subscription = $employer->activeSubscription;
 
-        if (!$subscription || !$subscription->hasJobPostsLeft()) {
-            throw new Exception('No active subscription or job posts left');
-        }
+//        if (!$subscription || !$subscription->hasJobPostsLeft()) {
+//            throw new Exception('No active subscription or job posts left');
+//        }
 
         // Generate slug
         $data['slug'] = Str::slug($data['title']) . '-' . Str::random(8);
@@ -44,8 +44,8 @@ class JobService
         $job = $employer->jobs()->create($data);
 
         // Decrement job posts left
-        $subscription->job_posts_left -= 1;
-        $subscription->save();
+//        $subscription->job_posts_left -= 1;
+//        $subscription->save();
 
         return $job;
     }
