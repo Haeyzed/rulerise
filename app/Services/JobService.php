@@ -13,7 +13,6 @@ use App\Models\SavedJob;
 use Exception;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
@@ -282,9 +281,9 @@ class JobService
         // Apply filters
         if (!empty($filters['keyword'])) {
             $keyword = $filters['keyword'];
-            $query->where(function($q) use ($keyword) {
+            $query->where(function ($q) use ($keyword) {
                 $q->where('title', 'like', "%{$keyword}%")
-                  ->orWhere('description', 'like', "%{$keyword}%");
+                    ->orWhere('description', 'like', "%{$keyword}%");
             });
         }
 
@@ -292,12 +291,29 @@ class JobService
             $query->where('location', 'like', "%{$filters['location']}%");
         }
 
-        if (!empty($filters['job_type'])) {
-            $query->where('job_type', $filters['job_type']);
+        // Filter by province
+        if (!empty($filters['province'])) {
+            $query->where('province', $filters['province']);
         }
 
-        if (!empty($filters['category_id'])) {
-            $query->where('job_category_id', $filters['category_id']);
+        // Filter by date posted
+        if (!empty($filters['date_posted'])) {
+            $datePosted = $filters['date_posted'];
+            if ($datePosted === 'today') {
+                $query->whereDate('created_at', now()->toDateString());
+            } elseif ($datePosted === '3days') {
+                $query->where('created_at', '>=', now()->subDays(3));
+            } elseif ($datePosted === 'week') {
+                $query->where('created_at', '>=', now()->subWeek());
+            } elseif ($datePosted === 'month') {
+                $query->where('created_at', '>=', now()->subMonth());
+            }
+            // 'any' doesn't need filtering
+        }
+
+        // Filter by job industry
+        if (!empty($filters['job_industry'])) {
+            $query->where('job_industry', $filters['job_industry']);
         }
 
         if (!empty($filters['experience_level'])) {

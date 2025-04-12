@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Candidate\ApplyJobRequest;
 use App\Http\Requests\Candidate\ReportJobRequest;
 use App\Http\Requests\Candidate\SearchJobsRequest;
+use App\Http\Resources\JobResource;
+use App\Http\Resources\JobCollection;
 use App\Models\Job;
 use App\Models\Resume;
 use App\Services\JobService;
@@ -47,11 +49,13 @@ class JobsController extends Controller
     public function searchJobs(SearchJobsRequest $request): JsonResponse
     {
         $filters = $request->validated();
-        $perPage = $request->input('per_page', 10);
-
+        $perPage = $request->input('per_page', config('app.pagination.per_page'));
         $jobs = $this->jobService->searchJobs($filters, $perPage);
 
-        return response()->paginatedSuccess($jobs, 'Jobs retrieved successfully');
+        return response()->paginatedSuccess(
+            JobResource::collection($jobs),
+            'Jobs retrieved successfully'
+        );
     }
 
     /**
@@ -73,7 +77,10 @@ class JobsController extends Controller
             auth()->check() && auth()->user()->isCandidate() ? auth()->user()->candidate->id : null
         );
 
-        return response()->success($job, 'Job details retrieved successfully');
+        return response()->success(
+            new JobResource($job),
+            'Job details retrieved successfully'
+        );
     }
 
     /**
@@ -87,6 +94,9 @@ class JobsController extends Controller
         $job = Job::query()->findOrFail($id);
         $similarJobs = $this->jobService->getSimilarJobs($job);
 
-        return response()->success($similarJobs, 'Similar jobs retrieved successfully');
+        return response()->success(
+            JobResource::collection($similarJobs),
+            'Similar jobs retrieved successfully'
+        );
     }
 }
