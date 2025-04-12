@@ -53,7 +53,7 @@ class JobResource extends JsonResource
                 'id' => $this->whenLoaded('employer', $this->employer->id),
                 'company_name' => $this->whenLoaded('employer', $this->employer->company_name),
                 'logo' => $this->whenLoaded('employer', function () {
-                    return $this->employer->user->profile_photo_url ?? null;
+                    return $this->employer->company_logo ?? null;
                 }),
             ],
 
