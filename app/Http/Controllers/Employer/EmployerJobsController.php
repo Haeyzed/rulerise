@@ -119,7 +119,7 @@ class EmployerJobsController extends Controller implements HasMiddleware
 
         $job = $employer->jobs()->with(['category', 'applications.candidate.user'])->findOrFail($id);
 
-        return response()->success($job, 'Job retrieved successfully.');
+        return response()->success(new JobResource($job), 'Job retrieved successfully.');
     }
 
     /**
@@ -138,7 +138,7 @@ class EmployerJobsController extends Controller implements HasMiddleware
 
         $job = $this->jobService->updateJob($job, $data);
 
-        return response()->success($job, 'Job updated successfully');
+        return response()->success(new JobResource($job), 'Job updated successfully');
     }
 
     /**
@@ -156,7 +156,7 @@ class EmployerJobsController extends Controller implements HasMiddleware
 
         $this->jobService->deleteJob($job);
 
-        return response()->success($job, 'Job deleted successfully');
+        return response()->success(null, 'Job deleted successfully');
     }
 
     /**
@@ -179,7 +179,7 @@ class EmployerJobsController extends Controller implements HasMiddleware
 
         $status = $isActive ? 'opened' : 'closed';
 
-        return response()->success($job, "Job {$status} successfully");
+        return response()->success(new JsonResponse($job), "Job {$status} successfully");
     }
 
     /**
@@ -198,7 +198,7 @@ class EmployerJobsController extends Controller implements HasMiddleware
         try {
             $job = $this->jobService->setJobAsFeatured($job);
 
-            return response()->success($job,'Job published as featured successfully');
+            return response()->success(new JsonResponse($job),'Job published as featured successfully');
         } catch (Exception $e) {
             return response()->badRequest($e->getMessage());
         }
