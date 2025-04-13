@@ -27,7 +27,7 @@ class JobResource extends JsonResource
             'employment_type' => $this->employment_type,
             'job_industry' => $this->job_industry,
             'location' => $this->location,
-            'province' => $this->province ?? null,
+            'language' => $this->language,
             'job_level' => $this->job_level,
             'experience_level' => $this->experience_level,
             'skills_required' => $this->skills_required,
@@ -45,6 +45,7 @@ class JobResource extends JsonResource
 
             // Status flags
             'is_active' => $this->is_active,
+            'is_draft' => $this->is_draft,
             'is_featured' => $this->is_featured,
             'is_remote' => $this->is_remote ?? false,
 
