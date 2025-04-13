@@ -218,13 +218,13 @@ class AuthService
         }
 
         if (!$token = Auth::attempt($credentials, $remember)) {
-            return response()->unauthorized('Invalid email or password');
+            return null;
         }
 
         $user = Auth::user();
 
         if (!$user || !$user->is_active) {
-            return response()->badRequest('Inactive User');
+            return null;
         }
 
         return [
