@@ -204,11 +204,11 @@ class AuthService
      *
      * @param string $email
      * @param string $password
-     * @param string|bool $remember
+     * @param bool|string $remember
      * @param string|null $userType
      * @return array|null
      */
-    public function login(string $email, string $password, $remember = false, ?string $userType = null): ?array
+    public function login(string $email, string $password, bool|string $remember = false, ?string $userType = null): ?array
     {
         $credentials = ['email' => $email, 'password' => $password];
 
@@ -223,9 +223,8 @@ class AuthService
 
         $user = Auth::user();
 
-        // Check if user is active
-        if (!$user->is_active) {
-            return null;
+        if (!$user || !$user->is_active) {
+            return response()->badRequest('Inactive User');
         }
 
         return [

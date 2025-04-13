@@ -49,7 +49,7 @@ class JobCategoryService
      * @param int|null $jobsPerPage Number of jobs per page, null for all
      * @return JobCategory
      */
-    public function getCategory($idOrSlug, bool $withJobs = true, bool $withEmployers = true, ?int $jobsPerPage = null): JobCategory
+    public function getCategory(int|string $idOrSlug, bool $withJobs = true, bool $withEmployers = true, ?int $jobsPerPage = null): JobCategory
     {
         $query = JobCategory::query();
 

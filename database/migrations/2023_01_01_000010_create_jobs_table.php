@@ -29,6 +29,7 @@ return new class extends Migration
             $table->string('employment_type')->nullable();
             $table->string('job_industry')->nullable();
             $table->string('location');
+            $table->string('language')->nullable();
             $table->string('job_level')->nullable();
             $table->string('experience_level');
             $table->json('skills_required')->nullable();
@@ -47,6 +48,7 @@ return new class extends Migration
 
             // Flags
             $table->boolean('is_active')->default(true);
+            $table->boolean('is_draft')->default(false);
             $table->boolean('is_featured')->default(false);
             $table->boolean('is_approved')->default(false);
 

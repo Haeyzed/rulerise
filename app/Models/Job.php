@@ -72,6 +72,7 @@ class Job extends Model
         'employment_type',
         'job_industry',
         'location',
+        'language',
         'job_level',
         'experience_level',
         'skills_required',
@@ -89,6 +90,7 @@ class Job extends Model
 
         // Flags
         'is_active',
+        'is_draft',
         'is_featured',
         'is_approved',
     ];
@@ -102,6 +104,7 @@ class Job extends Model
         'salary' => 'float',
         'deadline' => 'date',
         'is_active' => 'boolean',
+        'is_draft' => 'boolean',
         'is_featured' => 'boolean',
         'is_approved' => 'boolean',
         'easy_apply' => 'boolean',
