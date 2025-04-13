@@ -372,7 +372,8 @@ class JobService
         return Job::query()->where('job_category_id', $job->job_category_id)
             ->where('id', '!=', $job->id)
             ->where('is_draft', false)
-            ->publiclyAvailable()
+            ->where('is_active', true)
+            ->notExpired()
             ->latest()
             ->limit($limit)
             ->get();
@@ -387,9 +388,17 @@ class JobService
      */
     public function searchJobs(array $filters, int $perPage = 10): LengthAwarePaginator
     {
+        // Instead of using publiclyAvailable which requires approval,
+        // use explicit conditions that match what we need for public search
         $query = Job::query()
             ->where('is_draft', false)
-            ->publiclyAvailable();
+            ->where('is_active', true)
+            ->notExpired();
+
+        // For public search, you might want to keep the approval requirement
+        // based on your business logic. If you want to show unapproved jobs too,
+        // just remove this line
+        // $query->where('is_approved', true);
 
         // Apply filters
         if (!empty($filters['keyword'])) {
@@ -468,7 +477,8 @@ class JobService
     {
         $query = Job::query()
             ->where('is_draft', false)
-            ->publiclyAvailable()
+            ->where('is_active', true)
+            ->notExpired()
             ->latest();
 
         if ($withEmployer) {
@@ -494,8 +504,9 @@ class JobService
     {
         $query = Job::query()
             ->where('is_draft', false)
-            ->publiclyAvailable()
-            ->featured()
+            ->where('is_active', true)
+            ->where('is_featured', true)
+            ->notExpired()
             ->latest();
 
         if ($withEmployer) {

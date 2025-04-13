@@ -7,7 +7,6 @@ use App\Http\Requests\Candidate\ApplyJobRequest;
 use App\Http\Requests\Candidate\ReportJobRequest;
 use App\Http\Requests\Candidate\SearchJobsRequest;
 use App\Http\Resources\JobResource;
-use App\Http\Resources\JobCollection;
 use App\Models\Job;
 use App\Models\Resume;
 use App\Services\JobService;
