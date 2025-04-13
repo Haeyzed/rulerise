@@ -29,7 +29,7 @@ class EmployerService
      */
     public function getEmployerDetails(int $employerId, ?int $jobsPerPage = null): array
     {
-        $employer = Employer::with(['user', 'benefits'])->findOrFail($employerId);
+        $employer = Employer::with(['user'])->findOrFail($employerId);
 
         // Get open jobs
         $jobsQuery = $employer->jobs()
