@@ -29,7 +29,7 @@ class JobRequest extends BaseRequest
             'location' => 'required|string|max:255',
             'job_level' => 'nullable|string|max:100',
             'language' => 'nullable|string|max:100',
-            'experience_level' => 'required|string|in:entry,mid,senior,executive',
+            'experience_level' => 'required|string',
             'salary' => 'nullable|numeric|min:0',
             'salary_payment_mode' => 'nullable|string|max:100',
             'email_to_apply' => 'nullable|email|max:255',
