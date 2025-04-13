@@ -217,7 +217,7 @@ class AuthService
             $credentials['user_type'] = $userType;
         }
 
-        if (!$token = Auth::attempt($credentials, $remember)) {
+        if (!$token = Auth::attempt($credentials)) {
             return null;
         }
 
