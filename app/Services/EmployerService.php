@@ -31,9 +31,12 @@ class EmployerService
     {
         $employer = Employer::with(['user'])->findOrFail($employerId);
 
-        // Get open jobs
+        // Get jobs - don't filter by approval status when showing employer's own jobs
         $jobsQuery = $employer->jobs()
-            ->publiclyAvailable()
+            ->where('is_active', true)
+            ->where('is_draft', false)
+            ->notExpired()
+            ->with(['category']) // Make sure to load the category relationship
             ->latest();
 
         // Count all open jobs
@@ -73,6 +76,7 @@ class EmployerService
         if ($withJobCount) {
             $query->withCount([
                 'jobs' => function ($query) {
+                    // For public display, we should still use publiclyAvailable
                     $query->publiclyAvailable();
                 }
             ]);
@@ -90,7 +94,11 @@ class EmployerService
     public function getProfile(User $user): array
     {
         $employer = $user->employer()->with([
-            'jobs',
+            'jobs' => function($query) {
+                // When showing to the employer themselves, show all their jobs
+                // regardless of approval status
+                $query->with('category');
+            },
             'activeSubscription.plan',
         ])->first();
 
@@ -132,7 +140,9 @@ class EmployerService
         });
 
         return $user->employer()->with([
-            'jobs',
+            'jobs' => function($query) {
+                $query->with('category');
+            },
             'activeSubscription.plan',
         ])->first();
     }

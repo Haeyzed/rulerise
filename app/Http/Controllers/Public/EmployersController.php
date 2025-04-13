@@ -78,7 +78,9 @@ class EmployersController extends Controller// implements HasMiddleware
         $perPage = $request->input('per_page', config('app.pagination.per_page'));
         $employers = Employer::query()->where('is_verified', true)
             ->withCount(['jobs' => function ($query) {
-                $query->publiclyAvailable();
+                $query->where('is_active', true)
+                    ->where('is_draft', false)
+                    ->notExpired();
             }])
             ->paginate($perPage);
 
