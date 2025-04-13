@@ -218,7 +218,7 @@ class AuthService
         }
 
         if (!$token = Auth::attempt($credentials, $remember)) {
-            return null;
+            return response()->unauthorized('Invalid email or password');
         }
 
         $user = Auth::user();

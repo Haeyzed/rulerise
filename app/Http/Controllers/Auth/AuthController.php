@@ -118,10 +118,6 @@ class AuthController extends Controller implements HasMiddleware
             $userType
         );
 
-        if (!$result) {
-            return response()->unauthorized('Invalid credentials or account is inactive');
-        }
-
         $user = $result['user'];
 
         // Check if email is verified
