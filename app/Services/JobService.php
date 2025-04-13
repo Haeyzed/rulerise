@@ -6,6 +6,7 @@ use App\Models\Candidate;
 use App\Models\Employer;
 use App\Models\Job;
 use App\Models\JobApplication;
+use App\Models\JobCategory;
 use App\Models\JobViewCount;
 use App\Models\ReportedJob;
 use App\Models\Resume;
@@ -37,8 +38,31 @@ class JobService
 //            throw new Exception('No active subscription or job posts left');
 //        }
 
+        // Validate job category exists
+        if (!empty($data['job_category_id'])) {
+            $category = JobCategory::query()->find($data['job_category_id']);
+            if (!$category) {
+                throw new Exception('Invalid job category selected');
+            }
+        }
+
         // Generate slug
         $data['slug'] = Str::slug($data['title']) . '-' . Str::random(8);
+
+        // Set default values for draft/public status
+        if (!isset($data['is_draft'])) {
+            $data['is_draft'] = false;
+        }
+
+        if (!isset($data['is_active'])) {
+            // If it's a draft, it shouldn't be active by default
+            $data['is_active'] = !$data['is_draft'];
+        }
+
+        // If it's a draft, it shouldn't be approved by default
+        if ($data['is_draft'] && !isset($data['is_approved'])) {
+            $data['is_approved'] = false;
+        }
 
         // Create job
         $job = $employer->jobs()->create($data);
@@ -47,7 +71,7 @@ class JobService
 //        $subscription->job_posts_left -= 1;
 //        $subscription->save();
 
-        return $job;
+        return $job->load('category');
     }
 
     /**
@@ -56,12 +80,39 @@ class JobService
      * @param Job $job
      * @param array $data
      * @return Job
+     * @throws Exception
      */
     public function updateJob(Job $job, array $data): Job
     {
+        // Validate job category exists if provided
+        if (!empty($data['job_category_id'])) {
+            $category = JobCategory::find($data['job_category_id']);
+            if (!$category) {
+                throw new Exception('Invalid job category selected');
+            }
+        }
+
         // Update slug if title is changed
         if (isset($data['title']) && $data['title'] !== $job->title) {
             $data['slug'] = Str::slug($data['title']) . '-' . Str::random(8);
+        }
+
+        // Handle draft/public status logic
+        if (isset($data['is_draft']) && $data['is_draft'] != $job->is_draft) {
+            // If changing from draft to published
+            if ($job->is_draft && !$data['is_draft']) {
+                // When publishing a draft, make it active by default unless specified
+                if (!isset($data['is_active'])) {
+                    $data['is_active'] = true;
+                }
+            }
+            // If changing from published to draft
+            else if (!$job->is_draft && $data['is_draft']) {
+                // When converting to draft, make it inactive by default
+                if (!isset($data['is_active'])) {
+                    $data['is_active'] = false;
+                }
+            }
         }
 
         $job->update($data);
@@ -116,7 +167,37 @@ class JobService
      */
     public function setJobStatus(Job $job, bool $isActive): Job
     {
+        // If activating a job that's a draft, prevent it
+        if ($isActive && $job->is_draft) {
+            throw new Exception('Cannot activate a job that is in draft mode');
+        }
+
         $job->is_active = $isActive;
+        $job->save();
+
+        return $job;
+    }
+
+    /**
+     * Publish a draft job
+     *
+     * @param Job $job
+     * @return Job
+     * @throws Exception
+     */
+    public function publishDraftJob(Job $job): Job
+    {
+        if (!$job->is_draft) {
+            throw new Exception('Job is already published');
+        }
+
+        // Ensure the job has a category
+        if (empty($job->job_category_id)) {
+            throw new Exception('Job must have a category before publishing');
+        }
+
+        $job->is_draft = false;
+        $job->is_active = true;
         $job->save();
 
         return $job;
@@ -134,6 +215,19 @@ class JobService
      */
     public function applyForJob(Job $job, Candidate $candidate, ?Resume $resume = null, ?string $coverLetter = null): JobApplication
     {
+        // Check if job is available for application
+        if ($job->is_draft) {
+            throw new Exception('This job is not available for applications');
+        }
+
+        if (!$job->is_active) {
+            throw new Exception('This job is not currently accepting applications');
+        }
+
+        if (!$job->is_approved) {
+            throw new Exception('This job is pending approval and not available for applications');
+        }
+
         // Check if candidate has already applied
         $existingApplication = JobApplication::query()->where('job_id', $job->id)
             ->where('candidate_id', $candidate->id)
@@ -172,6 +266,11 @@ class JobService
      */
     public function saveJob(Job $job, Candidate $candidate): SavedJob
     {
+        // Check if job is available for saving
+        if ($job->is_draft) {
+            throw new Exception('This job is not available');
+        }
+
         // Check if job is already saved
         $existingSaved = SavedJob::query()->where('job_id', $job->id)
             ->where('candidate_id', $candidate->id)
@@ -214,6 +313,11 @@ class JobService
      */
     public function reportJob(Job $job, Candidate $candidate, string $reason, ?string $description = null): ReportedJob
     {
+        // Check if job is available for reporting
+        if ($job->is_draft) {
+            throw new Exception('This job is not available');
+        }
+
         // Check if job is already reported by this candidate
         $existingReport = ReportedJob::query()->where('job_id', $job->id)
             ->where('candidate_id', $candidate->id)
@@ -240,9 +344,15 @@ class JobService
      * @param string|null $userAgent
      * @param int|null $candidateId
      * @return JobViewCount
+     * @throws Exception
      */
     public function recordJobView(Job $job, ?string $ipAddress = null, ?string $userAgent = null, ?int $candidateId = null): JobViewCount
     {
+        // Check if job is available for viewing
+        if ($job->is_draft) {
+            throw new Exception('This job is not available');
+        }
+
         return $job->viewCounts()->create([
             'ip_address' => $ipAddress,
             'user_agent' => $userAgent,
@@ -261,6 +371,7 @@ class JobService
     {
         return Job::query()->where('job_category_id', $job->job_category_id)
             ->where('id', '!=', $job->id)
+            ->where('is_draft', false)
             ->publiclyAvailable()
             ->latest()
             ->limit($limit)
@@ -276,7 +387,9 @@ class JobService
      */
     public function searchJobs(array $filters, int $perPage = 10): LengthAwarePaginator
     {
-        $query = Job::query()->publiclyAvailable();
+        $query = Job::query()
+            ->where('is_draft', false)
+            ->publiclyAvailable();
 
         // Apply filters
         if (!empty($filters['keyword'])) {
@@ -289,6 +402,11 @@ class JobService
 
         if (!empty($filters['location'])) {
             $query->where('location', 'like', "%{$filters['location']}%");
+        }
+
+        // Filter by category
+        if (!empty($filters['job_category_id'])) {
+            $query->where('job_category_id', $filters['job_category_id']);
         }
 
         // Filter by province
@@ -335,7 +453,7 @@ class JobService
 
         $query->orderBy($sortBy, $sortOrder);
 
-        return $query->with('employer')->paginate($perPage);
+        return $query->with(['employer', 'category'])->paginate($perPage);
     }
 
     /**
@@ -348,7 +466,10 @@ class JobService
      */
     public function getLatestJobs(int $perPage = 10, bool $withEmployer = true, bool $withCategory = true): Collection
     {
-        $query = Job::query()->publiclyAvailable()->latest();
+        $query = Job::query()
+            ->where('is_draft', false)
+            ->publiclyAvailable()
+            ->latest();
 
         if ($withEmployer) {
             $query->with('employer');
@@ -372,6 +493,7 @@ class JobService
     public function getFeaturedJobs(int $limit = 10, bool $withEmployer = true, bool $withCategory = true): Collection
     {
         $query = Job::query()
+            ->where('is_draft', false)
             ->publiclyAvailable()
             ->featured()
             ->latest();
@@ -386,7 +508,6 @@ class JobService
 
         return $query->limit($limit)->get();
     }
-
 
     /**
      * Change job application status

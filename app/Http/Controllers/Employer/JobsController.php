@@ -16,7 +16,7 @@ use Illuminate\Routing\Controllers\Middleware;
 /**
  * Controller for employer job management
  */
-class EmployerJobsController extends Controller implements HasMiddleware
+class JobsController extends Controller implements HasMiddleware
 {
     /**
      * Job service instance

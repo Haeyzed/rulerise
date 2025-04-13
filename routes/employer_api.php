@@ -5,7 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Employer\DashboardsController;
 use App\Http\Controllers\Employer\MetaInformationController;
-use App\Http\Controllers\Employer\EmployerJobsController;
+use App\Http\Controllers\Employer\JobsController;
 use App\Http\Controllers\Employer\JobApplicantController;
 use App\Http\Controllers\Employer\CandidateJobPoolsController;
 use App\Http\Controllers\Employer\EmployersController;
@@ -46,15 +46,15 @@ Route::middleware(['auth:api', 'role:employer'])->group(function () {
 
     // Jobs
     Route::prefix('job')->group(function () {
-        Route::get('/', [EmployerJobsController::class, 'index']);
-        Route::post('/', [EmployerJobsController::class, 'store']);
-        Route::get('{id}', [EmployerJobsController::class, 'show']);
-        Route::post('update', [EmployerJobsController::class, 'update']);
-        Route::post('{id}/delete', [EmployerJobsController::class, 'delete']);
+        Route::get('/', [JobsController::class, 'index']);
+        Route::post('/', [JobsController::class, 'store']);
+        Route::get('{id}', [JobsController::class, 'show']);
+        Route::post('update', [JobsController::class, 'update']);
+        Route::post('{id}/delete', [JobsController::class, 'delete']);
         Route::get('{id}/filterApplicantsByJob', [JobApplicantController::class, 'filterApplicantsByJob']);
         Route::post('applicants/update-hiring-stage', [JobApplicantController::class, 'changeHiringStage']);
-        Route::post('{id}/setOpenClose', [EmployerJobsController::class, 'setOpenClose']);
-        Route::post('{id}/publishJob', [EmployerJobsController::class, 'publishJob']);
+        Route::post('{id}/setOpenClose', [JobsController::class, 'setOpenClose']);
+        Route::post('{id}/publishJob', [JobsController::class, 'publishJob']);
         Route::get('{id}/view-application', [JobApplicantController::class, 'viewApplication']);
     });
 
