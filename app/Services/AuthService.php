@@ -135,6 +135,9 @@ class AuthService
                     'company_address' => $data['company_address'] ?? null,
                     'company_phone_number' => $data['company_phone_number'] ?? null,
                     'company_website' => $data['company_website'] ?? null,
+                    'company_linkedin_url' => $data['company_linkedin_url'] ?? null,
+                    'company_twitter_url' => $data['company_twitter_url'] ?? null,
+                    'company_facebook_url' => $data['company_facebook_url'] ?? null,
                 ];
 
                 if (isset($data['company_logo_path'])) {
