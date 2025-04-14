@@ -21,6 +21,7 @@ class ResumeResource extends JsonResource
             'is_primary' => $this->is_primary,
             'created_at' => $this->created_at->format('Y-m-d H:i:s'),
             'updated_at' => $this->updated_at->format('Y-m-d H:i:s'),
+
             // Related resources
             'candidate' => new CandidateResource($this->whenLoaded('candidate')),
             'job_applications' => JobApplicationResource::collection($this->whenLoaded('jobApplications')),
