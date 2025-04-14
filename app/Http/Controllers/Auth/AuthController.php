@@ -139,7 +139,7 @@ class AuthController extends Controller implements HasMiddleware
         if ($user->isCandidate()) {
             $user->load(['candidate']);
         } elseif ($user->isEmployer()) {
-            $user->load(['employer']);
+            $user->load(['employer', 'employer.notificationTemplates']);
         } elseif ($user->isAdmin()) {
             // No specific relationships to load for admin
         }
