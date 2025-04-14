@@ -9,6 +9,7 @@ use App\Models\JobNotificationTemplate;
 use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
+use App\Services\Storage\StorageService;
 use Exception;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
@@ -20,6 +21,20 @@ use Illuminate\Support\Facades\Storage;
  */
 class EmployerService
 {
+    /**
+     * @var StorageService
+     */
+    protected StorageService $storageService;
+
+    /**
+     * BlogPostService constructor.
+     *
+     * @param StorageService $storageService
+     */
+    public function __construct(StorageService $storageService)
+    {
+        $this->storageService = $storageService;
+    }
     /**
      * Get employer details with open jobs
      *
@@ -154,19 +169,27 @@ class EmployerService
      * @param UploadedFile $file
      * @return Employer
      */
-    public function uploadLogo(Employer $employer, UploadedFile $file): Employer
+    public function uploadLogo(Employer $employer, array $data): Employer
     {
-        // Delete old logo if exists
-        if ($employer->company_logo) {
-            Storage::disk('public')->delete($employer->company_logo);
-        }
+        return DB::transaction(function () use ($employer, $data) {
+            // Handle company logo
+            if (isset($data['company_logo']) && $data['company_logo'] instanceof UploadedFile) {
+                // Delete old image if exists
+                if ($employer->company_logo) {
+                    $this->storageService->delete($employer->company_logo);
+                }
 
-        // Store new logo
-        $path = $file->store('company-logos', 'public');
-        $employer->company_logo = $path;
-        $employer->save();
+                $data['company_logo'] = $this->uploadImage(
+                    $data['company_logo'],
+                    config('filestorage.paths.company_logos')
+                );
+            }
 
-        return $employer;
+            // Update blog post
+            $employer->update($data);
+
+            return $employer;
+        });
     }
 
     /**
@@ -300,5 +323,18 @@ class EmployerService
 
         $subscription->cv_downloads_left -= 1;
         return $subscription->save();
+    }
+
+    /**
+     * Upload an image to storage.
+     *
+     * @param UploadedFile $image The image file to upload.
+     * @param string $path The storage path.
+     * @param array $options Additional options for the upload.
+     * @return string The path to the uploaded image.
+     */
+    private function uploadImage(UploadedFile $image, string $path, array $options = []): string
+    {
+        return $this->storageService->upload($image, $path, $options);
     }
 }

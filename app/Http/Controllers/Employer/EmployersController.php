@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Employer;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Employer\UpdateProfileRequest;
 use App\Http\Requests\Employer\UploadLogoRequest;
+use App\Http\Resources\EmployerResource;
 use App\Services\EmployerService;
+use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
@@ -64,12 +66,14 @@ class EmployersController extends Controller implements HasMiddleware
      */
     public function updateProfile(UpdateProfileRequest $request): JsonResponse
     {
-        $user = auth()->user();
-        $data = $request->validated();
-
-        $employer = $this->employerService->updateProfile($user, $data);
-
-        return response()->success($employer, 'Profile updated successfully');
+        try {
+            $user = auth()->user();
+            $data = $request->validated();
+            $employer = $this->employerService->updateProfile($user, $data);
+            return response()->success($employer, 'Profile updated successfully');
+        } catch (Exception $e) {
+            return response()->serverError('Failed to update profile: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -80,15 +84,14 @@ class EmployersController extends Controller implements HasMiddleware
      */
     public function uploadLogo(UploadLogoRequest $request): JsonResponse
     {
-        $user = auth()->user();
-        $employer = $user->employer;
-
-        $updatedEmployer = $this->employerService->uploadLogo(
-            $employer,
-            $request->file('file')
-        );
-
-        return response()->success(['company_logo' => $updatedEmployer->company_logo,], 'Logo uploaded successfully');
+        try {
+            $user = auth()->user();
+            $employer = $user->employer;
+            $updatedEmployer = $this->employerService->uploadLogo($employer, $request->validated());
+            return response()->success(new EmployerResource($updatedEmployer), 'Logo uploaded successfully');
+        } catch (Exception $e) {
+            return response()->serverError('Failed to update company logo: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -98,11 +101,12 @@ class EmployersController extends Controller implements HasMiddleware
      */
     public function deleteAccount(): JsonResponse
     {
-        $user = auth()->user();
-
-        // Soft delete the user
-        $user->delete();
-
-        return response()->success(null, 'Account deleted successfully');
+        try {
+            $user = auth()->user();
+            $user->delete();
+            return response()->success(null, 'Account deleted successfully');
+        } catch (Exception $e) {
+            return response()->serverError('Failed to delete account: ' . $e->getMessage());
+        }
     }
 }
