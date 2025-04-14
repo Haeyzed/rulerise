@@ -140,7 +140,7 @@ class JobsController extends Controller implements HasMiddleware
             $job = $this->jobService->updateJob($job, $data);
             return response()->success(new JobResource($job), 'Job updated successfully');
         } catch (ModelNotFoundException|NotFoundHttpException $e) {
-            return response()->notFound($e->getMessage());
+            return response()->notFound('Job not found');
         } catch (Exception $exception) {
             return response()->serverError($exception->getMessage());
         }
@@ -154,14 +154,17 @@ class JobsController extends Controller implements HasMiddleware
      */
     public function delete(int $id): JsonResponse
     {
-        $user = auth()->user();
-        $employer = $user->employer;
-
-        $job = $employer->jobs()->findOrFail($id);
-
-        $this->jobService->deleteJob($job);
-
+        try {
+            $user = auth()->user();
+            $employer = $user->employer;
+            $job = $employer->jobs()->findOrFail($id);
+            $this->jobService->deleteJob($job);
         return response()->success(null, 'Job deleted successfully');
+        } catch (ModelNotFoundException|NotFoundHttpException $e) {
+            return response()->notFound('Job not found');
+        } catch (Exception $exception) {
+            return response()->serverError($exception->getMessage());
+        }
     }
 
     /**
