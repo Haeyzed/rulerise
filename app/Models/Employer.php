@@ -30,6 +30,9 @@ use Illuminate\Support\Carbon;
  * @property string|null $company_phone_number
  * @property string|null $company_website
  * @property array|null $company_benefits
+ * @property string|null $company_linkedin_url
+ * @property string|null $company_twitter_url
+ * @property string|null $company_facebook_url
  * @property bool $is_verified
  * @property bool $is_featured
  * @property Carbon|null $created_at
