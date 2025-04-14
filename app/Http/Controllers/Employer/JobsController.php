@@ -64,9 +64,9 @@ class JobsController extends Controller implements HasMiddleware
         // Apply filters
         if ($request->has('status')) {
             $status = $request->input('status');
-            if ($status === 'active') {
+            if ($status === 'open') {
                 $query->where('is_active', true);
-            } elseif ($status === 'inactive') {
+            } elseif ($status === 'close') {
                 $query->where('is_active', false);
             }
         }
