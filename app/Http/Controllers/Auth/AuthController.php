@@ -166,7 +166,7 @@ class AuthController extends Controller implements HasMiddleware
         if ($user->isCandidate()) {
             $user->load(['candidate']);
         } elseif ($user->isEmployer()) {
-            $user->load(['employer']);
+            $user->load(['employer', 'employer.notificationTemplates']);
         }
 
         return response()->success(new UserResource($user), 'User profile retrieved successfully');
