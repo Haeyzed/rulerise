@@ -61,6 +61,9 @@ class Employer extends Model
         'company_phone_number',
         'company_website',
         'company_benefits',
+        'company_linkedin_url',
+        'company_twitter_url',
+        'company_facebook_url',
         'is_verified',
         'is_featured',
     ];

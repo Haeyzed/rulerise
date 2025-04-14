@@ -29,6 +29,9 @@ return new class extends Migration
             $table->string('company_phone_number')->nullable();
             $table->string('company_website')->nullable();
             $table->json('company_benefits')->nullable();
+            $table->string('company_linkedin_url')->nullable();
+            $table->string('company_twitter_url')->nullable();
+            $table->string('company_facebook_url')->nullable();
             $table->boolean('is_verified')->default(false);
             $table->boolean('is_featured')->default(false);
             $table->timestamps();
