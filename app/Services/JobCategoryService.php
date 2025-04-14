@@ -26,10 +26,16 @@ class JobCategoryService
             ->orderBy('name');
 
         if ($withJobCount) {
+            // Count publicly available jobs (active, not draft, not expired)
             $query->withCount([
                 'jobs' => function ($query) {
                     $query->publiclyAvailable();
                 }
+            ]);
+
+            // Count all jobs regardless of status
+            $query->withCount([
+                'jobs as total_jobs_count'
             ]);
         }
 
@@ -83,6 +89,11 @@ class JobCategoryService
             }
         ]);
 
+        // Get total job count regardless of status
+        $query->withCount([
+            'jobs as total_jobs_count'
+        ]);
+
         return $query->firstOrFail();
     }
 
@@ -109,6 +120,11 @@ class JobCategoryService
                         $query->publiclyAvailable();
                     }
                 ]);
+
+                // Count all jobs regardless of status
+                $query->withCount([
+                    'jobs as total_jobs_count'
+                ]);
             }
 
             return $query->get();
@@ -132,6 +148,9 @@ class JobCategoryService
                     'jobs' => function ($query) {
                         $query->publiclyAvailable();
                     }
+                ])
+                ->withCount([
+                    'jobs as total_jobs_count'
                 ])
                 ->orderByDesc('jobs_count')
                 ->limit($limit)

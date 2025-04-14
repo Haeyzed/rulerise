@@ -39,6 +39,15 @@ class EmployerResource extends JsonResource
             'company_benefits' => $this->company_benefits,
 //            'benefits' => CompanyBenefitResource::collection($this->whenLoaded('benefits')),
             'notification_templates' => JobNotificationTemplateResource::collection($this->whenLoaded('notificationTemplates')),
+
+            // Job counts
+            'jobs_count' => $this->when(isset($this->jobs_count), $this->jobs_count),
+            'total_jobs_count' => $this->when(isset($this->total_jobs_count), $this->total_jobs_count),
+            'active_jobs_count' => $this->when(isset($this->active_jobs_count), $this->active_jobs_count),
+            'draft_jobs_count' => $this->when(isset($this->draft_jobs_count), $this->draft_jobs_count),
+
+            // Related data
+            'user' => new UserResource($this->whenLoaded('user')),
         ];
     }
 }
