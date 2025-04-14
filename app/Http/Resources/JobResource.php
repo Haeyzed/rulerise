@@ -39,7 +39,8 @@ class JobResource extends JsonResource
             'years_of_experience' => $this->years_of_experience,
 
             // Application details
-            'email_to_apply' => $this->when($request->user() && $request->user()->isCandidate(), $this->email_to_apply),
+//            'email_to_apply' => $this->when($request->user() && $request->user()->isCandidate(), $this->email_to_apply),
+            'email_to_apply' => $this->email_to_apply,
             'easy_apply' => $this->easy_apply,
             'email_apply' => $this->email_apply,
             'vacancies' => $this->vacancies,
