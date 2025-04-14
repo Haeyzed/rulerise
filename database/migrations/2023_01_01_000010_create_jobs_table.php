@@ -29,6 +29,7 @@ return new class extends Migration
             $table->string('employment_type')->nullable();
             $table->string('job_industry')->nullable();
             $table->string('location');
+            $table->string('state');
             $table->string('language')->nullable();
             $table->string('job_level')->nullable();
             $table->string('experience_level');
@@ -45,6 +46,7 @@ return new class extends Migration
             $table->boolean('email_apply')->default(false);
             $table->integer('vacancies')->default(1);
             $table->date('deadline')->nullable();
+            $table->string('years_of_experience')->nullable();
 
             // Flags
             $table->boolean('is_active')->default(true);

@@ -72,6 +72,7 @@ class Job extends Model
         'employment_type',
         'job_industry',
         'location',
+        'state',
         'language',
         'job_level',
         'experience_level',
@@ -87,6 +88,7 @@ class Job extends Model
         'email_apply',
         'vacancies',
         'deadline',
+        'years_of_experience',
 
         // Flags
         'is_active',

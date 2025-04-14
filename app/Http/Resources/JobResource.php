@@ -27,6 +27,7 @@ class JobResource extends JsonResource
             'employment_type' => $this->employment_type,
             'job_industry' => $this->job_industry,
             'location' => $this->location,
+            'state' => $this->state,
             'language' => $this->language,
             'job_level' => $this->job_level,
             'experience_level' => $this->experience_level,
@@ -35,6 +36,7 @@ class JobResource extends JsonResource
             // Salary information
             'salary' => $this->salary,
             'salary_payment_mode' => $this->salary_payment_mode,
+            'years_of_experience' => $this->years_of_experience,
 
             // Application details
             'email_to_apply' => $this->when($request->user() && $request->user()->isCandidate(), $this->email_to_apply),

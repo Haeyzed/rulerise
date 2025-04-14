@@ -10,10 +10,12 @@ use App\Models\Job;
 use App\Models\Resume;
 use App\Services\JobService;
 use Exception;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
  * Controller for job-related operations for candidates
@@ -57,12 +59,16 @@ class JobsController extends Controller implements HasMiddleware
      */
     public function index(SearchJobsRequest $request): JsonResponse
     {
-        $filters = $request->validated();
-        $perPage = $request->input('per_page', 10);
-
-        $jobs = $this->jobService->searchJobs($filters, $perPage);
-
-        return response()->paginatedSuccess($jobs, 'Jobs retrieved successfully');
+        try {
+            $filters = $request->validated();
+            $perPage = $request->input('per_page', config('app.pagination.per_page'));
+            $jobs = $this->jobService->searchJobs($filters, $perPage);
+            return response()->paginatedSuccess($jobs, 'Jobs retrieved successfully');
+        } catch (NotFoundHttpException|ModelNotFoundException $exception) {
+            return response()->notFound('Jobs not found.');
+        } catch (Exception $exception) {
+            return response()->serverError('failed to retrieve jobs.', $exception->getMessage());
+        }
     }
 
     /**
@@ -74,17 +80,20 @@ class JobsController extends Controller implements HasMiddleware
      */
     public function show(int $id, Request $request): JsonResponse
     {
-        $job = Job::with(['employer.user', 'category'])->findOrFail($id);
-
-        // Record job view
-        $this->jobService->recordJobView(
-            $job,
-            $request->ip(),
-            $request->userAgent(),
-            auth()->check() && auth()->user()->isCandidate() ? auth()->user()->candidate->id : null
-        );
-
-        return response()->success($job, 'Job details retrieved successfully');
+        try {
+            $job = Job::with(['employer.user', 'category'])->findOrFail($id);
+            $this->jobService->recordJobView(
+                $job,
+                $request->ip(),
+                $request->userAgent(),
+                auth()->check() && auth()->user()->isCandidate() ? auth()->user()->candidate->id : null
+            );
+            return response()->success($job, 'Job details retrieved successfully');
+        } catch (NotFoundHttpException|ModelNotFoundException $exception) {
+            return response()->notFound('Jobs not found.');
+        } catch (Exception $exception) {
+            return response()->serverError('failed to retrieve jobs.', $exception->getMessage());
+        }
     }
 
     /**

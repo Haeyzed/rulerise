@@ -388,8 +388,6 @@ class JobService
      */
     public function searchJobs(array $filters, int $perPage = 10): LengthAwarePaginator
     {
-        // Instead of using publiclyAvailable which requires approval,
-        // use explicit conditions that match what we need for public search
         $query = Job::query()
             ->where('is_draft', false)
             ->where('is_active', true)
