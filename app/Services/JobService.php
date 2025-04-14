@@ -86,7 +86,7 @@ class JobService
     {
         // Validate job category exists if provided
         if (!empty($data['job_category_id'])) {
-            $category = JobCategory::find($data['job_category_id']);
+            $category = JobCategory::query()->find($data['job_category_id']);
             if (!$category) {
                 throw new Exception('Invalid job category selected');
             }
@@ -117,7 +117,7 @@ class JobService
 
         $job->update($data);
 
-        return $job;
+        return $job->load('category');
     }
 
     /**

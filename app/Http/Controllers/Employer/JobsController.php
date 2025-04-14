@@ -8,10 +8,12 @@ use App\Http\Resources\JobResource;
 use App\Models\Job;
 use App\Services\JobService;
 use Exception;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
  * Controller for employer job management
@@ -128,17 +130,20 @@ class JobsController extends Controller implements HasMiddleware
      * @param JobRequest $request
      * @return JsonResponse
      */
-    public function update(JobRequest $request): JsonResponse
+    public function update(int $id, JobRequest $request): JsonResponse
     {
-        $user = auth()->user();
-        $employer = $user->employer;
-        $data = $request->validated();
-
-        $job = $employer->jobs()->findOrFail($data['id']);
-
-        $job = $this->jobService->updateJob($job, $data);
-
-        return response()->success(new JobResource($job), 'Job updated successfully');
+        try {
+            $user = auth()->user();
+            $employer = $user->employer;
+            $data = $request->validated();
+            $job = $employer->jobs()->findOrFail($id);
+            $job = $this->jobService->updateJob($job, $data);
+            return response()->success(new JobResource($job), 'Job updated successfully');
+        } catch (ModelNotFoundException|NotFoundHttpException $e) {
+            return response()->notFound($e->getMessage());
+        } catch (Exception $exception) {
+            return response()->serverError($exception->getMessage());
+        }
     }
 
     /**

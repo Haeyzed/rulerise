@@ -49,7 +49,7 @@ Route::middleware(['auth:api', 'role:employer'])->group(function () {
         Route::get('/', [JobsController::class, 'index']);
         Route::post('/', [JobsController::class, 'store']);
         Route::get('{id}', [JobsController::class, 'show']);
-        Route::post('update', [JobsController::class, 'update']);
+        Route::put('{id}/update', [JobsController::class, 'update']);
         Route::post('{id}/delete', [JobsController::class, 'delete']);
         Route::get('{id}/filterApplicantsByJob', [JobApplicantController::class, 'filterApplicantsByJob']);
         Route::post('applicants/update-hiring-stage', [JobApplicantController::class, 'changeHiringStage']);
