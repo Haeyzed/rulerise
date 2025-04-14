@@ -85,10 +85,11 @@ class JobsController extends Controller
      * @param int $id
      * @return JsonResponse
      */
-    public function similarJobs(int $id): JsonResponse
+    public function similarJobs(int $id, Request $request): JsonResponse
     {
+        $perPage = $request->input('per_page', config('app.pagination.per_page'));
         $job = Job::query()->findOrFail($id);
-        $similarJobs = $this->jobService->getSimilarJobs($job);
+        $similarJobs = $this->jobService->getSimilarJobs($job, $perPage);
 
         return response()->success(JobResource::collection($similarJobs), 'Similar jobs retrieved successfully');
     }

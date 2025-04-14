@@ -367,7 +367,7 @@ class JobService
      * @param int $limit
      * @return Collection
      */
-    public function getSimilarJobs(Job $job, int $limit = 5): Collection
+    public function getSimilarJobs(Job $job, int $perPage = 5): Collection
     {
         return Job::query()->where('job_category_id', $job->job_category_id)
             ->where('id', '!=', $job->id)
@@ -375,7 +375,7 @@ class JobService
             ->where('is_active', true)
             ->notExpired()
             ->latest()
-            ->limit($limit)
+            ->limit($perPage)
             ->get();
     }
 
