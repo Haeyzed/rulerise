@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Public\CandidatesController;
+use App\Http\Controllers\Public\FaqController;
 use App\Http\Controllers\Public\JobCategoriesController;
 use App\Http\Controllers\Public\JobsController;
 use Illuminate\Support\Facades\Route;
@@ -45,3 +46,11 @@ Route::get('employers/{id}', [EmployersController::class, 'show']);
 
 // Candidates
 Route::get('candidate-profile/{id}', [CandidatesController::class, 'show']);
+
+
+Route::prefix('faqs')->group(function () {
+    Route::get('/', [FaqController::class, 'getAllFaqs']);
+    Route::get('/categories', [FaqController::class, 'getAllCategories']);
+    Route::get('/categories/{slugOrId}', [FaqController::class, 'getCategory']);
+    Route::get('/search', [FaqController::class, 'search']);
+});

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\FaqController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Admin\DashboardController;
@@ -107,4 +108,22 @@ Route::middleware(['auth:api', 'role:admin'])->group(function () {
 
     // User management - Permissions
     Route::get('user-management/permissions', [PermissionController::class, 'index']);
+
+    Route::prefix('admin/faqs')->group(function () {
+        // FAQ Categories
+        Route::get('/categories', [FaqController::class, 'getAllCategories']);
+        Route::get('/categories/{id}', [FaqController::class, 'getCategory']);
+        Route::post('/categories', [FaqController::class, 'createCategory']);
+        Route::put('/categories/{id}', [FaqController::class, 'updateCategory']);
+        Route::delete('/categories/{id}', [FaqController::class, 'deleteCategory']);
+        Route::post('/categories/reorder', [FaqController::class, 'reorderCategories']);
+
+        // FAQs
+        Route::get('/', [FaqController::class, 'getAllFaqs']);
+        Route::get('/{id}', [FaqController::class, 'getFaq']);
+        Route::post('/', [FaqController::class, 'createFaq']);
+        Route::put('/{id}', [FaqController::class, 'updateFaq']);
+        Route::delete('/{id}', [FaqController::class, 'deleteFaq']);
+        Route::post('/reorder', [FaqController::class, 'reorderFaqs']);
+    });
 });
