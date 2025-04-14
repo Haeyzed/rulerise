@@ -24,7 +24,7 @@ return new class extends Migration
             $table->text('admin_notes')->nullable();
             $table->timestamps();
 
-            $table->unique(['job_listing_id', 'candidate_id']);
+            $table->unique(['job_id', 'candidate_id']);
         });
     }
 
