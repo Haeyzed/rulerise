@@ -18,6 +18,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('candidate_id')->constrained()->onDelete('cascade');
             $table->foreignIdFor(Job::class)->constrained()->onDelete('cascade');
+            $table->boolean('is_saved')->default(false);
             $table->timestamps();
 
             $table->unique(['candidate_id', 'job_id']);

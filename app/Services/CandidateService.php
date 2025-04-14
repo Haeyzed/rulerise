@@ -11,6 +11,7 @@ use App\Models\Qualification;
 use App\Models\Resume;
 use App\Models\User;
 use App\Models\WorkExperience;
+use App\Services\Storage\StorageService;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -20,6 +21,20 @@ use Illuminate\Support\Facades\Storage;
  */
 class CandidateService
 {
+    /**
+     * @var StorageService
+     */
+    protected StorageService $storageService;
+
+    /**
+     * BlogPostService constructor.
+     *
+     * @param StorageService $storageService
+     */
+    public function __construct(StorageService $storageService)
+    {
+        $this->storageService = $storageService;
+    }
     /**
      * Get candidate profile
      *
@@ -274,39 +289,46 @@ class CandidateService
      * @param bool $isPrimary
      * @return Resume
      */
-    public function uploadResume(Candidate $candidate, UploadedFile $file, string $title, bool $isPrimary = false): Resume
+    public function uploadResume(Candidate $candidate, array $data): Resume
     {
-        // Store the file
-        $path = $file->store('resumes', 'public');
+        return DB::transaction(function () use ($candidate, $data) {
+            // Handle banner cv
+            if (isset($data['document']) && $data['document'] instanceof UploadedFile) {
+                $data['document'] = $this->uploadCV(
+                    $data['document'],
+                    config('filestorage.paths.resumes')
+                );
+            }
 
-        // If this is set as primary, unset other primary resumes
-        if ($isPrimary) {
-            $candidate->resumes()->update(['is_primary' => false]);
-        }
+            // If this is set as primary, unset other primary resumes
+            if ($data['is_primary']) {
+                $candidate->resumes()->update(['is_primary' => false]);
+            }
 
-        // Create resume record
-        return $candidate->resumes()->create([
-            'title' => $title,
-            'file_path' => $path,
-            'file_name' => $file->getClientOriginalName(),
-            'file_type' => $file->getClientMimeType(),
-            'file_size' => $file->getSize(),
-            'is_primary' => $isPrimary,
-        ]);
+            // Create resume record
+            return $candidate->resumes()->create([
+                'document' => $data['document'],
+                'is_primary' => $data['is_primary'],
+            ]);
+        });
     }
 
     /**
      * Delete resume
      *
      * @param Resume $resume
-     * @return bool
+     * @return bool|null
      */
-    public function deleteResume(Resume $resume): bool
+    public function deleteResume(Resume $resume): ?bool
     {
-        // Delete the file
-        Storage::disk('public')->delete($resume->file_path);
+        return DB::transaction(function () use ($resume) {
+            // Delete resume document
+            if ($resume->document) {
+                $this->storageService->delete($resume->document);
+            }
 
-        return $resume->delete();
+            return $resume->delete();
+        });
     }
 
     /**
@@ -325,5 +347,18 @@ class CandidateService
             'user_agent' => $userAgent,
             'employer_id' => $employerId,
         ]);
+    }
+
+    /**
+     * Upload an image to storage.
+     *
+     * @param UploadedFile $image The image file to upload.
+     * @param string $path The storage path.
+     * @param array $options Additional options for the upload.
+     * @return string The path to the uploaded image.
+     */
+    private function uploadCv(UploadedFile $image, string $path, array $options = []): string
+    {
+        return $this->storageService->upload($image, $path, $options);
     }
 }

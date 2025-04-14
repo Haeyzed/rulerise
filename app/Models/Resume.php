@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\Storage\StorageService;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -14,11 +15,7 @@ use Illuminate\Support\Carbon;
  *
  * @property int $id
  * @property int $candidate_id
- * @property string $title
- * @property string $file_path
- * @property string $file_name
- * @property string $file_type
- * @property int $file_size
+ * @property string $document
  * @property bool $is_primary
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
@@ -37,11 +34,7 @@ class Resume extends Model
      */
     protected $fillable = [
         'candidate_id',
-        'title',
-        'file_path',
-        'file_name',
-        'file_type',
-        'file_size',
+        'document',
         'is_primary',
     ];
 
@@ -51,7 +44,6 @@ class Resume extends Model
      * @var array<string, string>
      */
     protected $casts = [
-        'file_size' => 'integer',
         'is_primary' => 'boolean',
     ];
 
@@ -69,5 +61,19 @@ class Resume extends Model
     public function jobApplications(): HasMany
     {
         return $this->hasMany(JobApplication::class);
+    }
+
+    /**
+     * Get the URL of the client's logo.
+     *
+     * @return string|null
+     */
+    public function getDocumentUrlAttribute():  ?string
+    {
+        if (!$this->document) {
+            return null;
+        }
+
+        return app(StorageService::class)->url($this->document);
     }
 }

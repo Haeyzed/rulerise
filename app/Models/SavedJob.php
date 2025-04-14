@@ -13,6 +13,7 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property int $candidate_id
  * @property int $job_id
+ * @property boolean $is_saved
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  *
@@ -31,6 +32,16 @@ class SavedJob extends Model
     protected $fillable = [
         'candidate_id',
         'job_id',
+        'is_saved'
+    ];
+
+    /**
+     * The attributes that should be cast.
+     *
+     * @var array<string, string>
+     */
+    protected $casts = [
+        'is_saved' => 'boolean',
     ];
 
     /**

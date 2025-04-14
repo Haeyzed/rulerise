@@ -271,19 +271,25 @@ class JobService
             throw new Exception('This job is not available');
         }
 
-        // Check if job is already saved
-        $existingSaved = SavedJob::query()->where('job_id', $job->id)
+        // Check if the job is already saved
+        $existingSaved = SavedJob::query()
+            ->where('job_id', $job->id)
             ->where('candidate_id', $candidate->id)
             ->first();
 
         if ($existingSaved) {
-            throw new Exception('Job already saved');
+            // Toggle the `is_saved` value
+            $existingSaved->is_saved = !$existingSaved->is_saved;
+            $existingSaved->save();
+
+            return $existingSaved;
         }
 
-        // Save job
+        // Create a new saved record if it doesn't exist
         return SavedJob::query()->create([
             'job_id' => $job->id,
             'candidate_id' => $candidate->id,
+            'is_saved' => true,
         ]);
     }
 

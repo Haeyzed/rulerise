@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Candidate\ApplyJobRequest;
 use App\Http\Requests\Candidate\ReportJobRequest;
 use App\Http\Requests\Candidate\SearchJobsRequest;
+use App\Http\Resources\JobApplicationResource;
+use App\Http\Resources\SavedJobResource;
 use App\Models\Job;
 use App\Models\Resume;
 use App\Services\JobService;
@@ -110,7 +112,7 @@ class JobsController extends Controller implements HasMiddleware
         try {
             $savedJob = $this->jobService->saveJob($job, $user->candidate);
 
-            return response()->created($savedJob, 'Job saved successfully');
+            return response()->created(new SavedJobResource($savedJob), 'Job saved successfully');
         } catch (Exception $e) {
             return response()->badRequest($e->getMessage());
         }
@@ -148,7 +150,7 @@ class JobsController extends Controller implements HasMiddleware
                 $data['cover_letter'] ?? null
             );
 
-            return response()->success($application, 'Job application submitted successfully');
+            return response()->success(new JobApplicationResource($application), 'Job application submitted successfully');
         } catch (Exception $e) {
             return response()->badRequest($e->getMessage());
         }

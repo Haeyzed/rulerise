@@ -17,11 +17,7 @@ return new class extends Migration
         Schema::create('resumes', function (Blueprint $table) {
             $table->id();
             $table->foreignId('candidate_id')->constrained()->onDelete('cascade');
-            $table->string('title');
-            $table->string('file_path');
-            $table->string('file_name');
-            $table->string('file_type');
-            $table->integer('file_size');
+            $table->string('document');
             $table->boolean('is_primary')->default(false);
             $table->timestamps();
         });

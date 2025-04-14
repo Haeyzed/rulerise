@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Candidate;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Candidate\UploadCvRequest;
+use App\Http\Resources\ResumeResource;
 use App\Models\Resume;
 use App\Services\CandidateService;
 use Illuminate\Http\JsonResponse;
@@ -53,16 +54,9 @@ class CVsController extends Controller implements HasMiddleware
     {
         $user = auth()->user();
         $candidate = $user->candidate;
-        $data = $request->validated();
+        $resume = $this->candidateService->uploadResume($candidate, $request->validated());
 
-        $resume = $this->candidateService->uploadResume(
-            $candidate,
-            $request->file('file'),
-            $data['title'],
-            $data['is_primary'] ?? false
-        );
-
-        return response()->created($resume, 'CV uploaded successfully');
+        return response()->created(new ResumeResource($resume), 'CV uploaded successfully');
     }
 
     /**
@@ -75,7 +69,7 @@ class CVsController extends Controller implements HasMiddleware
         $user = auth()->user();
         $resumes = $user->candidate->resumes;
 
-        return response()->success($resumes, 'CV detail retrieved successfully');
+        return response()->success(ResumeResource::collection($resumes), 'CV detail retrieved successfully');
     }
 
     /**
@@ -96,6 +90,6 @@ class CVsController extends Controller implements HasMiddleware
 
         $this->candidateService->deleteResume($resume);
 
-        return response()->success($resume, 'CV deleted successfully');
+        return response()->success(null, 'CV deleted successfully');
     }
 }
