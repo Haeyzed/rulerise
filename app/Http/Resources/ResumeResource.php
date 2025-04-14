@@ -17,7 +17,6 @@ class ResumeResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'document' => $this->document,
             'document_url' => $this->document_url,
             'is_primary' => $this->is_primary,
             'created_at' => $this->created_at->format('Y-m-d H:i:s'),
