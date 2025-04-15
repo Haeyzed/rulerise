@@ -19,7 +19,9 @@ class UpdateProfileRequest extends BaseRequest
     public function rules(): array
     {
         return [
-            'name' => 'sometimes|required|string|max:255',
+            'first_name' => 'sometimes|required|string|max:255',
+            'last_name' => 'sometimes|required|string|max:255',
+            'other_name' => 'sometimes|required|string|max:255',
             'email' => 'sometimes|required|string|email|max:255|unique:users,email,' . auth()->id(),
             'phone' => 'nullable|string|max:20',
             'address' => 'nullable|string|max:255',

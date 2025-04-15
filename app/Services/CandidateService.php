@@ -70,8 +70,14 @@ class CandidateService
     {
         DB::transaction(function () use ($user, $data) {
             // Update user data
-            if (isset($data['name'])) {
-                $user->name = $data['name'];
+            if (isset($data['first_name'])) {
+                $user->first_name = $data['first_name'];
+            }
+            if (isset($data['last_name'])) {
+                $user->last_name = $data['last_name'];
+            }
+            if (isset($data['other_name'])) {
+                $user->other_name = $data['other_name'];
             }
             if (isset($data['phone'])) {
                 $user->phone = $data['phone'];
