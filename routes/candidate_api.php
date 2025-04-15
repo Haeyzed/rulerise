@@ -64,29 +64,29 @@ Route::middleware(['auth:api', 'role:candidate'])->group(function () {
     // Work experience
     Route::prefix('work-experience')->group(function () {
         Route::post('/', [WorkExperiencesController::class, 'store']);
-        Route::post('update', [WorkExperiencesController::class, 'update']);
-        Route::post('{id}/delete', [WorkExperiencesController::class, 'delete']);
+        Route::put('/{id}', [WorkExperiencesController::class, 'update']);
+        Route::delete('/{id}', [WorkExperiencesController::class, 'delete']);
     });
 
     // Education history
     Route::prefix('education-history')->group(function () {
         Route::post('/', [EducationHistoriesController::class, 'store']);
-        Route::post('update', [EducationHistoriesController::class, 'update']);
-        Route::post('{id}/delete', [EducationHistoriesController::class, 'delete']);
+        Route::put('/{id}', [EducationHistoriesController::class, 'update']);
+        Route::delete('/{id}', [EducationHistoriesController::class, 'delete']);
     });
 
     // Credentials
     Route::prefix('credential')->group(function () {
         Route::post('/', [CredentialsController::class, 'store']);
-        Route::post('update', [CredentialsController::class, 'update']);
-        Route::post('{id}/delete', [CredentialsController::class, 'delete']);
+        Route::put('/{id}', [CredentialsController::class, 'update']);
+        Route::delete('/{id}', [CredentialsController::class, 'delete']);
     });
 
     // Languages
     Route::prefix('language')->group(function () {
         Route::post('/', [CandidateLanguagesController::class, 'store']);
-        Route::post('update', [CandidateLanguagesController::class, 'update']);
-        Route::post('{id}/delete', [CandidateLanguagesController::class, 'delete']);
+        Route::put('/{id}', [CandidateLanguagesController::class, 'update']);
+        Route::delete('/{id}', [CandidateLanguagesController::class, 'delete']);
     });
 
     // Jobs

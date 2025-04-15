@@ -23,6 +23,11 @@ return new class extends Migration
             $table->date('end_date')->nullable();
             $table->boolean('is_current')->default(false);
             $table->text('description')->nullable();
+            $table->text('achievements')->nullable();
+            $table->string('company_website')->nullable();
+            $table->string('employment_type')->nullable();
+            $table->string('industry')->nullable();
+            $table->string('experience_level')->nullable();
             $table->timestamps();
         });
     }

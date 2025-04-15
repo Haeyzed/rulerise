@@ -12,6 +12,7 @@ use App\Models\Resume;
 use App\Models\User;
 use App\Models\WorkExperience;
 use App\Services\Storage\StorageService;
+use DateTime;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -148,9 +149,38 @@ class CandidateService
      * @param Candidate $candidate
      * @param array $data
      * @return WorkExperience
+     * @throws \DateMalformedStringException
      */
     public function addWorkExperience(Candidate $candidate, array $data): WorkExperience
     {
+        // If is_current is true, set end_date to null
+        if (isset($data['is_current']) && $data['is_current']) {
+            $data['end_date'] = null;
+        }
+
+        // Calculate experience level if not provided
+        if (!isset($data['experience_level'])) {
+            $startDate = new DateTime($data['start_date']);
+            $endDate = isset($data['end_date']) && !empty($data['end_date'])
+                ? new DateTime($data['end_date'])
+                : new DateTime();
+
+            $interval = $startDate->diff($endDate);
+            $years = $interval->y;
+
+            if ($years <= 1) {
+                $data['experience_level'] = '0_1';
+            } elseif ($years <= 3) {
+                $data['experience_level'] = '1_3';
+            } elseif ($years <= 5) {
+                $data['experience_level'] = '3_5';
+            } elseif ($years <= 10) {
+                $data['experience_level'] = '5_10';
+            } else {
+                $data['experience_level'] = '10_plus';
+            }
+        }
+
         return $candidate->workExperiences()->create($data);
     }
 
@@ -160,9 +190,40 @@ class CandidateService
      * @param WorkExperience $workExperience
      * @param array $data
      * @return WorkExperience
+     * @throws \DateMalformedStringException
      */
     public function updateWorkExperience(WorkExperience $workExperience, array $data): WorkExperience
     {
+        // If is_current is true, set end_date to null
+        if (isset($data['is_current']) && $data['is_current']) {
+            $data['end_date'] = null;
+        }
+
+        // Calculate experience level if not provided
+        if (!isset($data['experience_level'])) {
+            $startDate = new DateTime($data['start_date'] ?? $workExperience->start_date);
+            $endDate = isset($data['end_date']) && !empty($data['end_date'])
+                ? new DateTime($data['end_date'])
+                : (isset($data['is_current']) && $data['is_current']
+                    ? new DateTime()
+                    : ($workExperience->end_date ? new DateTime($workExperience->end_date) : new DateTime()));
+
+            $interval = $startDate->diff($endDate);
+            $years = $interval->y;
+
+            if ($years <= 1) {
+                $data['experience_level'] = '0_1';
+            } elseif ($years <= 3) {
+                $data['experience_level'] = '1_3';
+            } elseif ($years <= 5) {
+                $data['experience_level'] = '3_5';
+            } elseif ($years <= 10) {
+                $data['experience_level'] = '5_10';
+            } else {
+                $data['experience_level'] = '10_plus';
+            }
+        }
+
         $workExperience->update($data);
         return $workExperience;
     }

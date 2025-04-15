@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Candidate;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Candidate\WorkExperienceRequest;
+use App\Http\Resources\WorkExperienceResource;
 use App\Models\WorkExperience;
 use App\Services\CandidateService;
 use Illuminate\Http\JsonResponse;
@@ -57,7 +58,10 @@ class WorkExperiencesController extends Controller implements HasMiddleware
 
         $workExperience = $this->candidateService->addWorkExperience($candidate, $data);
 
-        return response()->created($workExperience, 'Work experience added successfully');
+        return response()->created(
+            new WorkExperienceResource($workExperience),
+            'Work experience added successfully'
+        );
     }
 
     /**
@@ -80,7 +84,10 @@ class WorkExperiencesController extends Controller implements HasMiddleware
 
         $workExperience = $this->candidateService->updateWorkExperience($workExperience, $data);
 
-        return response()->json($workExperience,'Work experience updated successfully');
+        return response()->success(
+            new WorkExperienceResource($workExperience),
+            'Work experience updated successfully'
+        );
     }
 
     /**
@@ -101,6 +108,6 @@ class WorkExperiencesController extends Controller implements HasMiddleware
 
         $this->candidateService->deleteWorkExperience($workExperience);
 
-        return response()->success($workExperience, 'Work experience deleted successfully');
+        return response()->success(null, 'Work experience deleted successfully');
     }
 }

@@ -19,7 +19,6 @@ class CredentialRequest extends BaseRequest
     public function rules(): array
     {
         return [
-            'id' => 'sometimes|required|integer|exists:candidate_credentials,id',
             'credential_name' => 'required|string|max:255',
             'issuing_organization' => 'required|string|max:255',
             'issue_date' => 'required|date',

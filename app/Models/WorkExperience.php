@@ -18,6 +18,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property \Illuminate\Support\Carbon|null $end_date
  * @property bool $is_current
  * @property string|null $description
+ * @property string|null $achievements
+ * @property string|null $company_website
+ * @property string|null $employment_type
+ * @property string|null $industry
+ * @property string|null $experience_level
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  *
@@ -41,6 +46,11 @@ class WorkExperience extends Model
         'end_date',
         'is_current',
         'description',
+        'achievements',
+        'company_website',
+        'employment_type',
+        'industry',
+        'experience_level',
     ];
 
     /**
@@ -60,5 +70,50 @@ class WorkExperience extends Model
     public function candidate(): BelongsTo
     {
         return $this->belongsTo(Candidate::class);
+    }
+
+    /**
+     * Calculate the experience level based on start and end dates
+     *
+     * @return string|null
+     */
+    public function calculateExperienceLevel(): ?string
+    {
+        if (!$this->start_date) {
+            return null;
+        }
+
+        $endDate = $this->is_current ? now() : ($this->end_date ?? now());
+        $years = $this->start_date->diffInYears($endDate);
+
+        if ($years <= 1) {
+            return '0_1';
+        } elseif ($years <= 3) {
+            return '1_3';
+        } elseif ($years <= 5) {
+            return '3_5';
+        } elseif ($years <= 10) {
+            return '5_10';
+        } else {
+            return '10_plus';
+        }
+    }
+
+    /**
+     * Get human-readable experience level
+     *
+     * @return string|null
+     */
+    public function getExperienceLevelTextAttribute(): ?string
+    {
+        $levels = [
+            '0_1' => '0-1 year',
+            '1_3' => '1-3 years',
+            '3_5' => '3-5 years',
+            '5_10' => '5-10 years',
+            '10_plus' => '10+ years',
+        ];
+
+        return $levels[$this->experience_level] ?? null;
     }
 }

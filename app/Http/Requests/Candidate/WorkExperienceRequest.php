@@ -19,7 +19,6 @@ class WorkExperienceRequest extends BaseRequest
     public function rules(): array
     {
         return [
-            'id' => 'sometimes|required|integer|exists:work_experiences,id',
             'company_name' => 'required|string|max:255',
             'job_title' => 'required|string|max:255',
             'start_date' => 'required|date',
@@ -31,6 +30,7 @@ class WorkExperienceRequest extends BaseRequest
             'company_website' => 'nullable|string|url|max:255',
             'employment_type' => 'nullable|string|in:full_time,part_time,contract,internship,temporary',
             'industry' => 'nullable|string|max:255',
+            'experience_level' => 'nullable|string|in:0_1,1_3,3_5,5_10,10_plus',
         ];
     }
 
@@ -49,6 +49,8 @@ class WorkExperienceRequest extends BaseRequest
             'end_date.date' => 'The end date must be a valid date.',
             'end_date.after_or_equal' => 'The end date must be after or equal to the start date.',
             'company_website.url' => 'Please enter a valid company website URL.',
+            'employment_type.in' => 'The selected employment type is invalid.',
+            'experience_level.in' => 'The selected experience level is invalid.',
         ];
     }
 
@@ -72,6 +74,7 @@ class WorkExperienceRequest extends BaseRequest
             'company_website' => 'company website',
             'employment_type' => 'employment type',
             'industry' => 'industry',
+            'experience_level' => 'experience level',
         ];
     }
 }
