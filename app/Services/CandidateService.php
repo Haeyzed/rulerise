@@ -181,7 +181,7 @@ class CandidateService
             }
         }
 
-        return $candidate->workExperiences()->create($data);
+        return $candidate->workExperiences()->create($data)->load('candidate', 'candidate.user');
     }
 
     /**

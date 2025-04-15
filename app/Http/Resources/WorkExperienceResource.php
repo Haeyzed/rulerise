@@ -17,7 +17,6 @@ class WorkExperienceResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'candidate_id' => $this->candidate_id,
             'job_title' => $this->job_title,
             'company_name' => $this->company_name,
             'location' => $this->location,
@@ -32,6 +31,7 @@ class WorkExperienceResource extends JsonResource
             'experience_level' => $this->experience_level,
             'experience_level_text' => $this->experienceLevelText,
             'duration' => $this->getDurationText(),
+            'candidate' => new CandidateResource($this->whenLoaded('candidate')),
             'created_at' => $this->created_at->format('Y-m-d H:i:s'),
             'updated_at' => $this->updated_at->format('Y-m-d H:i:s'),
         ];
