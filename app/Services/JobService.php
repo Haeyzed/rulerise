@@ -610,7 +610,7 @@ class JobService
             $query->with('category');
         }
 
-        return $query->limit($perPage)->get();
+        return $query->paginate($perPage);
     }
 
     /**
