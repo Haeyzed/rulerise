@@ -28,6 +28,8 @@ class CandidateResource extends JsonResource
             'expected_salary' => $this->expected_salary,
             'currency' => $this->currency,
             'job_type' => $this->job_type,
+            'gender' => $this->gender,
+            'date_of_birth' => $this->date_of_birth,
             'is_available' => $this->is_available,
             'is_featured' => $this->is_featured,
             'is_verified' => $this->is_verified,

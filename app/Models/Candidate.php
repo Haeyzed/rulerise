@@ -58,6 +58,8 @@ class Candidate extends Model
         'expected_salary',
         'currency',
         'job_type',
+        'date_of_birth',
+        'gender',
         'skills',
         'is_available',
         'is_featured',
@@ -70,6 +72,7 @@ class Candidate extends Model
      * @var array<string, string>
      */
     protected $casts = [
+        'date_of_birth' => 'datetime',
         'expected_salary' => 'float',
         'available_to_work' => 'boolean',
         'is_available' => 'boolean',

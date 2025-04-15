@@ -24,6 +24,8 @@ return new class extends Migration
             $table->string('current_position')->nullable();
             $table->string('current_company')->nullable();
             $table->string('location')->nullable();
+            $table->string('gender')->nullable();
+            $table->date('date_of_birth')->nullable();
             $table->decimal('expected_salary', 10, 2)->nullable();
             $table->string('currency')->default('USD');
             $table->json('skills')->nullable();
