@@ -528,23 +528,17 @@ class JobService
 
         if (!empty($filters['location'])) {
             $query->where(function($q) use ($filters) {
-                $q->where('location', 'like', "%{$filters['location']}%")
-                    ->orWhere('state', 'like', "%{$filters['location']}%");
+                $q->where('location', 'like', "%{$filters['location']}%");
             });
         }
 
-        // Filter by category
-        if (!empty($filters['job_category_id'])) {
-            $query->where('job_category_id', $filters['job_category_id']);
-        }
-
-        // Filter by state/province
-        if (!empty($filters['state'])) {
-            $query->where('state', $filters['state']);
+        // Filter by province
+        if (!empty($filters['province'])) {
+            $query->where('state', $filters['province']);
         }
 
         // Filter by date posted
-        if (!empty($filters['date_posted'])) {
+        if (!empty($filters['date_posted']) && $filters['date_posted'] !== 'any') {
             $datePosted = $filters['date_posted'];
 
             if ($datePosted === 'today') {
@@ -556,7 +550,6 @@ class JobService
             } elseif ($datePosted === 'month') {
                 $query->where('created_at', '>=', now()->subMonth());
             }
-            // 'any' doesn't need filtering
         }
 
         // Filter by job industry
@@ -564,33 +557,31 @@ class JobService
             $query->where('job_industry', $filters['job_industry']);
         }
 
-        // Filter by job type
-        if (!empty($filters['job_type'])) {
-            $query->where('job_type', $filters['job_type']);
-        }
-
-        // Filter by employment type
-        if (!empty($filters['employment_type'])) {
-            $query->where('employment_type', $filters['employment_type']);
-        }
-
         // Filter by experience level
         if (!empty($filters['experience_level'])) {
-            $query->where('experience_level', $filters['experience_level']);
-        }
+            $experienceLevel = $filters['experience_level'];
 
-        // Filter by salary
-        if (!empty($filters['min_salary'])) {
-            $query->where('salary', '>=', $filters['min_salary']);
-        }
-
-        if (!empty($filters['max_salary'])) {
-            $query->where('salary', '<=', $filters['max_salary']);
-        }
-
-        // Filter by remote jobs
-        if (isset($filters['is_remote']) && $filters['is_remote']) {
-            $query->where('is_remote', true);
+            // Map the frontend values to appropriate database queries
+            switch ($experienceLevel) {
+                case '0_1':
+                    $query->where('years_of_experience', '<=', 1);
+                    break;
+                case '1_3':
+                    $query->where('years_of_experience', '>', 1)
+                        ->where('years_of_experience', '<=', 3);
+                    break;
+                case '3_5':
+                    $query->where('years_of_experience', '>', 3)
+                        ->where('years_of_experience', '<=', 5);
+                    break;
+                case '5_10':
+                    $query->where('years_of_experience', '>', 5)
+                        ->where('years_of_experience', '<=', 10);
+                    break;
+                case '10_plus':
+                    $query->where('years_of_experience', '>', 10);
+                    break;
+            }
         }
 
         // Sort
@@ -598,7 +589,7 @@ class JobService
         $sortOrder = $filters['sort_order'] ?? 'desc';
 
         // Validate sort field to prevent SQL injection
-        $allowedSortFields = ['created_at', 'title', 'salary', 'deadline'];
+        $allowedSortFields = ['created_at', 'title', 'salary'];
         if (!in_array($sortBy, $allowedSortFields)) {
             $sortBy = 'created_at';
         }
