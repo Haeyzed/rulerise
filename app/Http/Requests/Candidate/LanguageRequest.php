@@ -19,7 +19,6 @@ class LanguageRequest extends BaseRequest
     public function rules(): array
     {
         return [
-            'id' => 'sometimes|required|integer|exists:languages,id',
             'language_name' => 'required|string|max:100',
             'proficiency_level' => 'required|string|in:beginner,intermediate,advanced,native,fluent',
             'is_primary' => 'boolean',
