@@ -105,7 +105,7 @@ class JobsController extends Controller
         $perPage = $request->input('per_page', config('app.pagination.per_page'));
         $jobs = $this->jobService->getLatestJobs($perPage);
 
-        return response()->success(
+        return response()->paginatedSuccess(
             JobResource::collection($jobs),
             'Latest jobs retrieved successfully'
         );
