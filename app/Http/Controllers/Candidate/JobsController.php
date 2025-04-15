@@ -113,7 +113,7 @@ class JobsController extends Controller implements HasMiddleware
         try {
             $savedJob = $this->jobService->saveJob($job, $user->candidate);
 
-            return response()->created(new SavedJobResource($savedJob), 'Job saved successfully');
+            return response()->created(new SavedJobResource($savedJob), $savedJob['is_saved'] ? 'Job saved successfully' : 'Job unsaved successfully');
         } catch (Exception $e) {
             return response()->badRequest($e->getMessage());
         }
