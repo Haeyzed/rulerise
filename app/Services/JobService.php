@@ -516,22 +516,21 @@ class JobService
             ->where('is_active', true)
             ->notExpired();
 
-        // For public search, you might want to keep the approval requirement
-        // based on your business logic. If you want to show unapproved jobs too,
-        // just remove this line
-        // $query->where('is_approved', true);
-
         // Apply filters
         if (!empty($filters['keyword'])) {
             $keyword = $filters['keyword'];
             $query->where(function($q) use ($keyword) {
                 $q->where('title', 'like', "%{$keyword}%")
-                    ->orWhere('description', 'like', "%{$keyword}%");
+                    ->orWhere('description', 'like', "%{$keyword}%")
+                    ->orWhere('short_description', 'like', "%{$keyword}%");
             });
         }
 
         if (!empty($filters['location'])) {
-            $query->where('location', 'like', "%{$filters['location']}%");
+            $query->where(function($q) use ($filters) {
+                $q->where('location', 'like', "%{$filters['location']}%")
+                    ->orWhere('state', 'like', "%{$filters['location']}%");
+            });
         }
 
         // Filter by category
@@ -539,9 +538,9 @@ class JobService
             $query->where('job_category_id', $filters['job_category_id']);
         }
 
-        // Filter by province
-        if (!empty($filters['province'])) {
-            $query->where('province', $filters['province']);
+        // Filter by state/province
+        if (!empty($filters['state'])) {
+            $query->where('state', $filters['state']);
         }
 
         // Filter by date posted
@@ -565,21 +564,44 @@ class JobService
             $query->where('job_industry', $filters['job_industry']);
         }
 
+        // Filter by job type
+        if (!empty($filters['job_type'])) {
+            $query->where('job_type', $filters['job_type']);
+        }
+
+        // Filter by employment type
+        if (!empty($filters['employment_type'])) {
+            $query->where('employment_type', $filters['employment_type']);
+        }
+
+        // Filter by experience level
         if (!empty($filters['experience_level'])) {
             $query->where('experience_level', $filters['experience_level']);
         }
 
+        // Filter by salary
         if (!empty($filters['min_salary'])) {
-            $query->where('min_salary', '>=', $filters['min_salary']);
+            $query->where('salary', '>=', $filters['min_salary']);
         }
 
-        if (!empty($filters['is_remote'])) {
+        if (!empty($filters['max_salary'])) {
+            $query->where('salary', '<=', $filters['max_salary']);
+        }
+
+        // Filter by remote jobs
+        if (isset($filters['is_remote']) && $filters['is_remote']) {
             $query->where('is_remote', true);
         }
 
         // Sort
         $sortBy = $filters['sort_by'] ?? 'created_at';
         $sortOrder = $filters['sort_order'] ?? 'desc';
+
+        // Validate sort field to prevent SQL injection
+        $allowedSortFields = ['created_at', 'title', 'salary', 'deadline'];
+        if (!in_array($sortBy, $allowedSortFields)) {
+            $sortBy = 'created_at';
+        }
 
         $query->orderBy($sortBy, $sortOrder);
 
@@ -592,9 +614,9 @@ class JobService
      * @param int $perPage
      * @param bool $withEmployer Include employer information
      * @param bool $withCategory Include category information
-     * @return Collection
+     * @return LengthAwarePaginator
      */
-    public function getLatestJobs(int $perPage = 10, bool $withEmployer = true, bool $withCategory = true): Collection
+    public function getLatestJobs(int $perPage = 10, bool $withEmployer = true, bool $withCategory = true): LengthAwarePaginator
     {
         $query = Job::query()
             ->where('is_draft', false)
@@ -610,18 +632,18 @@ class JobService
             $query->with('category');
         }
 
-        return $query->limit($perPage)->get();
+        return $query->paginate($perPage);
     }
 
     /**
      * Get featured jobs
      *
-     * @param int $limit Maximum number of jobs to return
+     * @param int $perPage Maximum number of jobs to return
      * @param bool $withEmployer Include employer information
      * @param bool $withCategory Include category information
-     * @return Collection
+     * @return LengthAwarePaginator
      */
-    public function getFeaturedJobs(int $limit = 10, bool $withEmployer = true, bool $withCategory = true): Collection
+    public function getFeaturedJobs(int $perPage = 10, bool $withEmployer = true, bool $withCategory = true): LengthAwarePaginator
     {
         $query = Job::query()
             ->where('is_draft', false)
@@ -638,7 +660,7 @@ class JobService
             $query->with('category');
         }
 
-        return $query->limit($limit)->get();
+        return $query->paginate($perPage);
     }
 
     /**

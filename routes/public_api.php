@@ -27,6 +27,7 @@ use App\Http\Controllers\Public\EmployersController;
 Route::get('search-jobs', [JobsController::class, 'searchJobs']);
 Route::get('similar-jobs', [JobsController::class, 'similarJobs']);
 Route::get('latest-jobs', [JobsController::class, 'latestJobs']);
+Route::get('featured-jobs', [JobsController::class, 'featuredJobs']);
 Route::get('job/{id}', [JobsController::class, 'show']);
 
 // Job categories
