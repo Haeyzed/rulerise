@@ -97,5 +97,10 @@ Route::middleware(['auth:api', 'role:candidate'])->group(function () {
         Route::post('applyJob', [JobsController::class, 'applyJob']);
         Route::get('{id}/similarJobs', [JobsController::class, 'similarJobs']);
         Route::post('{id}/reportJob', [JobsController::class, 'reportJob']);
+
+        // New endpoints
+        Route::get('saved', [JobsController::class, 'savedJobs']);
+        Route::get('applied', [JobsController::class, 'appliedJobs']);
+        Route::get('recommended', [JobsController::class, 'recommendedJobs']);
     });
 });

@@ -7,6 +7,7 @@ use App\Http\Requests\Candidate\ApplyJobRequest;
 use App\Http\Requests\Candidate\ReportJobRequest;
 use App\Http\Requests\Candidate\SearchJobsRequest;
 use App\Http\Resources\JobApplicationResource;
+use App\Http\Resources\JobResource;
 use App\Http\Resources\SavedJobResource;
 use App\Models\Job;
 use App\Models\Resume;
@@ -160,6 +161,7 @@ class JobsController extends Controller implements HasMiddleware
      * Get similar jobs
      *
      * @param int $id
+     * @param Request $request
      * @return JsonResponse
      */
     public function similarJobs(int $id, Request $request): JsonResponse
@@ -195,6 +197,73 @@ class JobsController extends Controller implements HasMiddleware
             return response()->created($report, 'Report submitted successfully');
         } catch (Exception $e) {
             return response()->badRequest($e->getMessage());
+        }
+    }
+
+    /**
+     * Get saved jobs for the authenticated candidate
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function savedJobs(Request $request): JsonResponse
+    {
+        try {
+            $user = auth()->user();
+            $perPage = $request->input('per_page', config('app.pagination.per_page'));
+            $savedJobs = $this->jobService->getSavedJobs($user->candidate, $perPage);
+
+            return response()->paginatedSuccess(
+                SavedJobResource::collection($savedJobs),
+                'Saved jobs retrieved successfully'
+            );
+        } catch (Exception $e) {
+            return response()->serverError('Failed to retrieve saved jobs', $e->getMessage());
+        }
+    }
+
+    /**
+     * Get applied jobs for the authenticated candidate
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function appliedJobs(Request $request): JsonResponse
+    {
+        try {
+            $user = auth()->user();
+            $filters = $request->only(['status', 'date_from', 'date_to']);
+            $perPage = $request->input('per_page', config('app.pagination.per_page'));
+            $appliedJobs = $this->jobService->getAppliedJobs($user->candidate, $filters, $perPage);
+
+            return response()->paginatedSuccess(
+                JobApplicationResource::collection($appliedJobs),
+                'Applied jobs retrieved successfully'
+            );
+        } catch (Exception $e) {
+            return response()->serverError('Failed to retrieve applied jobs', $e->getMessage());
+        }
+    }
+
+    /**
+     * Get recommended jobs for the authenticated candidate
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function recommendedJobs(Request $request): JsonResponse
+    {
+        try {
+            $user = auth()->user();
+            $perPage = $request->input('per_page', config('app.pagination.per_page'));
+            $recommendedJobs = $this->jobService->getRecommendedJobs($user->candidate, $perPage);
+
+            return response()->paginatedSuccess(
+                JobResource::collection($recommendedJobs),
+                'Recommended jobs retrieved successfully'
+            );
+        } catch (Exception $e) {
+            return response()->serverError('Failed to retrieve recommended jobs', $e->getMessage());
         }
     }
 }

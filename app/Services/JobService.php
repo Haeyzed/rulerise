@@ -21,6 +21,123 @@ use Illuminate\Support\Str;
  */
 class JobService
 {
+
+
+    /**
+     * Get saved jobs for a candidate
+     *
+     * @param Candidate $candidate
+     * @param int $perPage
+     * @return LengthAwarePaginator
+     */
+    public function getSavedJobs(Candidate $candidate, int $perPage = 10): LengthAwarePaginator
+    {
+        return SavedJob::query()
+            ->where('candidate_id', $candidate->id)
+            ->where('is_saved', true)
+            ->with(['job.employer', 'job.category'])
+            ->latest()
+            ->paginate($perPage);
+    }
+
+    /**
+     * Get applied jobs for a candidate
+     *
+     * @param Candidate $candidate
+     * @param array $filters
+     * @param int $perPage
+     * @return LengthAwarePaginator
+     */
+    public function getAppliedJobs(Candidate $candidate, array $filters = [], int $perPage = 10): LengthAwarePaginator
+    {
+        $query = JobApplication::query()
+            ->where('candidate_id', $candidate->id)
+            ->with(['job.employer', 'job.category', 'resume']);
+
+        // Filter by status if provided
+        if (!empty($filters['status'])) {
+            $query->where('status', $filters['status']);
+        }
+
+        // Filter by date range if provided
+        if (!empty($filters['date_from'])) {
+            $query->whereDate('created_at', '>=', $filters['date_from']);
+        }
+
+        if (!empty($filters['date_to'])) {
+            $query->whereDate('created_at', '<=', $filters['date_to']);
+        }
+
+        return $query->latest()->paginate($perPage);
+    }
+
+    /**
+     * Get recommended jobs for a candidate
+     *
+     * @param Candidate $candidate
+     * @param int $perPage
+     * @return LengthAwarePaginator
+     */
+    public function getRecommendedJobs(Candidate $candidate, int $perPage = 10): LengthAwarePaginator
+    {
+        // Get candidate's skills, experience, and preferences
+        $candidateSkills = $candidate->skills ?? [];
+        $candidateIndustry = $candidate->industry ?? null;
+        $candidateExperienceLevel = $candidate->experience_level ?? null;
+
+        // Get candidate's applied job categories
+        $appliedJobCategoryIds = JobApplication::query()
+            ->where('candidate_id', $candidate->id)
+            ->join('job_listings', 'job_applications.job_id', '=', 'job_listings.id')
+            ->pluck('job_listings.job_category_id')
+            ->unique()
+            ->toArray();
+
+        // Build query for recommended jobs
+        $query = Job::query()
+            ->where('is_draft', false)
+            ->where('is_active', true)
+            ->notExpired()
+            ->with(['employer', 'category']);
+
+        // Exclude jobs the candidate has already applied to
+        $appliedJobIds = JobApplication::query()
+            ->where('candidate_id', $candidate->id)
+            ->pluck('job_id')
+            ->toArray();
+
+        if (!empty($appliedJobIds)) {
+            $query->whereNotIn('id', $appliedJobIds);
+        }
+
+        // Prioritize jobs in the same categories the candidate has applied to before
+        if (!empty($appliedJobCategoryIds)) {
+            $query->orderByRaw("CASE WHEN job_category_id IN (" . implode(',', $appliedJobCategoryIds) . ") THEN 0 ELSE 1 END");
+        }
+
+        // Prioritize jobs matching candidate's industry if available
+        if ($candidateIndustry) {
+            $query->orderByRaw("CASE WHEN job_industry = ? THEN 0 ELSE 1 END", [$candidateIndustry]);
+        }
+
+        // Prioritize jobs matching candidate's experience level if available
+        if ($candidateExperienceLevel) {
+            $query->orderByRaw("CASE WHEN experience_level = ? THEN 0 ELSE 1 END", [$candidateExperienceLevel]);
+        }
+
+        // Prioritize jobs with skills matching the candidate's skills
+        if (!empty($candidateSkills)) {
+            foreach ($candidateSkills as $index => $skill) {
+                $query->orderByRaw("CASE WHEN JSON_CONTAINS(skills_required, ?) THEN 0 ELSE 1 END", [json_encode($skill)]);
+            }
+        }
+
+        // Finally, sort by creation date (newest first)
+        $query->latest();
+
+        return $query->paginate($perPage);
+    }
+
     /**
      * Create a new job
      *
