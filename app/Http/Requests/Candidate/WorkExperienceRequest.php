@@ -28,7 +28,7 @@ class WorkExperienceRequest extends BaseRequest
             'location' => 'nullable|string|max:255',
             'achievements' => 'nullable|string|max:1000',
             'company_website' => 'nullable|string|url|max:255',
-            'employment_type' => 'nullable|string|in:full_time,part_time,contract,internship,temporary',
+            'employment_type' => 'nullable|string|in:full_time,part_time,contract,internship,remote',
             'industry' => 'nullable|string|max:255',
             'experience_level' => 'nullable|string|in:0_1,1_3,3_5,5_10,10_plus',
         ];
