@@ -27,8 +27,6 @@ class EducationHistoryRequest extends BaseRequest
             'is_current' => 'boolean',
             'description' => 'nullable|string|max:1000',
             'grade' => 'nullable|numeric|max:50',
-            'activities' => 'nullable|string|max:1000',
-            'location' => 'nullable|string|max:255',
         ];
     }
 
