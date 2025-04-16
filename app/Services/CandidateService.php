@@ -284,7 +284,7 @@ class CandidateService
      */
     public function addLanguage(Candidate $candidate, array $data): Language
     {
-        return $candidate->languages()->create($data);
+        return $candidate->languages()->create($data)->load('candidate');
     }
 
     /**
@@ -297,7 +297,7 @@ class CandidateService
     public function updateLanguage(Language $language, array $data): Language
     {
         $language->update($data);
-        return $language;
+        return $language->load('candidate');
     }
 
     /**
