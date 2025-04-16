@@ -64,6 +64,12 @@ class Candidate extends Model
         'is_available',
         'is_featured',
         'is_verified',
+        'experience_level',
+        'job_title',
+        'github',
+        'linkedin',
+        'twitter',
+        'portfolio_url',
     ];
 
     /**

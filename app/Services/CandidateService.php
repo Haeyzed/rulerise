@@ -36,6 +36,8 @@ class CandidateService
     {
         $this->storageService = $storageService;
     }
+
+
     /**
      * Get candidate profile
      *
@@ -69,8 +71,8 @@ class CandidateService
      */
     public function updateProfile(User $user, array $data): Candidate
     {
-        DB::transaction(function () use ($user, $data) {
-            // Handle profile picture (candidate)
+        return DB::transaction(function () use ($user, $data) {
+            // Handle profile picture
             if (isset($data['profile_picture']) && $data['profile_picture'] instanceof UploadedFile) {
                 $data['profile_picture_path'] = $this->uploadImage(
                     $data['profile_picture'],
@@ -78,55 +80,40 @@ class CandidateService
                 );
                 unset($data['profile_picture']);
             }
-            // Update user data
-            if (isset($data['first_name'])) {
-                $user->first_name = $data['first_name'];
-            }
-            if (isset($data['last_name'])) {
-                $user->last_name = $data['last_name'];
-            }
-            if (isset($data['other_name'])) {
-                $user->other_name = $data['other_name'];
-            }
-            if (isset($data['phone'])) {
-                $user->phone = $data['phone'];
-            }
-            $user->save();
 
-            // Update candidate data
+            // Update user data - fields that belong to the User model
+            $userFields = [
+                'first_name', 'last_name', 'other_name', 'email',
+                'phone', 'phone_country_code', 'country', 'state', 'city'
+            ];
+
+            $userData = array_intersect_key($data, array_flip($userFields));
+            if (!empty($userData)) {
+                $user->update($userData);
+            }
+
+            // Update candidate data - fields that belong to the Candidate model
             $candidate = $user->candidate;
-            $candidateData = array_intersect_key($data, array_flip([
-                'title', 'bio', 'current_position', 'current_company',
-                'location', 'expected_salary', 'currency', 'job_type', 'is_available'
-            ]));
+            $candidateFields = [
+                'bio', 'date_of_birth', 'gender', 'job_title',
+                'year_of_experience', 'experience_level', 'highest_qualification',
+                'prefer_job_industry', 'available_to_work', 'github',
+                'linkedin', 'twitter', 'portfolio_url'
+            ];
+
+            $candidateData = array_intersect_key($data, array_flip($candidateFields));
+
+            // Handle skills separately as it's a JSON field
+            if (isset($data['skills']) && is_array($data['skills'])) {
+                $candidateData['skills'] = $data['skills'];
+            }
 
             if (!empty($candidateData)) {
                 $candidate->update($candidateData);
             }
 
-            // Update qualification if provided
-            if (isset($data['qualification'])) {
-                $qualificationData = $data['qualification'];
-                $qualification = $candidate->qualification;
-
-                if (!$qualification) {
-                    $qualification = new Qualification(['candidate_id' => $candidate->id]);
-                }
-
-                $qualification->fill($qualificationData);
-                $qualification->save();
-            }
+            return $candidate->fresh();
         });
-
-        return $user->candidate()->with([
-            'qualification',
-            'workExperiences',
-            'educationHistories',
-            'languages',
-            'portfolio',
-            'credentials',
-            'resumes',
-        ])->first();
     }
 
     /**
@@ -136,15 +123,19 @@ class CandidateService
      * @param UploadedFile $file
      * @return User
      */
-    public function uploadProfilePicture(User $user, UploadedFile $file): User
+    public function uploadProfilePicture(User $user, UploadedFile $profile_picture): User
     {
         // Delete old profile picture if exists
         if ($user->profile_picture) {
-            Storage::disk('public')->delete($user->profile_picture);
+            $this->storageService->delete($user->profile_picture);
         }
 
         // Store new profile picture
-        $path = $file->store('profile-pictures', 'public');
+        $path = $this->uploadImage(
+            $profile_picture,
+            config('filestorage.paths.profile_images')
+        );
+
         $user->profile_picture = $path;
         $user->save();
 

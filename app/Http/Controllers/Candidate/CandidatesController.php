@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Candidate;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Candidate\UpdateProfileRequest;
+use App\Http\Resources\CandidateResource;
+use App\Http\Resources\UserResource;
 use App\Models\Candidate;
 use App\Services\CandidateService;
 use Illuminate\Http\JsonResponse;
@@ -54,7 +56,10 @@ class CandidatesController extends Controller implements HasMiddleware
         $user = auth()->user();
         $profile = $this->candidateService->getProfile($user);
 
-        return response()->success($profile, 'Profile retrieved successfully.');
+        return response()->success([
+            'user' => new UserResource($profile['user']),
+            'candidate' => new CandidateResource($profile['candidate'])
+        ], 'Profile retrieved successfully.');
     }
 
     /**
@@ -70,7 +75,10 @@ class CandidatesController extends Controller implements HasMiddleware
 
         $candidate = $this->candidateService->updateProfile($user, $data);
 
-        return response()->success($candidate, 'Profile updated successfully.');
+        return response()->success([
+            'user' => new UserResource($user->fresh()),
+            'candidate' => new CandidateResource($candidate)
+        ], 'Profile updated successfully.');
     }
 
     /**
@@ -100,6 +108,6 @@ class CandidatesController extends Controller implements HasMiddleware
             auth()->check() && auth()->user()->isEmployer() ? auth()->user()->employer->id : null
         );
 
-        return response()->success($candidate, 'Profile retrieved successfully.');
+        return response()->success(new CandidateResource($candidate), 'Profile retrieved successfully.');
     }
 }

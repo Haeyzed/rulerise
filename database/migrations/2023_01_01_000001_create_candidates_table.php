@@ -29,10 +29,16 @@ return new class extends Migration
             $table->decimal('expected_salary', 10, 2)->nullable();
             $table->string('currency')->default('USD');
             $table->json('skills')->nullable();
-            $table->enum('job_type', ['full_time', 'part_time', 'contract', 'internship', 'remote'])->nullable();
+            $table->string('job_type')->nullable();
             $table->boolean('is_available')->default(true);
             $table->boolean('is_featured')->default(false);
             $table->boolean('is_verified')->default(false);
+            $table->string('experience_level')->nullable();
+            $table->string('job_title')->nullable();
+            $table->string('github')->nullable();
+            $table->string('linkedin')->nullable();
+            $table->string('twitter')->nullable();
+            $table->string('portfolio_url')->nullable();
             $table->timestamps();
         });
 

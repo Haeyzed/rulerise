@@ -4,13 +4,16 @@ namespace App\Http\Controllers\Candidate;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Candidate\UploadProfilePictureRequest;
+use App\Http\Resources\UserResource;
 use App\Services\CandidateService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 
 /**
  * Controller for user account settings
  */
-class UserAccountSettingsController extends Controller
+class UserAccountSettingsController extends Controller implements HasMiddleware
 {
     /**
      * Candidate service instance
@@ -28,7 +31,16 @@ class UserAccountSettingsController extends Controller
     public function __construct(CandidateService $candidateService)
     {
         $this->candidateService = $candidateService;
-        $this->middleware('auth:api');
+    }
+
+    /**
+     * Get the middleware that should be assigned to the controller.
+     */
+    public static function middleware(): array
+    {
+        return [
+            new Middleware(['auth:api','role:candidate']),
+        ];
     }
 
     /**
@@ -43,9 +55,9 @@ class UserAccountSettingsController extends Controller
 
         $updatedUser = $this->candidateService->uploadProfilePicture(
             $user,
-            $request->file('file')
+            $request->file('profile_picture')
         );
 
-        return response()->success(['profile_picture' => $updatedUser->profile_picture,],'Profile picture uploaded successfully');
+        return response()->success(new UserResource($updatedUser),'Profile picture uploaded successfully');
     }
 }
