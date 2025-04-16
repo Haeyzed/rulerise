@@ -70,12 +70,12 @@ class WorkExperiencesController extends Controller implements HasMiddleware
      * @param WorkExperienceRequest $request
      * @return JsonResponse
      */
-    public function update(WorkExperienceRequest $request): JsonResponse
+    public function update(int $id, WorkExperienceRequest $request): JsonResponse
     {
         $user = auth()->user();
         $data = $request->validated();
 
-        $workExperience = WorkExperience::query()->findOrFail($data['id']);
+        $workExperience = WorkExperience::query()->findOrFail($id);
 
         // Check if the work experience belongs to the authenticated user
         if ($workExperience->candidate_id !== $user->candidate->id) {
