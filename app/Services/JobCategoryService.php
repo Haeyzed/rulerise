@@ -55,17 +55,10 @@ class JobCategoryService
      * @param int|null $jobsPerPage Number of jobs per page, null for all
      * @return JobCategory
      */
-    public function getCategory(int|string $idOrSlug, bool $withJobs = true, bool $withEmployers = true, ?int $jobsPerPage = null): JobCategory
+    public function getCategory(int $id, bool $withJobs = true, bool $withEmployers = true, ?int $jobsPerPage = null): JobCategory
     {
         $query = JobCategory::query();
-
-        // Determine if the parameter is an ID or slug
-        if (is_numeric($idOrSlug)) {
-            $query->where('id', $idOrSlug);
-        } else {
-            $query->where('slug', $idOrSlug);
-        }
-
+        $query->where('id', $id);
         // Include jobs if requested
         if ($withJobs) {
             $query->with(['jobs' => function ($query) use ($withEmployers, $jobsPerPage) {

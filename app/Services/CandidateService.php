@@ -112,7 +112,15 @@ class CandidateService
                 $candidate->update($candidateData);
             }
 
-            return $candidate->fresh();
+            return $user->candidate()->with([
+                'qualification',
+                'workExperiences',
+                'educationHistories',
+                'languages',
+                'portfolio',
+                'credentials',
+                'resumes',
+            ])->first();
         });
     }
 

@@ -57,13 +57,13 @@ class JobCategoriesController extends Controller
      * @param Request $request
      * @return JsonResponse
      */
-    public function show($idOrSlug, Request $request): JsonResponse
+    public function show(int $id, Request $request): JsonResponse
     {
         $withJobs = $request->boolean('with_jobs', true);
         $withEmployers = $request->boolean('with_employers', true);
         $jobsPerPage = $request->input('per_page', config('app.pagination.per_page'));
 
-        $category = $this->jobCategoryService->getCategory($idOrSlug, $withJobs, $withEmployers, $jobsPerPage);
+        $category = $this->jobCategoryService->getCategory($id, $withJobs, $withEmployers, $jobsPerPage);
 
         return response()->success(
             new JobCategoryResource($category),

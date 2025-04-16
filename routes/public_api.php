@@ -38,7 +38,7 @@ Route::get('job/{id}', [JobsController::class, 'show']);
 Route::get('job-categories', [JobCategoriesController::class, 'index']);
 Route::get('job-categories/featured', [JobCategoriesController::class, 'featured']);
 Route::get('job-categories/popular', [JobCategoriesController::class, 'popular']);
-Route::get('job-categories/{idOrSlug}', [JobCategoriesController::class, 'show']);
+Route::get('job-categories/{id}', [JobCategoriesController::class, 'show']);
 
 
 // Employers
