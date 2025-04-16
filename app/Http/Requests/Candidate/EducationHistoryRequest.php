@@ -26,7 +26,7 @@ class EducationHistoryRequest extends BaseRequest
             'end_date' => 'nullable|date|after_or_equal:start_date',
             'is_current' => 'boolean',
             'description' => 'nullable|string|max:1000',
-            'grade' => 'nullable|string|max:50',
+            'grade' => 'nullable|numeric|max:50',
             'activities' => 'nullable|string|max:1000',
             'location' => 'nullable|string|max:255',
         ];
