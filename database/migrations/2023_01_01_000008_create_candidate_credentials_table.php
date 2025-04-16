@@ -16,8 +16,8 @@ return new class extends Migration
         Schema::create('candidate_credentials', function (Blueprint $table) {
             $table->id();
             $table->foreignId('candidate_id')->constrained()->onDelete('cascade');
-            $table->string('title');
-            $table->string('issuing_organization');
+            $table->string('name');
+            $table->string('type');
             $table->date('issue_date');
             $table->date('expiration_date')->nullable();
             $table->string('credential_id')->nullable();

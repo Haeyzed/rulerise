@@ -41,8 +41,8 @@ class CandidateCredential extends Model
      */
     protected $fillable = [
         'candidate_id',
-        'title',
-        'issuing_organization',
+        'name',
+        'type',
         'issue_date',
         'expiration_date',
         'credential_id',

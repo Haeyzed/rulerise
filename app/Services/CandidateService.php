@@ -320,7 +320,7 @@ class CandidateService
      */
     public function addCredential(Candidate $candidate, array $data): CandidateCredential
     {
-        return $candidate->credentials()->create($data);
+        return $candidate->credentials()->create($data)->load('candidate');
     }
 
     /**
@@ -333,7 +333,7 @@ class CandidateService
     public function updateCredential(CandidateCredential $credential, array $data): CandidateCredential
     {
         $credential->update($data);
-        return $credential;
+        return $credential->load('candidate');
     }
 
     /**

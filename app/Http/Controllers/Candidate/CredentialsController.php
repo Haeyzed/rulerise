@@ -66,12 +66,12 @@ class CredentialsController extends Controller implements HasMiddleware
      * @param CredentialRequest $request
      * @return JsonResponse
      */
-    public function update(CredentialRequest $request): JsonResponse
+    public function update(int $id, CredentialRequest $request): JsonResponse
     {
         $user = auth()->user();
         $data = $request->validated();
 
-        $credential = CandidateCredential::query()->findOrFail($data['id']);
+        $credential = CandidateCredential::query()->findOrFail($id);
 
         // Check if the credential belongs to the authenticated user
         if ($credential->candidate_id !== $user->candidate->id) {
