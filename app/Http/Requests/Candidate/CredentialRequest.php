@@ -19,14 +19,13 @@ class CredentialRequest extends BaseRequest
     public function rules(): array
     {
         return [
-            'credential_name' => 'required|string|max:255',
-            'issuing_organization' => 'required|string|max:255',
+            'name' => 'required|string|max:255',
+            'type' => 'required|string|max:255',
             'issue_date' => 'required|date',
             'expiration_date' => 'nullable|date|after_or_equal:issue_date',
             'credential_id' => 'nullable|string|max:255',
             'credential_url' => 'nullable|string|url|max:255',
             'description' => 'nullable|string|max:1000',
-            'has_expiration' => 'boolean',
         ];
     }
 
