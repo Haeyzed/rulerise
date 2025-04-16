@@ -37,7 +37,6 @@ class CandidateService
         $this->storageService = $storageService;
     }
 
-
     /**
      * Get candidate profile
      *
@@ -74,47 +73,117 @@ class CandidateService
         return DB::transaction(function () use ($user, $data) {
             // Handle profile picture
             if (isset($data['profile_picture']) && $data['profile_picture'] instanceof UploadedFile) {
-                $data['profile_picture_path'] = $this->uploadImage(
+                $profilePicturePath = $this->uploadImage(
                     $data['profile_picture'],
                     config('filestorage.paths.profile_images')
                 );
-//                unset($data['profile_picture']);
+
+                // Update user's profile picture
+                $user->profile_picture = $profilePicturePath;
             }
 
             // Update user data - fields that belong to the User model
-            $userFields = [
-                'first_name', 'last_name', 'other_name', 'email',
-                'phone', 'phone_country_code', 'country', 'state', 'city'
-            ];
-
-            if (isset($data['profile_picture_path'])) {
-                $userData['profile_picture'] = $data['profile_picture_path'];
+            if (isset($data['first_name'])) {
+                $user->first_name = $data['first_name'];
             }
 
-            $userData = array_intersect_key($data, array_flip($userFields));
-            if (!empty($userData)) {
-                $user->update($userData);
+            if (isset($data['last_name'])) {
+                $user->last_name = $data['last_name'];
             }
+
+            if (isset($data['other_name'])) {
+                $user->other_name = $data['other_name'];
+            }
+
+            if (isset($data['email'])) {
+                $user->email = $data['email'];
+            }
+
+            if (isset($data['phone'])) {
+                $user->phone = $data['phone'];
+            }
+
+            if (isset($data['phone_country_code'])) {
+                $user->phone_country_code = $data['phone_country_code'];
+            }
+
+            if (isset($data['country'])) {
+                $user->country = $data['country'];
+            }
+
+            if (isset($data['state'])) {
+                $user->state = $data['state'];
+            }
+
+            if (isset($data['city'])) {
+                $user->city = $data['city'];
+            }
+
+            // Save user changes
+            $user->save();
 
             // Update candidate data - fields that belong to the Candidate model
             $candidate = $user->candidate;
-            $candidateFields = [
-                'bio', 'date_of_birth', 'gender', 'job_title',
-                'year_of_experience', 'experience_level', 'highest_qualification',
-                'prefer_job_industry', 'available_to_work', 'github',
-                'linkedin', 'twitter', 'portfolio_url'
-            ];
 
-            $candidateData = array_intersect_key($data, array_flip($candidateFields));
+            if (isset($data['bio'])) {
+                $candidate->bio = $data['bio'];
+            }
+
+            if (isset($data['date_of_birth'])) {
+                $candidate->date_of_birth = $data['date_of_birth'];
+            }
+
+            if (isset($data['gender'])) {
+                $candidate->gender = $data['gender'];
+            }
+
+            if (isset($data['job_title'])) {
+                $candidate->job_title = $data['job_title'];
+            }
+
+            if (isset($data['year_of_experience'])) {
+                $candidate->year_of_experience = $data['year_of_experience'];
+            }
+
+            if (isset($data['experience_level'])) {
+                $candidate->experience_level = $data['experience_level'];
+            }
+
+            if (isset($data['highest_qualification'])) {
+                $candidate->highest_qualification = $data['highest_qualification'];
+            }
+
+            if (isset($data['prefer_job_industry'])) {
+                $candidate->prefer_job_industry = $data['prefer_job_industry'];
+            }
+
+            if (isset($data['available_to_work'])) {
+                $candidate->available_to_work = $data['available_to_work'];
+            }
+
+            if (isset($data['github'])) {
+                $candidate->github = $data['github'];
+            }
+
+            if (isset($data['linkedin'])) {
+                $candidate->linkedin = $data['linkedin'];
+            }
+
+            if (isset($data['twitter'])) {
+                $candidate->twitter = $data['twitter'];
+            }
+
+            if (isset($data['portfolio_url'])) {
+                $candidate->portfolio_url = $data['portfolio_url'];
+            }
 
             // Handle skills separately as it's a JSON field
             if (isset($data['skills']) && is_array($data['skills'])) {
-                $candidateData['skills'] = $data['skills'];
+                $candidate->skills = $data['skills'];
             }
 
-            if (!empty($candidateData)) {
-                $candidate->update($candidateData);
-            }
+            // Save candidate changes
+            $candidate->save();
 
             return $user->candidate()->with([
                 'qualification',
