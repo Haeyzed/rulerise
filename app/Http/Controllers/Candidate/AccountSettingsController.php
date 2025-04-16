@@ -96,7 +96,7 @@ class AccountSettingsController extends Controller implements HasMiddleware
         $user = auth()->user();
 
         // Soft delete the user
-        $user->delete();
+        $user->forceDelete();
 
         return response()->success($user, 'Account deleted successfully');
     }
