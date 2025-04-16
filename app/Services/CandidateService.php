@@ -224,8 +224,8 @@ class CandidateService
             }
         }
 
-        $workExperience->update($data)->load('candidate', 'candidate.user');
-        return $workExperience;
+        $workExperience->update($data);
+        return $workExperience->load('candidate', 'candidate.user');
     }
 
     /**
