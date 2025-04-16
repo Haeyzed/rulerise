@@ -120,7 +120,7 @@ class CandidateService
                 'portfolio',
                 'credentials',
                 'resumes',
-            ])->first();
+            ]);
         });
     }
 
