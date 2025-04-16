@@ -17,7 +17,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('candidate_id')->constrained()->onDelete('cascade');
             $table->string('language');
-            $table->enum('proficiency', ['beginner', 'intermediate', 'advanced', 'native'])->default('intermediate');
+            $table->string('proficiency')->nullable();
             $table->timestamps();
         });
     }

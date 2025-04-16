@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Candidate;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Candidate\LanguageRequest;
+use App\Http\Resources\LanguageResource;
 use App\Models\Language;
 use App\Services\CandidateService;
 use Illuminate\Http\JsonResponse;
@@ -57,7 +58,7 @@ class CandidateLanguagesController extends Controller implements HasMiddleware
 
         $language = $this->candidateService->addLanguage($candidate, $data);
 
-        return response()->created($language,'Language created successfully');
+        return response()->created(new LanguageResource($language),'Language created successfully');
     }
 
     /**
@@ -66,12 +67,12 @@ class CandidateLanguagesController extends Controller implements HasMiddleware
      * @param LanguageRequest $request
      * @return JsonResponse
      */
-    public function update(LanguageRequest $request): JsonResponse
+    public function update(int $id, LanguageRequest $request): JsonResponse
     {
         $user = auth()->user();
         $data = $request->validated();
 
-        $language = Language::query()->findOrFail($data['id']);
+        $language = Language::query()->findOrFail($id);
 
         // Check if the language belongs to the authenticated user
         if ($language->candidate_id !== $user->candidate->id) {
@@ -80,7 +81,7 @@ class CandidateLanguagesController extends Controller implements HasMiddleware
 
         $language = $this->candidateService->updateLanguage($language, $data);
 
-        return response()->success($language,'Language updated successfully');
+        return response()->success(new LanguageResource($language),'Language updated successfully');
     }
 
     /**
@@ -101,6 +102,6 @@ class CandidateLanguagesController extends Controller implements HasMiddleware
 
         $this->candidateService->deleteLanguage($language);
 
-        return response()->success($language,'Language deleted successfully');
+        return response()->success(null,'Language deleted successfully');
     }
 }
