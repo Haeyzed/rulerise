@@ -29,7 +29,7 @@ class CandidateResource extends JsonResource
             'currency' => $this->currency,
             'job_type' => $this->job_type,
             'gender' => $this->gender,
-            'date_of_birth' => $this->date_of_birth,
+            'date_of_birth' => optional($this->date_of_birth)->format('Y-m-d'),
             'is_available' => $this->is_available,
             'is_featured' => $this->is_featured,
             'is_verified' => $this->is_verified,
@@ -39,10 +39,9 @@ class CandidateResource extends JsonResource
             'linkedin' => $this->linkedin,
             'twitter' => $this->twitter,
             'portfolio_url' => $this->portfolio_url,
-            'created_at' => $this->created_at,
-            'updated_at' => $this->updated_at,
+            'created_at' => optional($this->created_at)->format('Y-m-d H:i:s'),
+            'updated_at' => optional($this->updated_at)->format('Y-m-d H:i:s'),
             'skills' => $this->skills,
-//            'skills' => SkillResource::collection($this->whenLoaded('skills')),
         ];
     }
 }
