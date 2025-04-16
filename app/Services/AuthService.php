@@ -220,6 +220,9 @@ class AuthService
             $credentials['user_type'] = $userType;
         }
 
+        // Set token expiration to 7 days (10080 minutes)
+        Auth::factory()->setTTL(10080);
+
         if (!$token = Auth::attempt($credentials)) {
             return null;
         }

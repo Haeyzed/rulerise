@@ -20,7 +20,7 @@ class CredentialRequest extends BaseRequest
     {
         return [
             'name' => 'required|string|max:255',
-            'type' => 'required|string|max:255',
+            'type' => 'nullable|string|max:255',
             'issue_date' => 'required|date',
             'expiration_date' => 'nullable|date|after_or_equal:issue_date',
             'credential_id' => 'nullable|string|max:255',

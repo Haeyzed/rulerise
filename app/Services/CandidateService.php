@@ -78,7 +78,7 @@ class CandidateService
                     $data['profile_picture'],
                     config('filestorage.paths.profile_images')
                 );
-                unset($data['profile_picture']);
+//                unset($data['profile_picture']);
             }
 
             // Update user data - fields that belong to the User model
@@ -86,6 +86,10 @@ class CandidateService
                 'first_name', 'last_name', 'other_name', 'email',
                 'phone', 'phone_country_code', 'country', 'state', 'city'
             ];
+
+            if (isset($data['profile_picture_path'])) {
+                $userData['profile_picture'] = $data['profile_picture_path'];
+            }
 
             $userData = array_intersect_key($data, array_flip($userFields));
             if (!empty($userData)) {

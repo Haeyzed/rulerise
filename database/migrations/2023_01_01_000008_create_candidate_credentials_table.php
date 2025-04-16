@@ -17,7 +17,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('candidate_id')->constrained()->onDelete('cascade');
             $table->string('name');
-            $table->string('type');
+            $table->string('type')->nullable();
             $table->date('issue_date');
             $table->date('expiration_date')->nullable();
             $table->string('credential_id')->nullable();
