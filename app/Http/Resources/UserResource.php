@@ -30,9 +30,9 @@ class UserResource extends JsonResource
             'profile_picture_url' => $this->profile_picture_url,
             'user_type' => $this->user_type,
             'is_active' => $this->is_active,
-            'email_verified_at' => $this->email_verified_at,
-            'created_at' => $this->created_at,
-            'updated_at' => $this->updated_at,
+            'email_verified_at' => optional($this->email_verified_at)->format('Y-m-d H:i:s'),
+            'created_at' => optional($this->created_at)->format('Y-m-d H:i:s'),
+            'updated_at' => optional($this->updated_at)->format('Y-m-d H:i:s'),
             'role' => $this->roles->first() ? [
                 'id' => $this->roles->first()->id,
                 'name' => $this->roles->first()->name,
