@@ -45,7 +45,7 @@ Route::middleware(['auth:api', 'role:candidate'])->group(function () {
 
     // Profile
     Route::get('profile', [CandidatesController::class, 'getProfile']);
-    Route::put('update-profile', [CandidatesController::class, 'updateProfile']);
+    Route::post('update-profile', [CandidatesController::class, 'updateProfile']);
 
     // Account settings
     Route::get('account-setting', [AccountSettingsController::class, 'index']);
