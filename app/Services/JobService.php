@@ -502,7 +502,6 @@ class JobService
             ->get();
     }
 
-
     /**
      * Search jobs
      *
@@ -538,25 +537,9 @@ class JobService
             $query->where('state', $filters['province']);
         }
 
-        // Filter by date posted
+        // Filter by date posted - simplified to just use the date directly
         if (!empty($filters['date_posted'])) {
-            $datePosted = $filters['date_posted'];
-
-            if ($datePosted === 'today') {
-                $query->whereDate('created_at', now()->toDateString());
-            } elseif ($datePosted === '3days') {
-                $query->where('created_at', '>=', now()->subDays(3));
-            } elseif ($datePosted === 'week') {
-                $query->where('created_at', '>=', now()->subWeek());
-            } elseif ($datePosted === 'month') {
-                $query->where('created_at', '>=', now()->subMonth());
-            } elseif ($datePosted === 'custom' && !empty($filters['custom_date'])) {
-                // Handle custom date
-                $query->whereDate('created_at', $filters['custom_date']);
-            } elseif ($datePosted !== 'any' && strtotime($datePosted)) {
-                // If date_posted is a valid date string, use it directly
-                $query->whereDate('created_at', $datePosted);
-            }
+            $query->whereDate('created_at', $filters['date_posted']);
         }
 
         // Filter by job industry
