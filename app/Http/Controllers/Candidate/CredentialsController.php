@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Candidate;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Candidate\CredentialRequest;
+use App\Http\Resources\CredentialResource;
 use App\Models\CandidateCredential;
 use App\Services\CandidateService;
 use Illuminate\Http\JsonResponse;
@@ -57,7 +58,7 @@ class CredentialsController extends Controller implements HasMiddleware
 
         $credential = $this->candidateService->addCredential($candidate, $data);
 
-        return response()->created($credential, 'Credential added successfully');
+        return response()->created(new CredentialResource($credential), 'Credential added successfully');
     }
 
     /**
@@ -80,7 +81,7 @@ class CredentialsController extends Controller implements HasMiddleware
 
         $credential = $this->candidateService->updateCredential($credential, $data);
 
-        return response()->success($credential, 'Credential updated successfully');
+        return response()->success(new CredentialResource($credential), 'Credential updated successfully');
     }
 
     /**
@@ -101,6 +102,6 @@ class CredentialsController extends Controller implements HasMiddleware
 
         $this->candidateService->deleteCredential($credential);
 
-        return response()->success($credential, 'Credential deleted successfully');
+        return response()->success(null, 'Credential deleted successfully');
     }
 }
