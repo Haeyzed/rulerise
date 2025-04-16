@@ -70,6 +70,14 @@ class CandidateService
     public function updateProfile(User $user, array $data): Candidate
     {
         DB::transaction(function () use ($user, $data) {
+            // Handle profile picture (candidate)
+            if (isset($data['profile_picture']) && $data['profile_picture'] instanceof UploadedFile) {
+                $data['profile_picture_path'] = $this->uploadImage(
+                    $data['profile_picture'],
+                    config('filestorage.paths.profile_images')
+                );
+                unset($data['profile_picture']);
+            }
             // Update user data
             if (isset($data['first_name'])) {
                 $user->first_name = $data['first_name'];
@@ -374,6 +382,7 @@ class CandidateService
 
             // Create resume record
             return $candidate->resumes()->create([
+                'name' => $data['name'],
                 'document' => $data['document'],
                 'is_primary' => $data['is_primary'],
             ]);
@@ -425,6 +434,19 @@ class CandidateService
      * @return string The path to the uploaded image.
      */
     private function uploadCv(UploadedFile $image, string $path, array $options = []): string
+    {
+        return $this->storageService->upload($image, $path, $options);
+    }
+
+    /**
+     * Upload an image to storage.
+     *
+     * @param UploadedFile $image The image file to upload.
+     * @param string $path The storage path.
+     * @param array $options Additional options for the upload.
+     * @return string The path to the uploaded image.
+     */
+    private function uploadImage(UploadedFile $image, string $path, array $options = []): string
     {
         return $this->storageService->upload($image, $path, $options);
     }

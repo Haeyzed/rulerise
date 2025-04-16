@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Candidate;
 
 use App\Http\Requests\BaseRequest;
+use Illuminate\Validation\Rule;
 
 /**
  * Request for updating candidate profile.
@@ -19,32 +20,49 @@ class UpdateProfileRequest extends BaseRequest
     public function rules(): array
     {
         return [
-            'first_name' => 'sometimes|required|string|max:255',
-            'last_name' => 'sometimes|required|string|max:255',
-            'other_name' => 'sometimes|required|string|max:255',
-            'email' => 'sometimes|required|string|email|max:255|unique:users,email,' . auth()->id(),
+            'first_name' => 'required|string|max:255',
+            'last_name' => 'required|string|max:255',
+            'other_name' => 'nullable|string|max:255',
+            'email' => [
+                'required',
+                'email',
+                Rule::unique('users')->ignore(auth()->id())->where(function ($query) {
+                    return $query->where('user_type', $this->input('user_type'));
+                }),
+            ],
+            'password' => 'required|string|min:8',
             'phone' => 'nullable|string|max:20',
-            'address' => 'nullable|string|max:255',
-            'city' => 'nullable|string|max:100',
-            'state' => 'nullable|string|max:100',
+            'phone_country_code' => 'nullable|string|max:10',
             'country' => 'nullable|string|max:100',
-            'zip_code' => 'nullable|string|max:20',
-            'date_of_birth' => 'nullable|date',
-            'gender' => 'nullable|string|in:male,female,other',
-            'bio' => 'nullable|string|max:1000',
+            'state' => 'nullable|string|max:100',
+            'city' => 'nullable|string|max:100',
+            'profile_picture' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'title' => 'nullable|string|max:50',
+            'user_type' => 'required|string|in:candidate,employer,admin',
+
+            'year_of_experience' => 'nullable|required_if:user_type,candidate|string|max:10',
+            'highest_qualification' => 'nullable|required_if:user_type,candidate|string|max:255',
+            'prefer_job_industry' => 'nullable|required_if:user_type,candidate|string|max:255',
+            'available_to_work' => 'nullable|required_if:user_type,candidate|boolean',
             'skills' => 'nullable|array',
-            'skills.*' => 'string|max:100',
-            'job_title' => 'nullable|string|max:255',
-            'salary_expectation' => 'nullable|numeric|min:0',
-            'experience_years' => 'nullable|integer|min:0',
-            'education_level' => 'nullable|string|max:255',
-            'availability' => 'nullable|string|in:immediate,1_week,2_weeks,1_month,more_than_1_month',
-            'job_type' => 'nullable|string|in:full_time,part_time,contract,internship,temporary',
-            'willing_to_relocate' => 'nullable|boolean',
-            'linkedin_url' => 'nullable|string|url|max:255',
-            'github_url' => 'nullable|string|url|max:255',
-            'portfolio_url' => 'nullable|string|url|max:255',
-            'profile_visibility' => 'nullable|boolean',
+            'skills.*' => 'nullable|string|max:100',
+
+//            'address' => 'nullable|string|max:255',
+//            'zip_code' => 'nullable|string|max:20',
+//            'date_of_birth' => 'nullable|date',
+//            'gender' => 'nullable|string|in:male,female,other',
+//            'bio' => 'nullable|string|max:1000',
+//            'job_title' => 'nullable|string|max:255',
+//            'salary_expectation' => 'nullable|numeric|min:0',
+//            'experience_years' => 'nullable|integer|min:0',
+//            'education_level' => 'nullable|string|max:255',
+//            'availability' => 'nullable|string|in:immediate,1_week,2_weeks,1_month,more_than_1_month',
+//            'job_type' => 'nullable|string|in:full_time,part_time,contract,internship,temporary',
+//            'willing_to_relocate' => 'nullable|boolean',
+//            'linkedin_url' => 'nullable|string|url|max:255',
+//            'github_url' => 'nullable|string|url|max:255',
+//            'portfolio_url' => 'nullable|string|url|max:255',
+//            'profile_visibility' => 'nullable|boolean',
         ];
     }
 

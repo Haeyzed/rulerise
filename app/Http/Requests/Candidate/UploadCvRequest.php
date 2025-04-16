@@ -23,6 +23,7 @@ class UploadCvRequest extends BaseRequest
     public function rules(): array
     {
         return [
+            'name' => 'nullable|string|max:255',
             /**
              * The document for the  user.
              *

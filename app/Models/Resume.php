@@ -34,6 +34,7 @@ class Resume extends Model
      */
     protected $fillable = [
         'candidate_id',
+        'name',
         'document',
         'is_primary',
     ];
