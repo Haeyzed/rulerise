@@ -431,9 +431,7 @@ class CandidateService
      * Upload resume
      *
      * @param Candidate $candidate
-     * @param UploadedFile $file
-     * @param string $title
-     * @param bool $isPrimary
+     * @param array $data
      * @return Resume
      */
     public function uploadResume(Candidate $candidate, array $data): Resume
@@ -448,8 +446,24 @@ class CandidateService
             }
 
             // If this is set as primary, unset other primary resumes
-            if ($data['is_primary']) {
+            if (isset($data['is_primary']) && $data['is_primary']) {
                 $candidate->resumes()->update(['is_primary' => false]);
+            } else {
+                // Default to primary if it's the first resume
+                $data['is_primary'] = $candidate->resumes()->count() === 0;
+            }
+
+            // Generate a name if not provided
+            if (empty($data['name'])) {
+                // Get the candidate's user
+                $user = $candidate->user;
+                $username = $user->first_name . ' ' . $user->last_name;
+
+                // Count existing resumes to create a version number
+                $resumeCount = $candidate->resumes()->count() + 1;
+
+                // Generate name with version suffix
+                $data['name'] = $username . ' - Resume v' . $resumeCount;
             }
 
             // Create resume record
