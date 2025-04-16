@@ -19,7 +19,6 @@ class EducationHistoryRequest extends BaseRequest
     public function rules(): array
     {
         return [
-            'id' => 'sometimes|required|integer|exists:education_histories,id',
             'institution_name' => 'required|string|max:255',
             'degree' => 'required|string|max:255',
             'field_of_study' => 'nullable|string|max:255',

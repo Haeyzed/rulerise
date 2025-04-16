@@ -248,7 +248,7 @@ class CandidateService
      */
     public function addEducationHistory(Candidate $candidate, array $data): EducationHistory
     {
-        return $candidate->educationHistories()->create($data);
+        return $candidate->educationHistories()->create($data)->load('candidate');
     }
 
     /**
@@ -261,7 +261,7 @@ class CandidateService
     public function updateEducationHistory(EducationHistory $educationHistory, array $data): EducationHistory
     {
         $educationHistory->update($data);
-        return $educationHistory;
+        return $educationHistory->load('candidate');
     }
 
     /**

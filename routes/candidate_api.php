@@ -6,7 +6,7 @@ use App\Http\Controllers\Candidate\CandidatesController;
 use App\Http\Controllers\Candidate\CredentialsController;
 use App\Http\Controllers\Candidate\CVsController;
 use App\Http\Controllers\Candidate\DashboardController;
-use App\Http\Controllers\Candidate\EducationHistoriesController;
+use App\Http\Controllers\Candidate\CandidateEducationHistoriesController;
 use App\Http\Controllers\Candidate\JobsController;
 use App\Http\Controllers\Candidate\UserAccountSettingsController;
 use App\Http\Controllers\Candidate\WorkExperiencesController;
@@ -70,9 +70,9 @@ Route::middleware(['auth:api', 'role:candidate'])->group(function () {
 
     // Education history
     Route::prefix('education-history')->group(function () {
-        Route::post('/', [EducationHistoriesController::class, 'store']);
-        Route::put('/{id}', [EducationHistoriesController::class, 'update']);
-        Route::delete('/{id}', [EducationHistoriesController::class, 'delete']);
+        Route::post('/', [CandidateEducationHistoriesController::class, 'store']);
+        Route::put('/{id}', [CandidateEducationHistoriesController::class, 'update']);
+        Route::delete('/{id}', [CandidateEducationHistoriesController::class, 'delete']);
     });
 
     // Credentials

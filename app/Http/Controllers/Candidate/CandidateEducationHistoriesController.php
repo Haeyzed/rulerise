@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Candidate;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Candidate\EducationHistoryRequest;
+use App\Http\Resources\EducationHistoryResource;
 use App\Models\EducationHistory;
 use App\Services\CandidateService;
 use Illuminate\Http\JsonResponse;
@@ -13,7 +14,7 @@ use Illuminate\Routing\Controllers\Middleware;
 /**
  * Controller for managing candidate education histories
  */
-class EducationHistoriesController extends Controller implements HasMiddleware
+class CandidateEducationHistoriesController extends Controller implements HasMiddleware
 {
     /**
      * Candidate service instance
@@ -57,7 +58,7 @@ class EducationHistoriesController extends Controller implements HasMiddleware
 
         $educationHistory = $this->candidateService->addEducationHistory($candidate, $data);
 
-        return response()->created($educationHistory, 'Education history added successfully');
+        return response()->created(new EducationHistoryResource($educationHistory), 'Education history added successfully');
     }
 
     /**
@@ -66,12 +67,12 @@ class EducationHistoriesController extends Controller implements HasMiddleware
      * @param EducationHistoryRequest $request
      * @return JsonResponse
      */
-    public function update(EducationHistoryRequest $request): JsonResponse
+    public function update(int $id, EducationHistoryRequest $request): JsonResponse
     {
         $user = auth()->user();
         $data = $request->validated();
 
-        $educationHistory = EducationHistory::query()->findOrFail($data['id']);
+        $educationHistory = EducationHistory::query()->findOrFail($id);
 
         // Check if the education history belongs to the authenticated user
         if ($educationHistory->candidate_id !== $user->candidate->id) {
@@ -80,11 +81,7 @@ class EducationHistoriesController extends Controller implements HasMiddleware
 
         $educationHistory = $this->candidateService->updateEducationHistory($educationHistory, $data);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Education history updated successfully',
-            'data' => $educationHistory,
-        ]);
+        return response()->success(new EducationHistoryResource($educationHistory),'Education history updated successfully');
     }
 
     /**
@@ -105,6 +102,6 @@ class EducationHistoriesController extends Controller implements HasMiddleware
 
         $this->candidateService->deleteEducationHistory($educationHistory);
 
-        return response()->success('Education history deleted successfully');
+        return response()->success(null, 'Education history deleted successfully');
     }
 }
