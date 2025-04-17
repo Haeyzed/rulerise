@@ -20,6 +20,7 @@ return new class extends Migration {
             $table->string('subtitle')->nullable();
             $table->text('body');
             $table->string('banner_image')->nullable();
+            $table->string('category')->nullable();
             $table->string('caption')->nullable();
             $table->string('status')->default(BlogPostStatusEnum::DRAFT->value);
             $table->integer('views')->default(0);

@@ -50,6 +50,14 @@ class BlogPostResource extends JsonResource
             'subtitle' => $this->subtitle,
 
             /**
+             * The category of the blog post.
+             *
+             * @var string|null $category
+             * @example "A step-by-step guide"
+             */
+            'category' => $this->category,
+
+            /**
              * The main body content of the blog post.
              *
              * @var string $body

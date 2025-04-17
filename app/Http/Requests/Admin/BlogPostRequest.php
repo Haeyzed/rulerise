@@ -72,6 +72,14 @@ class BlogPostRequest extends BaseRequest
             'caption' => ['nullable', 'string', 'max:255'],
 
             /**
+             * The category for the blog post.
+             *
+             * @var string|null $category
+             * @example "A beautiful sunset over the mountains."
+             */
+            'category' => ['nullable', 'string', 'max:255'],
+
+            /**
              * The status of the blog post.
              *
              * @var BlogPostStatusEnum $status

@@ -24,6 +24,7 @@ class BlogPost extends Model
     protected $fillable = [
         'title',
         'subtitle',
+        'category',
         'body',
         'banner_image',
         'caption',
