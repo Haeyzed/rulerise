@@ -67,12 +67,12 @@ class AuthController extends Controller implements HasMiddleware
             $userType = $data['user_type'];
 
             // Check if user is trying to register as admin
-            if ($userType === 'admin') {
-                // Only existing admins can create new admins
-                if (!auth()->check() || !auth()->user()->hasRole('admin')) {
-                    return response()->forbidden('You do not have permission to create admin accounts');
-                }
-            }
+//            if ($userType === 'admin') {
+//                // Only existing admins can create new admins
+//                if (!auth()->check() || !auth()->user()->hasRole('admin')) {
+//                    return response()->forbidden('You do not have permission to create admin accounts');
+//                }
+//            }
 
             $result = $this->authService->register($data, $userType);
             $user = $result['user'];
