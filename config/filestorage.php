@@ -55,5 +55,7 @@ return [
         'profile_images' => config('app.name').'/'.env('FILESTORAGE_PROFILE_IMAGES_PATH', config('app.name').'/profile/images'),
         'company_logos' => config('app.name').'/'.env('FILESTORAGE_COMPANY_LOGOS_PATH', config('app.name').'/company/logos'),
         'resumes' => config('app.name').'/'.env('FILESTORAGE_RESUMES_PATH', config('app.name').'/company/resumes'),
+        'blog_images' => config('app.name').'/'.env('FILESTORAGE_BLOG_IMAGES_PATH', config('app.name').'/blog/images'),
+        'blog_banners' => config('app.name').'/'.env('FILESTORAGE_BLOG_BANNERS_PATH', config('app.name').'/blog/banners'),
     ],
 ];

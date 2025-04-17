@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Public\BlogPostController;
 use App\Http\Controllers\Public\CandidatesController;
 use App\Http\Controllers\Public\FaqController;
 use App\Http\Controllers\Public\JobCategoriesController;
@@ -55,3 +56,7 @@ Route::prefix('faqs')->group(function () {
     Route::get('/categories/{slugOrId}', [FaqController::class, 'getCategory']);
     Route::get('/search', [FaqController::class, 'search']);
 });
+
+// Blog Posts
+Route::get('blog-posts', [BlogPostController::class, 'index'])->name('blog-posts.index');
+Route::get('blog-posts/{blogPost}', [BlogPostController::class, 'show'])->name('blog-posts.show');

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\BlogPostController;
 use App\Http\Controllers\Admin\FaqController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Auth\AuthController;
@@ -108,6 +109,18 @@ Route::middleware(['auth:api', 'role:admin'])->group(function () {
 
     // User management - Permissions
     Route::get('user-management/permissions', [PermissionController::class, 'index']);
+
+    // Blog Posts
+    Route::apiResource('blog-posts', BlogPostController::class);
+    Route::prefix('blog-posts')->name('blog-posts.')->group(function () {
+        // Soft delete management
+        Route::delete('/{blogPost}/force', [BlogPostController::class, 'forceDestroy'])
+            ->name('force-destroy')
+            ->withTrashed();
+        Route::post('/{blogPost}/restore', [BlogPostController::class, 'restore'])
+            ->name('restore')
+            ->withTrashed();
+    });
 
     Route::prefix('admin/faqs')->group(function () {
         // FAQ Categories
