@@ -114,14 +114,6 @@ class BlogPostResource extends JsonResource
             'status_color' => $this->status ? $this->status->color() : null,
 
             /**
-             * The user ID of the blog post author.
-             *
-             * @var int $user_id
-             * @example 3
-             */
-            'user_id' => $this->user_id,
-
-            /**
              * The user details of the blog post author.
              *
              * @var array|null $user

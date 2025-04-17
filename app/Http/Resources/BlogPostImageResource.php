@@ -35,14 +35,6 @@ class BlogPostImageResource extends JsonResource
             'id' => $this->id,
 
             /**
-             * The ID of the related blog post.
-             *
-             * @var int $blog_post_id
-             * @example 10
-             */
-            'blog_post_id' => $this->blog_post_id,
-
-            /**
              * The file path of the image.
              *
              * @var string $image_path
