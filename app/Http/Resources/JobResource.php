@@ -82,12 +82,51 @@ class JobResource extends JsonResource
                 }
             ),
 
-            'is_saved' => $this->when(
+            'applied_at' => $this->when(
+                $request->user() && $request->user()->isCandidate(),
+                function () use ($request) {
+                    $application = $this->applications()
+                        ->where('candidate_id', $request->user()->candidate->id)
+                        ->first();
+                    return $application ? $application->created_at->format('Y-m-d H:i:s') : null;
+                }
+            ),
+
+            'has_saved' => $this->when(
                 $request->user() && $request->user()->isCandidate(),
                 function () use ($request) {
                     return $this->savedJobs()
                         ->where('candidate_id', $request->user()->candidate->id)
                         ->exists();
+                }
+            ),
+
+            'saved_at' => $this->when(
+                $request->user() && $request->user()->isCandidate(),
+                function () use ($request) {
+                    $application = $this->savedJobs()
+                        ->where('candidate_id', $request->user()->candidate->id)
+                        ->first();
+                    return $application ? $application->created_at->format('Y-m-d H:i:s') : null;
+                }
+            ),
+
+            'has_reported' => $this->when(
+                $request->user() && $request->user()->isCandidate(),
+                function () use ($request) {
+                    return $this->reports()
+                        ->where('candidate_id', $request->user()->candidate->id)
+                        ->exists();
+                }
+            ),
+
+            'reported_at' => $this->when(
+                $request->user() && $request->user()->isCandidate(),
+                function () use ($request) {
+                    $report = $this->reports()
+                        ->where('candidate_id', $request->user()->candidate->id)
+                        ->first();
+                    return $report ? $report->created_at->format('Y-m-d H:i:s') : null;
                 }
             ),
 
