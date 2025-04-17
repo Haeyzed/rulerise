@@ -59,10 +59,9 @@ class CandidateService
             'portfolio',
             'credentials',
             'resumes',
-            'jobApplications.job.employer',
-            'jobApplications.resume',
-            'savedJobs.job.employer',
-            'reportedJobs.job',
+            'jobApplications',
+            'savedJobs',
+            'reportedJobs',
             'candidatePools',
             'primaryResume',
         ]);
