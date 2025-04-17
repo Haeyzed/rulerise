@@ -25,13 +25,6 @@ class ReportJobRequest extends BaseRequest
     {
         return [
             /**
-             * The ID of the job being reported.
-             * @var int $job_id
-             * @example 101
-             */
-            'job_id' => ['required', 'exists:jobs,id'],
-
-            /**
              * The reason why the job is being reported.
              * @var string $reason
              * @example "Scam posting"
