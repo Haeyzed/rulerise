@@ -55,7 +55,7 @@ class CandidatesController extends Controller// implements HasMiddleware
         $user = auth()->user();
         $profile = $this->candidateService->getProfile($user);
 
-        return response()->success(new UserResource($profile['user']), 'Profile retrieved successfully.');
+        return response()->success(new UserResource($profile), 'Profile retrieved successfully.');
     }
 
     /**

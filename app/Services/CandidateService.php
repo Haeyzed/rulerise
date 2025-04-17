@@ -38,14 +38,20 @@ class CandidateService
     }
 
     /**
-     * Get candidate profile
+     * Get candidate profile with all relationships
      *
      * @param User $user
-     * @return array
+     * @return User
      */
-    public function getProfile(User $user): array
+    public function getProfile(User $user): User
     {
-        $candidate = $user->candidate()->with([
+        // First load the user with roles and permissions
+        $user->load(['roles', 'permissions']);
+
+        // Then load the candidate with all its relationships
+        $candidate = $user->candidate;
+
+        $candidate?->load([
             'qualification',
             'workExperiences',
             'educationHistories',
@@ -53,12 +59,15 @@ class CandidateService
             'portfolio',
             'credentials',
             'resumes',
-        ])->first();
+            'jobApplications.job.employer',
+            'jobApplications.resume',
+            'savedJobs.job.employer',
+            'reportedJobs.job',
+            'candidatePools',
+            'primaryResume',
+        ]);
 
-        return [
-            'user' => $user,
-            'candidate' => $candidate,
-        ];
+        return $user;
     }
 
     /**
