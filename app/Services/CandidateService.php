@@ -47,13 +47,18 @@ class CandidateService
     {
         $candidate = $user->candidate()->with([
             'qualification',
-            'workExperiences',
-            'educationHistories',
-            'languages',
-            'portfolio',
-            'credentials',
+            'workExperiences.candidate.user',
+            'educationHistories.candidate',
+            'languages.candidate',
+            'portfolio.candidate',
+            'credentials.candidate',
             'resumes',
+            'jobCategory', // Add job category relationship
+            'skills',      // Add skills relationship if it exists
         ])->first();
+
+        // Load user relationships if needed
+        $user->load(['roles', 'permissions']);
 
         return [
             'user' => $user,

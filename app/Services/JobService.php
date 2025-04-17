@@ -537,14 +537,25 @@ class JobService
             $query->where('state', $filters['province']);
         }
 
-        // Filter by date posted - simplified to just use the date directly
+        // Filter by date posted
         if (!empty($filters['date_posted'])) {
             $query->whereDate('created_at', $filters['date_posted']);
         }
 
-        // Filter by job industry
+        // Filter by job industry (which is actually job category)
         if (!empty($filters['job_industry'])) {
-            $query->where('job_industry', $filters['job_industry']);
+            // First try to find by exact category name
+            $category = JobCategory::where('name', $filters['job_industry'])->first();
+
+            if ($category) {
+                // If found, filter by category ID
+                $query->where('job_category_id', $category->id);
+            } else {
+                // If not found by exact name, try to search by similar name
+                $query->whereHas('category', function($q) use ($filters) {
+                    $q->where('name', 'like', "%{$filters['job_industry']}%");
+                });
+            }
         }
 
         // Filter by experience level
@@ -586,10 +597,11 @@ class JobService
 
         $query->orderBy($sortBy, $sortOrder);
 
+        // Always include these relationships
         return $query->with(['employer', 'category'])->paginate($perPage);
     }
 
-    /**
+/**
      * Get latest jobs
      *
      * @param int $perPage
