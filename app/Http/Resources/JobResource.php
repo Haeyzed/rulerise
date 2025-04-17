@@ -104,10 +104,10 @@ class JobResource extends JsonResource
             'saved_at' => $this->when(
                 $request->user() && $request->user()->isCandidate(),
                 function () use ($request) {
-                    $application = $this->savedJobs()
+                    $savedJob = $this->savedJobs()
                         ->where('candidate_id', $request->user()->candidate->id)
                         ->first();
-                    return $application ? $application->created_at->format('Y-m-d H:i:s') : null;
+                    return $savedJob ? $savedJob->created_at->format('Y-m-d H:i:s') : null;
                 }
             ),
 
