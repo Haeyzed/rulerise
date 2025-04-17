@@ -80,6 +80,14 @@ class BlogPostRequest extends BaseRequest
             'category' => ['nullable', 'string', 'max:255'],
 
             /**
+             * The read time for the blog post.
+             *
+             * @var string|null $read_time
+             * @example "5"
+             */
+            'read_time' => ['nullable', 'string'],
+
+            /**
              * The status of the blog post.
              *
              * @var BlogPostStatusEnum $status

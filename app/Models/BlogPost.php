@@ -28,6 +28,7 @@ class BlogPost extends Model
         'body',
         'banner_image',
         'caption',
+        'read_time',
         'status',
         'user_id',
         'views',

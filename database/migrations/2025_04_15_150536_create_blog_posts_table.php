@@ -22,6 +22,7 @@ return new class extends Migration {
             $table->string('banner_image')->nullable();
             $table->string('category')->nullable();
             $table->string('caption')->nullable();
+            $table->string('read_time')->nullable();
             $table->string('status')->default(BlogPostStatusEnum::DRAFT->value);
             $table->integer('views')->default(0);
             $table->timestamps();

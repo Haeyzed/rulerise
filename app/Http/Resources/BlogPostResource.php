@@ -90,6 +90,14 @@ class BlogPostResource extends JsonResource
             'caption' => $this->caption,
 
             /**
+             * The read time for the blog post.
+             *
+             * @var string|null $read_time
+             * @example "5"
+             */
+            'read_time' => $this->read_time,
+
+            /**
              * The status of the blog post.
              *
              * @var string $status
