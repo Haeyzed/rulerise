@@ -46,7 +46,7 @@ class CandidateService
     public function getProfile(User $user): User
     {
         // First load the user with roles and permissions
-        $user->load(['roles', 'permissions',
+        $user->load('roles', 'permissions',
             'candidate.qualification',
             'candidate.workExperiences',
             'candidate.educationHistories',
@@ -60,7 +60,7 @@ class CandidateService
             'candidate.reportedJobs.job',
             'candidate.candidatePools',
             'candidate.primaryResume',
-            ]);
+            );
 
         return $user;
     }
