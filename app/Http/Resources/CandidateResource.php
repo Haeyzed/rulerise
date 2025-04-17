@@ -42,6 +42,15 @@ class CandidateResource extends JsonResource
             'created_at' => optional($this->created_at)->format('Y-m-d H:i:s'),
             'updated_at' => optional($this->updated_at)->format('Y-m-d H:i:s'),
             'skills' => $this->skills,
+
+            // Include relationships
+            'qualification' => $this->whenLoaded('qualification'),
+            'work_experiences' => $this->whenLoaded('workExperiences'),
+            'education_histories' => $this->whenLoaded('educationHistories'),
+            'languages' => $this->whenLoaded('languages'),
+            'portfolio' => $this->whenLoaded('portfolio'),
+            'credentials' => $this->whenLoaded('credentials'),
+            'resumes' => $this->whenLoaded('resumes'),
         ];
     }
 }
