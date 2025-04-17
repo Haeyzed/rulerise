@@ -41,36 +41,28 @@ class CandidateService
      * Get candidate profile with all relationships
      *
      * @param User $user
-     * @return array
+     * @return User
      */
-    public function getProfile(User $user): array
+    public function getProfile(User $user): User
     {
         // First load the user with roles and permissions
-        $user->load(['roles', 'permissions']);
+        $user->load(['roles', 'permissions',
+            'candidate.qualification',
+            'candidate.workExperiences',
+            'candidate.educationHistories',
+            'candidate.languages',
+            'candidate.portfolio',
+            'candidate.credentials',
+            'candidate.resumes',
+            'candidate.jobApplications.job.employer',
+            'candidate.jobApplications.resume',
+            'candidate.savedJobs.job.employer',
+            'candidate.reportedJobs.job',
+            'candidate.candidatePools',
+            'candidate.primaryResume',
+            ]);
 
-        // Then load the candidate with all its relationships
-        $candidate = $user->candidate;
-
-        $candidate?->load([
-            'qualification',
-            'workExperiences',
-            'educationHistories',
-            'languages',
-            'portfolio',
-            'credentials',
-            'resumes',
-            'jobApplications.job.employer',
-            'jobApplications.resume',
-            'savedJobs.job.employer',
-            'reportedJobs.job',
-            'candidatePools',
-            'primaryResume',
-        ]);
-
-        return [
-            'user' => $user,
-            'candidate' => $candidate,
-        ];
+        return $user;
     }
 
     /**
