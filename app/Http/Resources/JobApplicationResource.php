@@ -20,6 +20,7 @@ class JobApplicationResource extends JsonResource
             'cover_letter' => $this->cover_letter,
             'status' => $this->status,
             'employer_notes' => $this->employer_notes,
+            'apply_via' => $this->apply_via,
             'created_at' => $this->created_at->format('Y-m-d H:i:s'),
             'updated_at' => $this->updated_at->format('Y-m-d H:i:s'),
             'applied_at_human' => $this->created_at->diffForHumans(),

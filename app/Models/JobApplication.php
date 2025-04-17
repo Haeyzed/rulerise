@@ -17,6 +17,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $cover_letter
  * @property string $status
  * @property string|null $employer_notes
+ * @property string $apply_via
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  *
@@ -40,6 +41,7 @@ class JobApplication extends Model
         'cover_letter',
         'status',
         'employer_notes',
+        'apply_via',
     ];
 
     /**

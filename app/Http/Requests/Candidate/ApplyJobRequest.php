@@ -26,6 +26,7 @@ class ApplyJobRequest extends BaseRequest
             'job_id' => ['required', 'exists:job_listings,id'],
             'resume_id' => ['nullable', 'exists:resumes,id'],
             'cover_letter' => ['nullable', 'string'],
+            'apply_via' => ['required', 'string', 'in:custom_cv,profile_cv'],
         ];
     }
 
@@ -40,6 +41,7 @@ class ApplyJobRequest extends BaseRequest
             'job_id' => 'job',
             'resume_id' => 'resume',
             'cover_letter' => 'cover letter',
+            'apply_via' => 'application method',
         ];
     }
 }

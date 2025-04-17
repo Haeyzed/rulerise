@@ -141,6 +141,15 @@ class JobsController extends Controller implements HasMiddleware
             if ($resume->candidate_id !== $user->candidate->id) {
                 return response()->forbidden('Unauthorized resume');
             }
+        } elseif ($data['apply_via'] === 'profile_cv') {
+            // If using profile CV but no resume_id provided, get the primary resume
+            $resume = $user->candidate->primaryResume;
+
+            if (!$resume) {
+                return response()->badRequest('No primary resume found in your profile');
+            }
+        } else {
+            return response()->badRequest('Resume is required when applying with custom CV');
         }
 
         try {
@@ -148,7 +157,8 @@ class JobsController extends Controller implements HasMiddleware
                 $job,
                 $user->candidate,
                 $resume,
-                $data['cover_letter'] ?? null
+                $data['cover_letter'] ?? null,
+                $data['apply_via']
             );
 
             return response()->success(new JobApplicationResource($application), 'Job application submitted successfully');

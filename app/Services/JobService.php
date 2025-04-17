@@ -320,6 +320,8 @@ class JobService
         return $job;
     }
 
+
+
     /**
      * Apply for a job
      *
@@ -327,10 +329,11 @@ class JobService
      * @param Candidate $candidate
      * @param Resume|null $resume
      * @param string|null $coverLetter
+     * @param string $applyVia
      * @return JobApplication
      * @throws Exception
      */
-    public function applyForJob(Job $job, Candidate $candidate, ?Resume $resume = null, ?string $coverLetter = null): JobApplication
+    public function applyForJob(Job $job, Candidate $candidate, ?Resume $resume = null, ?string $coverLetter = null, string $applyVia = 'profile_cv'): JobApplication
     {
         // Check if job is available for application
         if ($job->is_draft) {
@@ -354,6 +357,11 @@ class JobService
             throw new Exception('You have already applied for this job');
         }
 
+        // Validate apply_via value
+        if (!in_array($applyVia, ['custom_cv', 'profile_cv'])) {
+            throw new Exception('Invalid application method');
+        }
+
         // If no resume is provided, use the primary resume
         if (!$resume) {
             $resume = $candidate->primaryResume;
@@ -370,6 +378,7 @@ class JobService
             'resume_id' => $resume->id,
             'cover_letter' => $coverLetter,
             'status' => 'applied',
+            'apply_via' => $applyVia,
         ]);
     }
 
