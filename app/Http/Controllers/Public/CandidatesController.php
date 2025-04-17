@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Public;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Candidate\UpdateProfileRequest;
+use App\Http\Resources\UserResource;
 use App\Models\Candidate;
 use App\Services\CandidateService;
 use Illuminate\Http\JsonResponse;
@@ -54,7 +55,7 @@ class CandidatesController extends Controller// implements HasMiddleware
         $user = auth()->user();
         $profile = $this->candidateService->getProfile($user);
 
-        return response()->success($profile, 'Profile retrieved successfully.');
+        return response()->success(new UserResource($profile), 'Profile retrieved successfully.');
     }
 
     /**
