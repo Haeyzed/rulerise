@@ -83,8 +83,11 @@ class EmployerService
             $query->where('is_featured', $featured === 'true');
         }
 
-        // Eager load relationships
-        $query->with(['category', 'employer.candidatePools'])->withCount('applications');
+        $query->with([
+            'category',
+            'applications.candidate.user',
+            'employer.candidatePools'
+        ])->withCount('applications');
 
         // Apply sorting
         $query->orderBy($sortBy, $sortOrder);
