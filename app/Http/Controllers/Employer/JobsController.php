@@ -59,7 +59,7 @@ class JobsController extends Controller implements HasMiddleware
         $user = auth()->user();
         $employer = $user->employer;
 
-        $query = $employer->jobs();
+        $query = $employer->jobs()->load('pools');
 
         // Apply filters
 //        if ($request->has('status')) {
@@ -84,7 +84,7 @@ class JobsController extends Controller implements HasMiddleware
         $perPage = $request->input('per_page', config('app.pagination.per_page'));
         $jobs = $query->paginate($perPage);
 
-        return response()->paginatedSuccess(new JobResource($jobs->load('pools')), 'Jobs retrieved successfully.');
+        return response()->paginatedSuccess(new JobResource($jobs), 'Jobs retrieved successfully.');
     }
 
     /**

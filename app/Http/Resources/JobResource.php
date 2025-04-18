@@ -71,7 +71,7 @@ class JobResource extends JsonResource
             // Meta information
             'applications_count' => $this->whenCounted('applications'),
             'views_count' => $this->when($this->relationLoaded('viewCounts'), $this->viewCounts->count()),
-            'pools' => $this->whenLoaded($this->relationLoaded('pools')),
+//            'pools' => $this->whenLoaded($this->relationLoaded('pools')),
 
             // User-specific information
             'has_applied' => $this->when(
