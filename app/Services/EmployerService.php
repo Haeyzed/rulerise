@@ -470,9 +470,9 @@ class EmployerService
         // Check if employer has an active subscription that allows candidate pools
         $subscription = $employer->activeSubscription;
 
-        if (!$subscription || !$subscription->plan->can_create_candidate_pools) {
-            throw new Exception('Your subscription does not allow creating candidate pools');
-        }
+//        if (!$subscription || !$subscription->plan->can_create_candidate_pools) {
+//            throw new Exception('Your subscription does not allow creating candidate pools');
+//        }
 
         return $employer->candidatePools()->create([
             'name' => $name,
