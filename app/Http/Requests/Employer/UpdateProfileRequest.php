@@ -29,7 +29,7 @@ class UpdateProfileRequest extends BaseRequest
                 'string',
                 'email',
                 'max:255',
-//                Rule::unique('users', 'email')->ignore(auth()->id()),
+                Rule::unique('users', 'email')->ignore(auth()->id()),
             ],
             'phone' => 'sometimes|string|max:20',
             'country' => 'sometimes|string|max:100',

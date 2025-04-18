@@ -70,12 +70,6 @@ class EmployersController extends Controller implements HasMiddleware
         try {
             $user = auth()->user();
             $data = $request->validated();
-
-            // Handle binary data for company_logo if present
-            if ($request->hasFile('company_logo')) {
-                $data['company_logo'] = $request->file('company_logo');
-            }
-
             $employer = $this->employerService->updateProfile($user, $data);
             return response()->success(new EmployerResource($employer), 'Profile updated successfully');
         } catch (Exception $e) {
