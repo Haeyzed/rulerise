@@ -57,7 +57,7 @@ class EmployerService
      * @param string $sortBy
      * @param string $sortOrder
      * @param int $perPage
-     * @return LengthAwarePaginator
+     * @return array
      */
     public function getEmployerJobs(
         Employer $employer,
@@ -65,17 +65,27 @@ class EmployerService
         string $sortBy = 'created_at',
         string $sortOrder = 'desc',
         int $perPage = 15
-    ): LengthAwarePaginator {
+    ): array {
+        // Get job counts for different statuses
+        $totalJobs = $employer->jobs()->count();
+        $openJobs = $employer->jobs()->where('is_active', true)->where('is_draft', false)->count();
+        $closedJobs = $employer->jobs()->where('is_active', false)->where('is_draft', false)->count();
+        $draftJobs = $employer->jobs()->where('is_draft', true)->count();
+
+        // Build the query
         $query = $employer->jobs();
 
         // Apply filters if provided
         if (isset($filters['status'])) {
             $status = $filters['status'];
             if ($status === 'open') {
-                $query->where('is_active', true);
+                $query->where('is_active', true)->where('is_draft', false);
             } elseif ($status === 'close') {
-                $query->where('is_active', false);
+                $query->where('is_active', false)->where('is_draft', false);
+            } elseif ($status === 'draft') {
+                $query->where('is_draft', true);
             }
+            // If status is 'all' or not recognized, don't apply any filter
         }
 
         if (isset($filters['featured'])) {
@@ -83,6 +93,7 @@ class EmployerService
             $query->where('is_featured', $featured === 'true');
         }
 
+        // Eager load relationships
         $query->with([
             'category',
             'applications.candidate.user',
@@ -92,7 +103,19 @@ class EmployerService
         // Apply sorting
         $query->orderBy($sortBy, $sortOrder);
 
-        return $query->paginate($perPage);
+        // Get paginated results
+        $jobs = $query->paginate($perPage);
+
+        // Return both the paginated jobs and the counts
+        return [
+            'jobs' => $jobs,
+            'counts' => [
+                'total' => $totalJobs,
+                'open' => $openJobs,
+                'closed' => $closedJobs,
+                'draft' => $draftJobs
+            ]
+        ];
     }
 
     /**

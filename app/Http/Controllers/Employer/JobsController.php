@@ -53,6 +53,12 @@ class JobsController extends Controller implements HasMiddleware
      * @param Request $request
      * @return JsonResponse
      */
+    /**
+     * Get employer jobs
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
     public function index(Request $request): JsonResponse
     {
         $user = auth()->user();
@@ -72,7 +78,7 @@ class JobsController extends Controller implements HasMiddleware
         $sortOrder = $request->input('sort_order', 'desc');
         $perPage = $request->input('per_page', config('app.pagination.per_page'));
 
-        $jobs = $this->employerService->getEmployerJobs(
+        $result = $this->employerService->getEmployerJobs(
             $employer,
             $filters,
             $sortBy,
@@ -80,7 +86,11 @@ class JobsController extends Controller implements HasMiddleware
             $perPage
         );
 
-        return response()->paginatedSuccess($jobs, 'Jobs retrieved successfully.');
+        // Extract jobs and counts from the result
+        $jobs = $result['jobs'];
+        $counts = $result['counts'];
+
+        return response()->paginatedSuccess(['jobs' => $jobs, 'counts' => $counts], 'Jobs retrieved successfully.');
     }
 
     /**
