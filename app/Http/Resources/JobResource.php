@@ -130,6 +130,8 @@ class JobResource extends JsonResource
                     return $report ? $report->created_at->format('Y-m-d H:i:s') : null;
                 }
             ),
+            'pools' => $this->when($this->relationLoaded('employer') && $this->employer->relationLoaded('pools'),
+                PoolResource::collection($this->employer->pools)),
 
             // Timestamps
             'created_at' => $this->created_at->format('Y-m-d H:i:s'),

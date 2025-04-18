@@ -14,6 +14,7 @@ use App\Models\SavedJob;
 use Exception;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Str;
 
 /**
@@ -21,6 +22,63 @@ use Illuminate\Support\Str;
  */
 class JobService
 {
+    /**
+     * Get employer jobs with optional filtering and sorting
+     *
+     * @param Employer $employer
+     * @param array $filters
+     * @param string $sortBy
+     * @param string $sortOrder
+     * @param int $perPage
+     * @return LengthAwarePaginator
+     */
+    public function getEmployerJobs(
+        Employer $employer,
+        array $filters = [],
+        string $sortBy = 'created_at',
+        string $sortOrder = 'desc',
+        int $perPage = 15
+    ): LengthAwarePaginator {
+        $query = $employer->jobs();
+
+        // Apply filters if provided
+        if (isset($filters['status'])) {
+            $status = $filters['status'];
+            if ($status === 'open') {
+                $query->where('is_active', true);
+            } elseif ($status === 'close') {
+                $query->where('is_active', false);
+            }
+        }
+
+        if (isset($filters['featured'])) {
+            $featured = $filters['featured'];
+            $query->where('is_featured', $featured === 'true');
+        }
+
+        // Eager load relationships
+        $query->with(['category', 'employer.pools']);
+
+        // Apply sorting
+        $query->orderBy($sortBy, $sortOrder);
+
+        return $query->paginate($perPage);
+    }
+
+    /**
+     * Get a specific job for an employer
+     *
+     * @param Employer $employer
+     * @param int $jobId
+     * @return Job
+     * @throws ModelNotFoundException
+     */
+    public function getEmployerJob(Employer $employer, int $jobId): Job
+    {
+        return $employer->jobs()
+            ->with(['category', 'applications.candidate.user'])
+            ->findOrFail($jobId);
+    }
 
 
     /**

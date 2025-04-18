@@ -211,6 +211,14 @@ class Job extends Model
     }
 
     /**
+     * Get the pools associated with this job through the employer.
+     */
+    public function pools()
+    {
+        return $this->employer->pools();
+    }
+
+    /**
      * Scope a query to only include jobs that are available for public viewing.
      *
      * @param Builder $query

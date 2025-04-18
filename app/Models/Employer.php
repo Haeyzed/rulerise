@@ -108,14 +108,6 @@ class Employer extends Model
     }
 
     /**
-     * Get the pools for the employer.
-     */
-    public function pools(): HasMany
-    {
-        return $this->hasMany(CandidatePool::class);
-    }
-
-    /**
      * Get the job view counts for the employer's jobs.
      */
     public function jobViewCounts(): HasManyThrough
