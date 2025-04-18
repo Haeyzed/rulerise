@@ -87,10 +87,8 @@ class JobsController extends Controller implements HasMiddleware
         // Add pagination data
         $paginationData = [
             'current_page' => $jobs->currentPage(),
-            'from' => $jobs->firstItem(),
             'last_page' => $jobs->lastPage(),
             'per_page' => $jobs->perPage(),
-            'to' => $jobs->lastItem(),
             'total' => $jobs->total(),
         ];
 
