@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Candidate;
 use App\Models\CandidatePool;
 use App\Models\Employer;
+use App\Models\Job;
 use App\Models\JobNotificationTemplate;
 use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
@@ -15,6 +16,8 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 /**
  * Service class for employer related operations
@@ -25,16 +28,156 @@ class EmployerService
      * @var StorageService
      */
     protected StorageService $storageService;
+    /**
+     * Job service instance
+     *
+     * @var JobService
+     */
+    protected JobService $jobService;
 
     /**
      * BlogPostService constructor.
      *
      * @param StorageService $storageService
+     * @param JobService $jobService
      */
-    public function __construct(StorageService $storageService)
+    public function __construct(StorageService $storageService, JobService $jobService)
     {
         $this->storageService = $storageService;
+        $this->jobService = $jobService;
     }
+
+
+
+    /**
+     * Get employer jobs with optional filtering and sorting
+     *
+     * @param Employer $employer
+     * @param array $filters
+     * @param string $sortBy
+     * @param string $sortOrder
+     * @param int $perPage
+     * @return LengthAwarePaginator
+     */
+    public function getEmployerJobs(
+        Employer $employer,
+        array $filters = [],
+        string $sortBy = 'created_at',
+        string $sortOrder = 'desc',
+        int $perPage = 15
+    ): LengthAwarePaginator {
+        $query = $employer->jobs();
+
+        // Apply filters if provided
+        if (isset($filters['status'])) {
+            $status = $filters['status'];
+            if ($status === 'open') {
+                $query->where('is_active', true);
+            } elseif ($status === 'close') {
+                $query->where('is_active', false);
+            }
+        }
+
+        if (isset($filters['featured'])) {
+            $featured = $filters['featured'];
+            $query->where('is_featured', $featured === 'true');
+        }
+
+        // Eager load relationships
+        $query->with(['category', 'employer.candidatePools']);
+
+        // Apply sorting
+        $query->orderBy($sortBy, $sortOrder);
+
+        return $query->paginate($perPage);
+    }
+
+    /**
+     * Get a specific job for an employer
+     *
+     * @param Employer $employer
+     * @param int $jobId
+     * @return Job
+     * @throws ModelNotFoundException
+     */
+    public function getEmployerJob(Employer $employer, int $jobId): Job
+    {
+        return $employer->jobs()
+            ->with(['category', 'applications.candidate.user', 'employer.candidatePools'])
+            ->findOrFail($jobId);
+    }
+
+    /**
+     * Create a new job for an employer
+     *
+     * @param Employer $employer
+     * @param array $data
+     * @return Job
+     * @throws Exception
+     */
+    public function createEmployerJob(Employer $employer, array $data): Job
+    {
+        return $this->jobService->createJob($employer, $data);
+    }
+
+    /**
+     * Update an employer's job
+     *
+     * @param Employer $employer
+     * @param int $jobId
+     * @param array $data
+     * @return Job
+     * @throws ModelNotFoundException|Exception
+     */
+    public function updateEmployerJob(Employer $employer, int $jobId, array $data): Job
+    {
+        $job = $employer->jobs()->findOrFail($jobId);
+        return $this->jobService->updateJob($job, $data);
+    }
+
+    /**
+     * Delete an employer's job
+     *
+     * @param Employer $employer
+     * @param int $jobId
+     * @return bool
+     * @throws ModelNotFoundException
+     */
+    public function deleteEmployerJob(Employer $employer, int $jobId): bool
+    {
+        $job = $employer->jobs()->findOrFail($jobId);
+        return $this->jobService->deleteJob($job);
+    }
+
+    /**
+     * Set job open/close status
+     *
+     * @param Employer $employer
+     * @param int $jobId
+     * @param bool $isActive
+     * @return Job
+     * @throws ModelNotFoundException|Exception
+     */
+    public function setJobStatus(Employer $employer, int $jobId, bool $isActive): Job
+    {
+        $job = $employer->jobs()->findOrFail($jobId);
+        return $this->jobService->setJobStatus($job, $isActive);
+    }
+
+    /**
+     * Publish job as featured
+     *
+     * @param Employer $employer
+     * @param int $jobId
+     * @return Job
+     * @throws ModelNotFoundException|Exception
+     */
+    public function publishJobAsFeatured(Employer $employer, int $jobId): Job
+    {
+        $job = $employer->jobs()->findOrFail($jobId);
+        return $this->jobService->setJobAsFeatured($job);
+    }
+
     /**
      * Get employer details with open jobs
      *

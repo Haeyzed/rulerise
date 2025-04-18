@@ -5,8 +5,7 @@ namespace App\Http\Controllers\Employer;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Employer\JobRequest;
 use App\Http\Resources\JobResource;
-use App\Models\Job;
-use App\Services\JobService;
+use App\Services\EmployerService;
 use Exception;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
@@ -21,21 +20,21 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 class JobsController extends Controller implements HasMiddleware
 {
     /**
-     * Job service instance
+     * Employer service instance
      *
-     * @var JobService
+     * @var EmployerService
      */
-    protected JobService $jobService;
+    protected EmployerService $employerService;
 
     /**
      * Create a new controller instance.
      *
-     * @param JobService $jobService
+     * @param EmployerService $employerService
      * @return void
      */
-    public function __construct(JobService $jobService)
+    public function __construct(EmployerService $employerService)
     {
-        $this->jobService = $jobService;
+        $this->employerService = $employerService;
     }
 
     /**
@@ -73,7 +72,7 @@ class JobsController extends Controller implements HasMiddleware
         $sortOrder = $request->input('sort_order', 'desc');
         $perPage = $request->input('per_page', config('app.pagination.per_page'));
 
-        $jobs = $this->jobService->getEmployerJobs(
+        $jobs = $this->employerService->getEmployerJobs(
             $employer,
             $filters,
             $sortBy,
@@ -97,7 +96,7 @@ class JobsController extends Controller implements HasMiddleware
         $data = $request->validated();
 
         try {
-            $job = $this->jobService->createJob($employer, $data);
+            $job = $this->employerService->createEmployerJob($employer, $data);
 
             return response()->created(new JobResource($job), 'Job created successfully');
         } catch (Exception $e) {
@@ -116,14 +115,18 @@ class JobsController extends Controller implements HasMiddleware
         $user = auth()->user();
         $employer = $user->employer;
 
-        $job = $employer->jobs()->with(['category', 'applications.candidate.user'])->findOrFail($id);
-
-        return response()->success(new JobResource($job), 'Job retrieved successfully.');
+        try {
+            $job = $this->employerService->getEmployerJob($employer, $id);
+            return response()->success(new JobResource($job), 'Job retrieved successfully.');
+        } catch (ModelNotFoundException|NotFoundHttpException $e) {
+            return response()->notFound('Job not found');
+        }
     }
 
     /**
      * Update job
      *
+     * @param int $id
      * @param JobRequest $request
      * @return JsonResponse
      */
@@ -133,8 +136,8 @@ class JobsController extends Controller implements HasMiddleware
             $user = auth()->user();
             $employer = $user->employer;
             $data = $request->validated();
-            $job = $employer->jobs()->findOrFail($id);
-            $job = $this->jobService->updateJob($job, $data);
+
+            $job = $this->employerService->updateEmployerJob($employer, $id, $data);
             return response()->success(new JobResource($job), 'Job updated successfully');
         } catch (ModelNotFoundException|NotFoundHttpException $e) {
             return response()->notFound('Job not found');
@@ -154,9 +157,9 @@ class JobsController extends Controller implements HasMiddleware
         try {
             $user = auth()->user();
             $employer = $user->employer;
-            $job = $employer->jobs()->findOrFail($id);
-            $this->jobService->deleteJob($job);
-        return response()->success(null, 'Job deleted successfully');
+
+            $this->employerService->deleteEmployerJob($employer, $id);
+            return response()->success(null, 'Job deleted successfully');
         } catch (ModelNotFoundException|NotFoundHttpException $e) {
             return response()->notFound('Job not found');
         } catch (Exception $exception) {
@@ -173,18 +176,20 @@ class JobsController extends Controller implements HasMiddleware
      */
     public function setOpenClose(int $id, Request $request): JsonResponse
     {
-        $user = auth()->user();
-        $employer = $user->employer;
+        try {
+            $user = auth()->user();
+            $employer = $user->employer;
+            $isActive = $request->input('is_active', true);
 
-        $job = $employer->jobs()->findOrFail($id);
+            $job = $this->employerService->setJobStatus($employer, $id, $isActive);
+            $status = $isActive ? 'opened' : 'closed';
 
-        $isActive = $request->input('is_active', true);
-
-        $job = $this->jobService->setJobStatus($job, $isActive);
-
-        $status = $isActive ? 'opened' : 'closed';
-
-        return response()->success(new JsonResponse($job), "Job {$status} successfully");
+            return response()->success(new JobResource($job), "Job {$status} successfully");
+        } catch (ModelNotFoundException|NotFoundHttpException $e) {
+            return response()->notFound('Job not found');
+        } catch (Exception $exception) {
+            return response()->serverError($exception->getMessage());
+        }
     }
 
     /**
@@ -195,15 +200,14 @@ class JobsController extends Controller implements HasMiddleware
      */
     public function publishJob(int $id): JsonResponse
     {
-        $user = auth()->user();
-        $employer = $user->employer;
-
-        $job = $employer->jobs()->findOrFail($id);
-
         try {
-            $job = $this->jobService->setJobAsFeatured($job);
+            $user = auth()->user();
+            $employer = $user->employer;
 
-            return response()->success(new JsonResponse($job),'Job published as featured successfully');
+            $job = $this->employerService->publishJobAsFeatured($employer, $id);
+            return response()->success(new JobResource($job), 'Job published as featured successfully');
+        } catch (ModelNotFoundException|NotFoundHttpException $e) {
+            return response()->notFound('Job not found');
         } catch (Exception $e) {
             return response()->badRequest($e->getMessage());
         }
