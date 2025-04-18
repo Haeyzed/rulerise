@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Employer;
 
 use App\Http\Requests\BaseRequest;
+use Illuminate\Validation\Rule;
 
 /**
  * Request for updating employer profile.
@@ -22,7 +23,14 @@ class UpdateProfileRequest extends BaseRequest
             'first_name' => 'sometimes|string|max:255',
             'last_name' => 'sometimes|string|max:255',
             'title' => 'sometimes|string|max:100',
-            'email' => 'sometimes|required|string|email|max:255|unique:users,email,' . auth()->id(),
+            'email' => [
+                'sometimes',
+                'required',
+                'string',
+                'email',
+                'max:255',
+                Rule::unique('users', 'email')->ignore(auth()->id()),
+            ],
             'phone' => 'sometimes|string|max:20',
             'country' => 'sometimes|string|max:100',
             'state' => 'sometimes|string|max:100',
