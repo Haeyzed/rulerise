@@ -98,7 +98,7 @@ class JobsController extends Controller implements HasMiddleware
             'success' => true,
             'message' => 'Jobs retrieved successfully.',
             'data' => [
-                'counts' => $counts
+                'counts' => $counts,
                 'jobs' => $jobs,
                 'meta' => $paginationData,
             ]
