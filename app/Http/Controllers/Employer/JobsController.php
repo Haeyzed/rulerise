@@ -53,12 +53,6 @@ class JobsController extends Controller implements HasMiddleware
      * @param Request $request
      * @return JsonResponse
      */
-    /**
-     * Get employer jobs
-     *
-     * @param Request $request
-     * @return JsonResponse
-     */
     public function index(Request $request): JsonResponse
     {
         $user = auth()->user();
@@ -90,7 +84,25 @@ class JobsController extends Controller implements HasMiddleware
         $jobs = $result['jobs'];
         $counts = $result['counts'];
 
-        return response()->paginatedSuccess(['jobs' => $jobs, 'counts' => $counts], 'Jobs retrieved successfully.');
+        // Add pagination data
+        $paginationData = [
+            'current_page' => $jobs->currentPage(),
+            'from' => $jobs->firstItem(),
+            'last_page' => $jobs->lastPage(),
+            'per_page' => $jobs->perPage(),
+            'to' => $jobs->lastItem(),
+            'total' => $jobs->total(),
+        ];
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Jobs retrieved successfully.',
+            'data' => [
+                'jobs' => $jobs,
+                'meta' => $paginationData,
+                'counts' => $counts
+            ]
+        ]);
     }
 
     /**
