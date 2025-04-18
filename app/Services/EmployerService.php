@@ -103,7 +103,7 @@ class EmployerService
     public function getEmployerJob(Employer $employer, int $jobId): Job
     {
         return $employer->jobs()
-            ->with(['category', 'applications.candidate.user', 'employer.candidatePools'])
+            ->with(['category', 'applications.candidate', 'applications.candidate.user', 'employer.candidatePools'])
             ->findOrFail($jobId);
     }
 
