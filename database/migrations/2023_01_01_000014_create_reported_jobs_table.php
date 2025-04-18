@@ -18,7 +18,7 @@ return new class extends Migration
             $table->id();
             $table->foreignIdFor(Job::class)->constrained()->onDelete('cascade');
             $table->foreignId('candidate_id')->constrained()->onDelete('cascade');
-            $table->enum('reason', ['spam', 'inappropriate', 'misleading', 'scam', 'other'])->default('other');
+            $table->string('reason')->nullable();
             $table->text('description')->nullable();
             $table->boolean('is_resolved')->default(false);
             $table->text('admin_notes')->nullable();

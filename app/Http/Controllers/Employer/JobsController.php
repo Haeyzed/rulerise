@@ -62,26 +62,26 @@ class JobsController extends Controller implements HasMiddleware
         $query = $employer->jobs();
 
         // Apply filters
-        if ($request->has('status')) {
-            $status = $request->input('status');
-            if ($status === 'open') {
-                $query->where('is_active', true);
-            } elseif ($status === 'close') {
-                $query->where('is_active', false);
-            }
-        }
-
-        if ($request->has('featured')) {
-            $featured = $request->input('featured');
-            $query->where('is_featured', $featured === 'true');
-        }
+//        if ($request->has('status')) {
+//            $status = $request->input('status');
+//            if ($status === 'open') {
+//                $query->where('is_active', true);
+//            } elseif ($status === 'close') {
+//                $query->where('is_active', false);
+//            }
+//        }
+//
+//        if ($request->has('featured')) {
+//            $featured = $request->input('featured');
+//            $query->where('is_featured', $featured === 'true');
+//        }
 
         // Sort
         $sortBy = $request->input('sort_by', 'created_at');
         $sortOrder = $request->input('sort_order', 'desc');
         $query->orderBy($sortBy, $sortOrder);
 
-        $perPage = $request->input('per_page', 10);
+        $perPage = $request->input('per_page', config('app.pagination.per_page'));
         $jobs = $query->paginate($perPage);
 
         return response()->paginatedSuccess(new JobResource($jobs), 'Jobs retrieved successfully.');
