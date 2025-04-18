@@ -17,7 +17,7 @@ class PoolResource extends JsonResource
         return [
             'id' => $this->id,
             'name' => $this->name,
-            'description' => $this->description,,
+            'description' => $this->description,
             'employer' => new EmployerResource($this->whenLoaded('employer')),
         ];
     }
