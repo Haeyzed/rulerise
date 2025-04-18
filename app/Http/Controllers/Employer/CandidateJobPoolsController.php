@@ -92,7 +92,7 @@ class CandidateJobPoolsController extends Controller implements HasMiddleware
 
             return response()->created($pool, 'Candidate pool created successfully');
         } catch (Exception $e) {
-            return response()->badrequest($e->getMessage());
+            return response()->badRequest($e->getMessage());
         }
     }
 
@@ -150,7 +150,7 @@ class CandidateJobPoolsController extends Controller implements HasMiddleware
 
             return response()->success(null,'Candidate added to pool successfully');
         } catch (Exception $e) {
-            return response()->baseRequest($e->getMessage());
+            return response()->badRequest($e->getMessage());
         }
     }
 }

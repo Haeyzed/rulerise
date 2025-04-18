@@ -266,6 +266,7 @@ class EmployerService
         ];
     }
 
+
     /**
      * Update employer profile
      *
@@ -275,35 +276,148 @@ class EmployerService
      */
     public function updateProfile(User $user, array $data): Employer
     {
-        DB::transaction(function () use ($user, $data) {
-            // Update user data
-            if (isset($data['name'])) {
-                $user->name = $data['name'];
+        return DB::transaction(function () use ($user, $data) {
+            // Handle company logo
+            if (isset($data['company_logo']) && $data['company_logo'] instanceof UploadedFile) {
+                // Delete old logo if exists
+                if ($user->employer->company_logo) {
+                    $this->storageService->delete($user->employer->company_logo);
+                }
+
+                $logoPath = $this->uploadImage(
+                    $data['company_logo'],
+                    config('filestorage.paths.company_logos')
+                );
+
+                // Update employer's company logo
+                $user->employer->company_logo = $logoPath;
             }
+
+            // Update user data - fields that belong to the User model
+            if (isset($data['first_name'])) {
+                $user->first_name = $data['first_name'];
+            }
+
+            if (isset($data['last_name'])) {
+                $user->last_name = $data['last_name'];
+            }
+
+            if (isset($data['title'])) {
+                $user->title = $data['title'];
+            }
+
+            if (isset($data['email'])) {
+                $user->email = $data['email'];
+            }
+
             if (isset($data['phone'])) {
                 $user->phone = $data['phone'];
             }
+
+            if (isset($data['country'])) {
+                $user->country = $data['country'];
+            }
+
+            if (isset($data['state'])) {
+                $user->state = $data['state'];
+            }
+
+            if (isset($data['city'])) {
+                $user->city = $data['city'];
+            }
+
+            // Save user changes
             $user->save();
 
-            // Update employer data
+            // Update employer data - fields that belong to the Employer model
             $employer = $user->employer;
-            $employerData = array_intersect_key($data, array_flip([
-                'company_name', 'company_description', 'industry',
-                'company_size', 'company_website', 'location'
-            ]));
 
-            if (!empty($employerData)) {
-                $employer->update($employerData);
+            if (isset($data['company_name'])) {
+                $employer->company_name = $data['company_name'];
             }
-        });
 
-        return $user->employer()->with([
-            'jobs' => function($query) {
-                $query->with('category');
-            },
-            'activeSubscription.plan',
-        ])->first();
+            if (isset($data['company_email'])) {
+                $employer->company_email = $data['company_email'];
+            }
+
+            if (isset($data['company_description'])) {
+                $employer->company_description = $data['company_description'];
+            }
+
+            if (isset($data['company_industry'])) {
+                $employer->company_industry = $data['company_industry'];
+            }
+
+            if (isset($data['company_size'])) {
+                $employer->company_size = $data['company_size'];
+            }
+
+            if (isset($data['company_founded'])) {
+                $employer->company_founded = $data['company_founded'];
+            }
+
+            if (isset($data['company_country'])) {
+                $employer->company_country = $data['company_country'];
+            }
+
+            if (isset($data['company_state'])) {
+                $employer->company_state = $data['company_state'];
+            }
+
+            if (isset($data['company_address'])) {
+                $employer->company_address = $data['company_address'];
+            }
+
+            if (isset($data['company_phone_number'])) {
+                $employer->company_phone_number = $data['company_phone_number'];
+            }
+
+            if (isset($data['company_website'])) {
+                $employer->company_website = $data['company_website'];
+            }
+
+            // Handle company benefits separately as it's an array field
+            if (isset($data['company_benefits']) && is_array($data['company_benefits'])) {
+                $employer->company_benefits = $data['company_benefits'];
+            }
+
+            // Save employer changes
+            $employer->save();
+
+            return $user->employer()->with([
+                'jobs' => function($query) {
+                    $query->with('category');
+                },
+                'activeSubscription.plan',
+            ])->first();
+        });
     }
+//
+//    /**
+//     * Upload company logo
+//     *
+//     * @param Employer $employer
+//     * @param UploadedFile $file
+//     * @return Employer
+//     */
+//    public function uploadLogo(Employer $employer, UploadedFile $logo): Employer
+//    {
+//        // Delete old logo if exists
+//        if ($employer->company_logo) {
+//            $this->storageService->delete($employer->company_logo);
+//        }
+//
+//        // Store new logo
+//        $path = $this->uploadImage(
+//            $logo,
+//            config('filestorage.paths.company_logos')
+//        );
+//
+//        $employer->company_logo = $path;
+//        $employer->save();
+//
+//        return $employer;
+//    }
 
     /**
      * Upload company logo
