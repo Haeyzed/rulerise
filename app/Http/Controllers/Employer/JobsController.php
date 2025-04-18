@@ -84,7 +84,7 @@ class JobsController extends Controller implements HasMiddleware
         $perPage = $request->input('per_page', config('app.pagination.per_page'));
         $jobs = $query->paginate($perPage);
 
-        return response()->paginatedSuccess(new JobResource($jobs), 'Jobs retrieved successfully.');
+        return response()->paginatedSuccess(new JobResource($jobs->load('pools')), 'Jobs retrieved successfully.');
     }
 
     /**
