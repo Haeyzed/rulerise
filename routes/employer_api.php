@@ -80,7 +80,7 @@ Route::middleware(['auth:api', 'role:employer'])->group(function () {
     // Profile
     Route::prefix('profile')->group(function () {
         Route::get('/', [EmployersController::class, 'getProfile']);
-        Route::post('/', [EmployersController::class, 'updateProfile']);
+        Route::put('/', [EmployersController::class, 'updateProfile']);
         Route::post('upload-logo', [EmployersController::class, 'uploadLogo']);
         Route::post('delete-account', [EmployersController::class, 'deleteAccount']);
 //        Route::post('change-password', [AuthController::class, 'changePassword']);
