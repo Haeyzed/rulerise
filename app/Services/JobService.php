@@ -22,6 +22,8 @@ use Illuminate\Support\Str;
  */
 class JobService
 {
+
+
     /**
      * Get employer jobs with optional filtering and sorting
      *
@@ -57,7 +59,7 @@ class JobService
         }
 
         // Eager load relationships
-        $query->with(['category', 'employer.pools']);
+        $query->with(['category', 'employer.candidatePools']);
 
         // Apply sorting
         $query->orderBy($sortBy, $sortOrder);

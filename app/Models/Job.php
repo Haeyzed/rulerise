@@ -211,11 +211,11 @@ class Job extends Model
     }
 
     /**
-     * Get the pools associated with this job through the employer.
+     * Get the candidate pools associated with this job through the employer.
      */
-    public function pools()
+    public function candidatePools()
     {
-        return $this->employer->pools();
+        return $this->employer->candidatePools();
     }
 
     /**
