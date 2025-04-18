@@ -80,7 +80,7 @@ class JobsController extends Controller implements HasMiddleware
             $perPage
         );
 
-        return response()->paginatedSuccess(new JobResource($jobs), 'Jobs retrieved successfully.');
+        return response()->paginatedSuccess($jobs, 'Jobs retrieved successfully.');
     }
 
     /**
