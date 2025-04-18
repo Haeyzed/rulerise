@@ -117,7 +117,7 @@ class JobsController extends Controller implements HasMiddleware
 
         try {
             $job = $this->employerService->getEmployerJob($employer, $id);
-            return response()->success(new JobResource($job), 'Job retrieved successfully.');
+            return response()->success($job, 'Job retrieved successfully.');
         } catch (ModelNotFoundException|NotFoundHttpException $e) {
             return response()->notFound('Job not found');
         }
