@@ -385,11 +385,17 @@ class EmployerService
             $employer->save();
 
             return $user->employer()->with([
-                'jobs' => function($query) {
-                    $query->with('category');
-                },
-                'activeSubscription.plan',
+                'notificationTemplates',
+                'subscriptions',
+                'activeSubscription',
             ])->first();
+
+//            return $user->employer()->with([
+//                'jobs' => function($query) {
+//                    $query->with('category');
+//                },
+//                'activeSubscription.plan',
+//            ])->first();
         });
     }
 //
