@@ -84,7 +84,7 @@ class EmployerService
         }
 
         // Eager load relationships
-        $query->with(['category', 'employer.candidatePools']);
+        $query->with(['category', 'employer.candidatePools'])->withCount('applications');
 
         // Apply sorting
         $query->orderBy($sortBy, $sortOrder);
@@ -258,6 +258,7 @@ class EmployerService
                 $query->with('category');
             },
             'activeSubscription.plan',
+            'applications'
         ])->first();
 
         return [
