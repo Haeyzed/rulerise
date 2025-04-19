@@ -188,12 +188,12 @@ class CandidateJobPoolsController extends Controller implements HasMiddleware
             $this->employerService->removeCandidateFromPool($pool, $candidate);
 
             // Get the updated pool with candidate count
-            $updatedPool = $employer->candidatePools()
-                ->withCount('candidates')
-                ->findOrFail($data['pool_id']);
+//            $updatedPool = $employer->candidatePools()
+//                ->withCount('candidates')
+//                ->findOrFail($data['pool_id']);
 
             return response()->success(
-                new PoolCandidateResource($updatedPool),
+                null,
                 'Candidate removed from pool successfully'
             );
         } catch (Exception $e) {
