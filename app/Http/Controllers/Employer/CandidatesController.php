@@ -91,7 +91,7 @@ class CandidatesController extends Controller implements HasMiddleware
 
         return response()->json([
             'success' => true,
-            'message' => 'Candidates retrieved successfully.',
+            'message' => 'Candidates applied jobs retrieved successfully.',
             'data' => [
                 'counts' => $counts,
                 'candidates' => $candidates,
