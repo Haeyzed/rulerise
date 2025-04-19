@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Employer;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Employer\AttachSingleCandidatePoolRequest;
 use App\Http\Requests\Employer\CandidatePoolRequest;
 use App\Http\Requests\Employer\AttachCandidatePoolRequest;
 use App\Http\Requests\Employer\DetachCandidatePoolRequest;
+use App\Http\Requests\Employer\DetachSingleCandidatePoolRequest;
 use App\Http\Resources\CandidatePoolResource;
 use App\Http\Resources\CandidateResource;
 use App\Http\Resources\PoolCandidateResource;
@@ -136,10 +138,10 @@ class CandidateJobPoolsController extends Controller implements HasMiddleware
     /**
      * Attach candidate to pool
      *
-     * @param AttachCandidatePoolRequest $request
+     * @param AttachSingleCandidatePoolRequest $request
      * @return JsonResponse
      */
-    public function attachCandidatePool(AttachCandidatePoolRequest $request): JsonResponse
+    public function attachCandidatePool(AttachSingleCandidatePoolRequest $request): JsonResponse
     {
         $user = auth()->user();
         $employer = $user->employer;
@@ -172,10 +174,10 @@ class CandidateJobPoolsController extends Controller implements HasMiddleware
     /**
      * Detach candidate from pool
      *
-     * @param DetachCandidatePoolRequest $request
+     * @param DetachSingleCandidatePoolRequest $request
      * @return JsonResponse
      */
-    public function detachCandidatePool(DetachCandidatePoolRequest $request): JsonResponse
+    public function detachCandidatePool(DetachSingleCandidatePoolRequest $request): JsonResponse
     {
         $user = auth()->user();
         $employer = $user->employer;
