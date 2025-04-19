@@ -64,6 +64,7 @@ Route::middleware(['auth:api', 'role:employer'])->group(function () {
         Route::post('/', [CandidateJobPoolsController::class, 'store']);
         Route::get('{id}/view-candidate', [CandidateJobPoolsController::class, 'viewCandidate']);
         Route::post('attach-candidate', [CandidateJobPoolsController::class, 'attachCandidatePool']);
+        Route::post('attach-candidate', [CandidateJobPoolsController::class, 'rem']);
     });
 
     // Candidates

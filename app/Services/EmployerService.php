@@ -507,7 +507,7 @@ class EmployerService
         return $employer->candidatePools()->create([
             'name' => $name,
             'description' => $description,
-        ]);
+        ])->load('employer');
     }
 
     /**
