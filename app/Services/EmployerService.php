@@ -132,6 +132,17 @@ class EmployerService
             ->with([
                 'category',
                 'applications.candidate.user',
+                'applications.candidate.qualification',
+                'applications.candidate.workExperiences',
+                'applications.candidate.educationHistories',
+                'applications.candidate.languages',
+                'applications.candidate.portfolio',
+                'applications.candidate.credentials',
+                'applications.candidate.jobApplications',
+                'applications.candidate.savedJobs',
+                'applications.candidate.resumes',
+                'applications.candidate.reportedJobs',
+                'applications.candidate.profileViewCounts',
                 'employer.candidatePools'
             ])->withCount('applications')
             ->findOrFail($jobId);
