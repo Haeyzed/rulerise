@@ -119,7 +119,7 @@ class EmployerService
                 'user',
                 'jobApplications' => function ($query) use ($jobIds) {
                     $query->whereIn('job_id', $jobIds)
-                        ->with('job:id,title,location,salary_min,salary_max,currency,job_type');
+                        ->with('job:id,title,location,salary,currency,job_type');
                 }
             ])
             ->withCount([

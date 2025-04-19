@@ -47,7 +47,7 @@ class CandidatesController extends Controller implements HasMiddleware
     }
 
     /**
-     * Get employer jobs
+     * Get employer candidates applied jobs
      *
      * @param Request $request
      * @return JsonResponse

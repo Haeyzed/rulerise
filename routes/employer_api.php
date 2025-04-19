@@ -71,7 +71,6 @@ Route::middleware(['auth:api', 'role:employer'])->group(function () {
     Route::prefix('candidate')->group(function () {
         Route::get('/', [CandidatesController::class, 'index']);
         Route::get('{id}', [CandidatesController::class, 'show']);
-        Route::post('application/change-hiring-stage', [CandidatesController::class, 'changeHiringStage']);
     });
 
     // Profile
