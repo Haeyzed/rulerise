@@ -56,7 +56,7 @@ class EmployersController extends Controller implements HasMiddleware
         $user = auth()->user();
         $profile = $this->employerService->getProfile($user);
 
-        return response()->success($profile, 'Profile retrieved successfully.');
+        return response()->success(new EmployerResource($profile), 'Profile retrieved successfully.');
     }
 
 
