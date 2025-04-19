@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Employer\UpdateProfileRequest;
 use App\Http\Requests\Employer\UploadLogoRequest;
 use App\Http\Resources\EmployerResource;
+use App\Http\Resources\UserResource;
 use App\Services\EmployerService;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -71,7 +72,7 @@ class EmployersController extends Controller implements HasMiddleware
             $user = auth()->user();
             $data = $request->validated();
             $employer = $this->employerService->updateProfile($user, $data);
-            return response()->success($employer, 'Profile updated successfully');
+            return response()->success(new UserResource($employer), 'Profile updated successfully');
         } catch (Exception $e) {
             return response()->serverError('Failed to update profile: ' . $e->getMessage());
         }
