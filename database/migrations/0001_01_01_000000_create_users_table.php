@@ -26,7 +26,7 @@ return new class extends Migration
             $table->string('state')->nullable();
             $table->string('city')->nullable();
             $table->string('profile_picture')->nullable();
-            $table->enum('user_type', ['admin', 'candidate', 'employer'])->default('candidate');
+            $table->enum('user_type', ['admin', 'candidate', 'employer','employer_staff'])->default('candidate');
             $table->boolean('is_active')->default(true);
             $table->boolean('is_shadow_banned')->default(false);
             $table->rememberToken();

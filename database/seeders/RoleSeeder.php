@@ -40,6 +40,21 @@ class RoleSeeder extends Seeder
             'guard_name' => 'api'
         ]);
 
+        $employerStaffRole = Role::create([
+            'name' => 'employer_staff',
+            'description' => 'Employer staff',
+            'guard_name' => 'api'
+        ]);
+
+        // Get all employer permissions
+        $employerRole = Role::query()->where('name', 'employer')->first();
+        if ($employerRole) {
+            $permissions = $employerRole->permissions;
+
+            // Assign the same permissions to employer_staff
+            $employerStaffRole->syncPermissions($permissions);
+        }
+
         // Assign permissions to roles
 
         // Admin gets all permissions

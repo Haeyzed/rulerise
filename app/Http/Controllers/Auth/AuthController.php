@@ -140,6 +140,9 @@ class AuthController extends Controller implements HasMiddleware
             $user->load(['candidate']);
         } elseif ($user->isEmployer()) {
             $user->load(['employer', 'employer.notificationTemplates']);
+        } elseif ($user->isEmployerStaff()) {
+            // For staff users, load the employer they belong to
+            $user->load(['employerRelation', 'employerRelation.notificationTemplates']);
         } elseif ($user->isAdmin()) {
             // No specific relationships to load for admin
         }
@@ -287,9 +290,9 @@ class AuthController extends Controller implements HasMiddleware
         }
 
         // Check if user is an admin trying to permanently delete
-        if ($permanent && !$user->isAdmin()) {
-            return response()->forbidden('You do not have permission to permanently delete accounts');
-        }
+//        if ($permanent && !$user->isAdmin()) {
+//            return response()->forbidden('You do not have permission to permanently delete accounts');
+//        }
 
         // Delete the user
         $result = $this->authService->deleteUser($user, $permanent);

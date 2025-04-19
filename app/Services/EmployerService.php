@@ -676,7 +676,7 @@ class EmployerService
 
         foreach ($candidateIds as $candidateId) {
             try {
-                $candidate = Candidate::findOrFail($candidateId);
+                $candidate = Candidate::query()->findOrFail($candidateId);
 
                 // Check if candidate is already in the pool
                 if ($pool->candidates()->where('candidate_id', $candidate->id)->exists()) {

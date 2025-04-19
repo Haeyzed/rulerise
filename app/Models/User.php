@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Services\Storage\StorageService;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -31,6 +32,7 @@ use Spatie\Permission\Traits\HasRoles;
  * @property string|null $city
  * @property string|null $profile_picture
  * @property string $user_type
+ * @property int|null $employer_id
  * @property bool $is_active
  * @property bool $is_shadow_banned
  * @property Carbon|null $email_verified_at
@@ -40,6 +42,7 @@ use Spatie\Permission\Traits\HasRoles;
  *
  * @property-read Candidate|null $candidate
  * @property-read Employer|null $employer
+ * @property-read Employer|null $employerRelation
  */
 class User extends Authenticatable implements JWTSubject, MustVerifyEmail
 {
@@ -64,6 +67,7 @@ class User extends Authenticatable implements JWTSubject, MustVerifyEmail
         'city',
         'profile_picture',
         'user_type',
+        'employer_id',
         'is_active',
         'is_shadow_banned',
     ];
@@ -130,6 +134,14 @@ class User extends Authenticatable implements JWTSubject, MustVerifyEmail
     }
 
     /**
+     * Get the employer that this staff user belongs to.
+     */
+    public function employerRelation(): BelongsTo
+    {
+        return $this->belongsTo(Employer::class, 'employer_id');
+    }
+
+    /**
      * Check if user is a candidate
      *
      * @return bool
@@ -147,6 +159,16 @@ class User extends Authenticatable implements JWTSubject, MustVerifyEmail
     public function isEmployer(): bool
     {
         return $this->user_type === 'employer';
+    }
+
+    /**
+     * Check if user is an employer staff
+     *
+     * @return bool
+     */
+    public function isEmployerStaff(): bool
+    {
+        return $this->user_type === 'employer_staff';
     }
 
     /**
