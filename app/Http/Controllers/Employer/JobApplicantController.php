@@ -95,7 +95,7 @@ class JobApplicantController extends Controller implements HasMiddleware
         // Check if the application belongs to a job owned by this employer
         $job = Job::query()->findOrFail($application->job_id);
         if ($job->employer_id !== $employer->id) {
-            return response()->forbidden('This application job does not belong to this employer');
+            return response()->forbidden('This application does not belongs to a job owned by this employer');
         }
 
         $application = $this->jobService->changeApplicationStatus(
@@ -123,7 +123,7 @@ class JobApplicantController extends Controller implements HasMiddleware
         // Check if the application belongs to a job owned by this employer
         $job = Job::query()->findOrFail($application->job_id);
         if ($job->employer_id !== $employer->id) {
-            return response()->forbidden('Unauthorized');
+            return response()->forbidden('This application does not belongs to a job owned by this employer');
         }
 
         return response()->success($application, 'Application viewed successfully');

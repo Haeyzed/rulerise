@@ -29,7 +29,7 @@ return new class extends Migration
             $table->foreignId('candidate_id')->constrained()->onDelete('cascade');
             $table->foreignId('resume_id')->nullable()->constrained()->onDelete('set null');
             $table->text('cover_letter')->nullable();
-            $table->enum('status', ['applied', 'screening', 'interview', 'offer', 'hired', 'rejected'])->default('applied');
+            $table->string('status')->default('unsorted');
             $table->text('employer_notes')->nullable();
             $table->enum('apply_via', ['custom_cv', 'profile_cv'])->default('profile_cv');
             $table->timestamps();

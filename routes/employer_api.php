@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\Candidate\CandidatesController;
+use App\Http\Controllers\Employer\CandidatesController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Employer\DashboardsController;

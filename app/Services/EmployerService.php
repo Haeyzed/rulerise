@@ -47,7 +47,128 @@ class EmployerService
         $this->jobService = $jobService;
     }
 
+    /**
+     * Get candidates who applied to employer's jobs with optional filtering and sorting
+     *
+     * @param Employer $employer
+     * @param array $filters
+     * @param string $sortBy
+     * @param string $sortOrder
+     * @param int $perPage
+     * @return array
+     */
+    public function getEmployersCandidateAppliedJobs(
+        Employer $employer,
+        array $filters = [],
+        string $sortBy = 'created_at',
+        string $sortOrder = 'desc',
+        int $perPage = 15
+    ): array {
+        // Get all job IDs for this employer
+        $jobIds = $employer->jobs()->pluck('id')->toArray();
 
+        if (empty($jobIds)) {
+            return [
+                'candidates' => new LengthAwarePaginator([], 0, $perPage),
+                'counts' => [
+                    'total' => 0,
+                    'unsorted' => 0,
+                    'sorted' => 0,
+                    'shortlisted' => 0,
+                    'offer_sent' => 0,
+                ]
+            ];
+        }
+
+        // Get counts for different application statuses
+        $totalApplications = DB::table('job_applications')
+            ->whereIn('job_id', $jobIds)
+            ->count();
+
+        $unsortedCount = DB::table('job_applications')
+            ->whereIn('job_id', $jobIds)
+            ->where('status', 'unsorted')
+            ->count();
+
+        $sortedCount = DB::table('job_applications')
+            ->whereIn('job_id', $jobIds)
+            ->where('status', 'sorted')
+            ->count();
+
+        $shortlistedCount = DB::table('job_applications')
+            ->whereIn('job_id', $jobIds)
+            ->where('status', 'shortlisted')
+            ->count();
+
+        $offerSentCount = DB::table('job_applications')
+            ->whereIn('job_id', $jobIds)
+            ->where('status', 'offer_sent')
+            ->count();
+
+        // Build the query for candidates who applied to this employer's jobs
+        $query = Candidate::query()
+            ->whereHas('jobApplications', function ($query) use ($jobIds, $filters) {
+                $query->whereIn('job_id', $jobIds);
+
+                // Apply status filter if provided
+                if (isset($filters['status']) && $filters['status'] !== 'all') {
+                    $query->where('status', $filters['status']);
+                }
+            })
+            ->with([
+                'user',
+                'jobApplications' => function ($query) use ($jobIds) {
+                    $query->whereIn('job_id', $jobIds)
+                        ->with('job:id,title,location,salary_min,salary_max,currency,job_type');
+                }
+            ])
+            ->withCount([
+                'jobApplications as total_applications' => function ($query) use ($jobIds) {
+                    $query->whereIn('job_id', $jobIds);
+                },
+                'jobApplications as unsorted_count' => function ($query) use ($jobIds) {
+                    $query->whereIn('job_id', $jobIds)->where('status', 'unsorted');
+                },
+                'jobApplications as sorted_count' => function ($query) use ($jobIds) {
+                    $query->whereIn('job_id', $jobIds)->where('status', 'sorted');
+                },
+                'jobApplications as shortlisted_count' => function ($query) use ($jobIds) {
+                    $query->whereIn('job_id', $jobIds)->where('status', 'shortlisted');
+                },
+                'jobApplications as offer_sent_count' => function ($query) use ($jobIds) {
+                    $query->whereIn('job_id', $jobIds)->where('status', 'offer_sent');
+                }
+            ]);
+
+        // Apply sorting
+        if ($sortBy === 'name') {
+            $query->join('users', 'candidates.user_id', '=', 'users.id')
+                ->orderBy('users.first_name', $sortOrder)
+                ->orderBy('users.last_name', $sortOrder)
+                ->select('candidates.*');
+        } elseif ($sortBy === 'applications') {
+            $query->withCount(['jobApplications' => function ($query) use ($jobIds) {
+                $query->whereIn('job_id', $jobIds);
+            }])->orderBy('job_applications_count', $sortOrder);
+        } else {
+            $query->orderBy($sortBy, $sortOrder);
+        }
+
+        // Get paginated results
+        $candidates = $query->paginate($perPage);
+
+        // Return both the paginated candidates and the counts
+        return [
+            'candidates' => $candidates,
+            'counts' => [
+                'total' => $totalApplications,
+                'unsorted' => $unsortedCount,
+                'sorted' => $sortedCount,
+                'shortlisted' => $shortlistedCount,
+                'offer_sent' => $offerSentCount,
+            ]
+        ];
+    }
 
     /**
      * Get employer jobs with optional filtering and sorting
