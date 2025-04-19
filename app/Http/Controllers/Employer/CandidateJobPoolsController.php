@@ -5,8 +5,11 @@ namespace App\Http\Controllers\Employer;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Employer\CandidatePoolRequest;
 use App\Http\Requests\Employer\AttachCandidatePoolRequest;
+use App\Http\Requests\Employer\DetachCandidatePoolRequest;
+use App\Http\Resources\PoolResource;
+use App\Http\Resources\CandidateResource;
 use App\Models\Candidate;
-use App\Models\CandidatePool;
+use App\Models\Pool;
 use App\Services\EmployerService;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -68,7 +71,10 @@ class CandidateJobPoolsController extends Controller implements HasMiddleware
         $perPage = $request->input('per_page', 10);
         $pools = $query->paginate($perPage);
 
-        return response()->paginatedSuccess($pools, 'Candidate retrieved successfully');
+        return response()->paginatedSuccess(
+            PoolResource::collection($pools),
+            'Candidate pools retrieved successfully'
+        );
     }
 
     /**
@@ -90,7 +96,7 @@ class CandidateJobPoolsController extends Controller implements HasMiddleware
                 $data['description'] ?? null
             );
 
-            return response()->created($pool, 'Candidate pool created successfully');
+            return response()->created(new PoolResource($pool), 'Candidate pool created successfully');
         } catch (Exception $e) {
             return response()->badRequest($e->getMessage());
         }
@@ -108,7 +114,7 @@ class CandidateJobPoolsController extends Controller implements HasMiddleware
         $user = auth()->user();
         $employer = $user->employer;
 
-        $pool = $employer->candidatePools()->findOrFail($id);
+        $pool = $employer->candidatePools()->withCount('candidates')->findOrFail($id);
 
         $query = $pool->candidates()->with(['user']);
 
@@ -121,9 +127,9 @@ class CandidateJobPoolsController extends Controller implements HasMiddleware
         $candidates = $query->paginate($perPage);
 
         return response()->success([
-                'pool' => $pool,
-                'candidates' => $candidates,
-        ], 'Candidate retrieved successfully');
+            'pool' => new PoolResource($pool),
+            'candidates' => CandidateResource::collection($candidates),
+        ], 'Candidates retrieved successfully');
     }
 
     /**
@@ -148,7 +154,47 @@ class CandidateJobPoolsController extends Controller implements HasMiddleware
                 $data['notes'] ?? null
             );
 
-            return response()->success(null,'Candidate added to pool successfully');
+            // Get the updated pool with candidate count
+            $updatedPool = $employer->candidatePools()
+                ->withCount('candidates')
+                ->findOrFail($data['pool_id']);
+
+            return response()->success(
+                new PoolResource($updatedPool),
+                'Candidate added to pool successfully'
+            );
+        } catch (Exception $e) {
+            return response()->badRequest($e->getMessage());
+        }
+    }
+
+    /**
+     * Detach candidate from pool
+     *
+     * @param DetachCandidatePoolRequest $request
+     * @return JsonResponse
+     */
+    public function detachCandidatePool(DetachCandidatePoolRequest $request): JsonResponse
+    {
+        $user = auth()->user();
+        $employer = $user->employer;
+        $data = $request->validated();
+
+        $pool = $employer->candidatePools()->findOrFail($data['pool_id']);
+        $candidate = Candidate::query()->findOrFail($data['candidate_id']);
+
+        try {
+            $this->employerService->removeCandidateFromPool($pool, $candidate);
+
+            // Get the updated pool with candidate count
+            $updatedPool = $employer->candidatePools()
+                ->withCount('candidates')
+                ->findOrFail($data['pool_id']);
+
+            return response()->success(
+                new PoolResource($updatedPool),
+                'Candidate removed from pool successfully'
+            );
         } catch (Exception $e) {
             return response()->badRequest($e->getMessage());
         }

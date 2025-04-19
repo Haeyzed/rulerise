@@ -5,11 +5,11 @@ namespace App\Http\Requests\Employer;
 use App\Http\Requests\BaseRequest;
 
 /**
- * Request for attaching a candidate to a pool.
+ * Request for detaching a candidate from a pool.
  *
  * @package App\Http\Requests\Employer
  */
-class AttachCandidatePoolRequest extends BaseRequest
+class DetachCandidatePoolRequest extends BaseRequest
 {
     /**
      * Get the validation rules that apply to the request.
@@ -21,7 +21,6 @@ class AttachCandidatePoolRequest extends BaseRequest
         return [
             'pool_id' => 'required|integer|exists:candidate_pools,id',
             'candidate_id' => 'required|integer|exists:candidates,id',
-            'notes' => 'nullable|string|max:1000',
         ];
     }
 
@@ -50,7 +49,6 @@ class AttachCandidatePoolRequest extends BaseRequest
         return [
             'pool_id' => 'pool',
             'candidate_id' => 'candidate',
-            'notes' => 'notes',
         ];
     }
 }

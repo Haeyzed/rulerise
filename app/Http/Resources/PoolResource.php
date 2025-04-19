@@ -10,7 +10,8 @@ class PoolResource extends JsonResource
     /**
      * Transform the resource into an array.
      *
-     * @return array<string, mixed>
+     * @param  Request  $request
+     * @return array
      */
     public function toArray(Request $request): array
     {
@@ -18,7 +19,16 @@ class PoolResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'description' => $this->description,
-            'employer' => new EmployerResource($this->whenLoaded('employer')),
+            'number_of_candidates' => $this->when($this->candidates_count !== null, $this->candidates_count, 0),
+            'employer' => $this->whenLoaded('employer', function () {
+                return [
+                    'id' => $this->employer->id,
+                    'company_name' => $this->employer->company_name,
+                    'company_logo_url' => $this->employer->company_logo_url,
+                ];
+            }),
+            'created_at' => $this->created_at->format('Y-m-d H:i:s'),
+            'updated_at' => $this->updated_at->format('Y-m-d H:i:s'),
         ];
     }
 }
