@@ -133,7 +133,7 @@ class JobResource extends JsonResource
 
             'applications' => JobApplicationResource::collection($this->whenLoaded('applications')),
             'pools' => $this->when($this->relationLoaded('employer') && $this->employer->relationLoaded('candidatePools'),
-                PoolResource::collection($this->employer->candidatePools)),
+                CandidatePoolResource::collection($this->employer->candidatePools)),
             // Timestamps
             'created_at' => $this->created_at->format('Y-m-d H:i:s'),
             'updated_at' => $this->updated_at->format('Y-m-d H:i:s'),

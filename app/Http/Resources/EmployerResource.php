@@ -39,7 +39,7 @@ class EmployerResource extends JsonResource
             'company_benefits' => $this->company_benefits,
 //            'benefits' => CompanyBenefitResource::collection($this->whenLoaded('benefits')),
             'notification_templates' => JobNotificationTemplateResource::collection($this->whenLoaded('notificationTemplates')),
-            'pools' => PoolResource::collection($this->whenLoaded('pools')),
+            'pools' => CandidatePoolResource::collection($this->whenLoaded('pools')),
 
             // Job counts
             'jobs_count' => $this->when(isset($this->jobs_count), $this->jobs_count),

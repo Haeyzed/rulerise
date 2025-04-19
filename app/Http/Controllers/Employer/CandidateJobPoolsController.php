@@ -6,8 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Employer\CandidatePoolRequest;
 use App\Http\Requests\Employer\AttachCandidatePoolRequest;
 use App\Http\Requests\Employer\DetachCandidatePoolRequest;
-use App\Http\Resources\PoolResource;
+use App\Http\Resources\CandidatePoolResource;
 use App\Http\Resources\CandidateResource;
+use App\Http\Resources\PoolCandidateResource;
 use App\Models\Candidate;
 use App\Models\Pool;
 use App\Services\EmployerService;
@@ -72,7 +73,7 @@ class CandidateJobPoolsController extends Controller implements HasMiddleware
         $pools = $query->paginate($perPage);
 
         return response()->paginatedSuccess(
-            PoolResource::collection($pools),
+            CandidatePoolResource::collection($pools),
             'Candidate pools retrieved successfully'
         );
     }
@@ -96,7 +97,7 @@ class CandidateJobPoolsController extends Controller implements HasMiddleware
                 $data['description'] ?? null
             );
 
-            return response()->created(new PoolResource($pool), 'Candidate pool created successfully');
+            return response()->created(new CandidatePoolResource($pool), 'Candidate pool created successfully');
         } catch (Exception $e) {
             return response()->badRequest($e->getMessage());
         }
@@ -127,7 +128,7 @@ class CandidateJobPoolsController extends Controller implements HasMiddleware
         $candidates = $query->paginate($perPage);
 
         return response()->success([
-            'pool' => new PoolResource($pool),
+            'pool' => new CandidatePoolResource($pool),
             'candidates' => CandidateResource::collection($candidates),
         ], 'Candidates retrieved successfully');
     }
@@ -160,7 +161,7 @@ class CandidateJobPoolsController extends Controller implements HasMiddleware
                 ->findOrFail($data['pool_id']);
 
             return response()->success(
-                new PoolResource($updatedPool),
+                new PoolCandidateResource($updatedPool),
                 'Candidate added to pool successfully'
             );
         } catch (Exception $e) {
@@ -192,7 +193,7 @@ class CandidateJobPoolsController extends Controller implements HasMiddleware
                 ->findOrFail($data['pool_id']);
 
             return response()->success(
-                new PoolResource($updatedPool),
+                new PoolCandidateResource($updatedPool),
                 'Candidate removed from pool successfully'
             );
         } catch (Exception $e) {
