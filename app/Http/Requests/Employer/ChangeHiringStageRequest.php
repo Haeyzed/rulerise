@@ -2,16 +2,17 @@
 
 namespace App\Http\Requests\Employer;
 
+use App\Http\Requests\BaseRequest;
 use Illuminate\Foundation\Http\FormRequest;
 
-class ChangeHiringStageRequest extends FormRequest
+class ChangeHiringStageRequest extends BaseRequest
 {
     /**
      * Determine if the user is authorized to make this request.
      */
     public function authorize(): bool
     {
-        return false;
+        return true;
     }
 
     /**
@@ -22,7 +23,9 @@ class ChangeHiringStageRequest extends FormRequest
     public function rules(): array
     {
         return [
-            //
+            'application_id' => 'required|exists:job_applications,id',
+            'status' => 'required|in:unsorted,rejected,offer_sent,shortlisted',
+            'notes' => 'nullable|string',
         ];
     }
 }

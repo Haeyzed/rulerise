@@ -51,10 +51,10 @@ Route::middleware(['auth:api', 'role:employer'])->group(function () {
         Route::get('{id}', [JobsController::class, 'show']);
         Route::put('{id}', [JobsController::class, 'update']);
         Route::delete('{id}', [JobsController::class, 'delete']);
-        Route::get('{id}/filterApplicantsByJob', [JobApplicantController::class, 'filterApplicantsByJob']);
+        Route::get('{id}/filter-applicants-by-job', [JobApplicantController::class, 'filterApplicantsByJob']);
         Route::post('applicants/update-hiring-stage', [JobApplicantController::class, 'changeHiringStage']);
-        Route::post('{id}/setOpenClose', [JobsController::class, 'setOpenClose']);
-        Route::post('{id}/publishJob', [JobsController::class, 'publishJob']);
+        Route::post('{id}/set-open-close', [JobsController::class, 'setOpenClose']);
+        Route::post('{id}/publish-job', [JobsController::class, 'publishJob']);
         Route::get('{id}/view-application', [JobApplicantController::class, 'viewApplication']);
     });
 

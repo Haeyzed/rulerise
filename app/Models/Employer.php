@@ -102,7 +102,7 @@ class Employer extends Model
     }
 
     /**
-     * Get all job applications across all of the employer's jobs.
+     * Get all job applications across all the employer's jobs.
      */
     public function applications(): HasManyThrough
     {
