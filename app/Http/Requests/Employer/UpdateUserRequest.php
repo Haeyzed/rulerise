@@ -27,7 +27,7 @@ class UpdateUserRequest extends BaseRequest
                 'required',
                 'email',
                 Rule::unique('users')->where(function ($query) {
-                    return $query->where('user_type', 'employer_user');
+                    return $query->where('user_type', 'employer_staff');
                 }),
             ],
             'phone' => 'nullable|string|max:20',
