@@ -292,13 +292,10 @@ class EmployerService
      */
     public function getProfile(User $user): array
     {
-        $employer = $user->employer()->with([
-            'jobs' => function($query) {
-                // When showing to the employer themselves, show all their jobs
-                // regardless of approval status
-                $query->with('category');
-            },
-            'activeSubscription.plan',
+        $employer =  $user->employer()->with([
+            'notificationTemplates',
+            'subscriptions',
+            'activeSubscription',
             'applications'
         ])->first();
 
