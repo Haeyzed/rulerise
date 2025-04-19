@@ -83,12 +83,30 @@ class Employer extends Model
         'company_benefits' => 'array',
     ];
 
+
+
     /**
      * Get the user that owns the employer profile.
      */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Get the candidate pools for the employer.
+     */
+    public function candidatePools(): HasMany
+    {
+        return $this->hasMany(CandidatePool::class);
+    }
+
+    /**
+     * Get all job applications across all of the employer's jobs.
+     */
+    public function applications(): HasManyThrough
+    {
+        return $this->hasManyThrough(JobApplication::class, Job::class);
     }
 
 //    /**
@@ -113,14 +131,6 @@ class Employer extends Model
     public function jobViewCounts(): HasManyThrough
     {
         return $this->hasManyThrough(JobViewCount::class, Job::class);
-    }
-
-    /**
-     * Get the candidate pools for the employer.
-     */
-    public function candidatePools(): HasMany
-    {
-        return $this->hasMany(CandidatePool::class);
     }
 
     /**
