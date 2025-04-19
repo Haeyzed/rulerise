@@ -24,9 +24,11 @@ class UpdateUserRequest extends BaseRequest
             'first_name' => 'sometimes|string|max:255',
             'last_name' => 'sometimes|string|max:255',
             'email' => [
-                'sometimes',
+                'required',
                 'email',
-                Rule::unique('users')->ignore($this->id),
+                Rule::unique('users')->where(function ($query) {
+                    return $query->where('user_type', 'employer_user');
+                }),
             ],
             'phone' => 'nullable|string|max:20',
             'country' => 'nullable|string|max:100',

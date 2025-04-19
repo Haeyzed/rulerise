@@ -25,7 +25,9 @@ class CreateUserRequest extends BaseRequest
             'email' => [
                 'required',
                 'email',
-                Rule::unique('users'),
+                Rule::unique('users')->where(function ($query) {
+                    return $query->where('user_type', 'employer_user');
+                }),
             ],
             'phone' => 'nullable|string|max:20',
             'country' => 'nullable|string|max:100',
