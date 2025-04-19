@@ -127,11 +127,11 @@ class UsersController extends Controller implements HasMiddleware
 
         try {
             // Generate a random password
-            $password = Str::random(10);
+            $password = Str::password(10);
 
             return DB::transaction(function () use ($employer, $data, $password) {
                 // Create the staff user
-                $newUser = User::create([
+                $newUser = User::query()->create([
                     'first_name' => $data['first_name'],
                     'last_name' => $data['last_name'],
                     'email' => $data['email'],
