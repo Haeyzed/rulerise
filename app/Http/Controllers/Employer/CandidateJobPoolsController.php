@@ -200,4 +200,76 @@ class CandidateJobPoolsController extends Controller implements HasMiddleware
             return response()->badRequest($e->getMessage());
         }
     }
+
+    /**
+     * Attach multiple candidates to pool
+     *
+     * @param AttachCandidatePoolRequest $request
+     * @return JsonResponse
+     */
+    public function attachCandidatesPool(AttachCandidatePoolRequest $request): JsonResponse
+    {
+        $user = auth()->user();
+        $employer = $user->employer;
+        $data = $request->validated();
+
+        $pool = $employer->candidatePools()->findOrFail($data['pool_id']);
+        $candidateIds = $data['candidate_ids'];
+        $notes = $data['notes'] ?? null;
+
+        try {
+            $results = $this->employerService->addCandidatesToPool(
+                $pool,
+                $candidateIds,
+                $notes
+            );
+
+            // Get the updated pool with candidate count
+            $updatedPool = $employer->candidatePools()
+                ->withCount('candidates')
+                ->findOrFail($data['pool_id']);
+
+            return response()->success([
+                'pool' => new CandidatePoolResource($updatedPool),
+                'results' => $results
+            ], 'Candidates added to pool');
+        } catch (Exception $e) {
+            return response()->badRequest($e->getMessage());
+        }
+    }
+
+    /**
+     * Detach multiple candidates from pool
+     *
+     * @param DetachCandidatePoolRequest $request
+     * @return JsonResponse
+     */
+    public function detachCandidatesPool(DetachCandidatePoolRequest $request): JsonResponse
+    {
+        $user = auth()->user();
+        $employer = $user->employer;
+        $data = $request->validated();
+
+        $pool = $employer->candidatePools()->findOrFail($data['pool_id']);
+        $candidateIds = $data['candidate_ids'];
+
+        try {
+            $results = $this->employerService->removeCandidatesFromPool(
+                $pool,
+                $candidateIds
+            );
+
+            // Get the updated pool with candidate count
+            $updatedPool = $employer->candidatePools()
+                ->withCount('candidates')
+                ->findOrFail($data['pool_id']);
+
+            return response()->success([
+                'pool' => new CandidatePoolResource($updatedPool),
+                'results' => $results
+            ], 'Candidates removed from pool');
+        } catch (Exception $e) {
+            return response()->badRequest($e->getMessage());
+        }
+    }
 }

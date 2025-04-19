@@ -5,7 +5,7 @@ namespace App\Http\Requests\Employer;
 use App\Http\Requests\BaseRequest;
 
 /**
- * Request for detaching a candidate from a pool.
+ * Request for detaching candidates from a pool.
  *
  * @package App\Http\Requests\Employer
  */
@@ -20,7 +20,8 @@ class DetachCandidatePoolRequest extends BaseRequest
     {
         return [
             'pool_id' => 'required|integer|exists:candidate_pools,id',
-            'candidate_id' => 'required|integer|exists:candidates,id',
+            'candidate_ids' => 'required|array',
+            'candidate_ids.*' => 'integer|exists:candidates,id',
         ];
     }
 
@@ -34,8 +35,9 @@ class DetachCandidatePoolRequest extends BaseRequest
         return [
             'pool_id.required' => 'The pool ID is required.',
             'pool_id.exists' => 'The selected pool does not exist.',
-            'candidate_id.required' => 'The candidate ID is required.',
-            'candidate_id.exists' => 'The selected candidate does not exist.',
+            'candidate_ids.required' => 'At least one candidate ID is required.',
+            'candidate_ids.array' => 'Candidate IDs must be provided as an array.',
+            'candidate_ids.*.exists' => 'One or more selected candidates do not exist.',
         ];
     }
 
@@ -48,7 +50,7 @@ class DetachCandidatePoolRequest extends BaseRequest
     {
         return [
             'pool_id' => 'pool',
-            'candidate_id' => 'candidate',
+            'candidate_ids' => 'candidates',
         ];
     }
 }
