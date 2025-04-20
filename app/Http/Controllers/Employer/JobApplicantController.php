@@ -60,21 +60,55 @@ class JobApplicantController extends Controller implements HasMiddleware
 
         $job = $employer->jobs()->findOrFail($id);
 
-        $query = $job->applications()->with(['candidate.user', 'resume']);
+        $query = $job->applications()->with([
+            'candidate.user',
+            'resume'
+        ]);
 
-        // Apply filters
-//        if ($request->has('status')) {
-//            $status = $request->input('status');
-//            $query->where('status', $status);
-//        }
+        // Prepare filters
+        $filters = [];
+        if ($request->has('status')) {
+            $filters['status'] = $request->input('status');
+        }
+        if ($request->has('featured')) {
+            $filters['featured'] = $request->input('featured');
+        }
 
-        // Sort
+        // Get sort parameters
         $sortBy = $request->input('sort_by', 'created_at');
         $sortOrder = $request->input('sort_order', 'desc');
-        $query->orderBy($sortBy, $sortOrder);
-
         $perPage = $request->input('per_page', config('app.pagination.per_page'));
         $applications = $query->paginate($perPage);
+
+//        $result = $this->jobService->getApplicantJobs(
+//            $employer,
+//            $filters,
+//            $sortBy,
+//            $sortOrder,
+//            $perPage
+//        );
+//
+//        // Extract jobs and counts from the result
+//        $jobs = $result['jobs'];
+//        $counts = $result['counts'];
+//
+//        // Add pagination data
+//        $paginationData = [
+//            'current_page' => $jobs->currentPage(),
+//            'last_page' => $jobs->lastPage(),
+//            'per_page' => $jobs->perPage(),
+//            'total' => $jobs->total(),
+//        ];
+//
+//        return response()->json([
+//            'success' => true,
+//            'message' => 'Jobs retrieved successfully.',
+//            'data' => [
+//                'counts' => $counts,
+//                'jobs' => $jobs,
+//                'meta' => $paginationData,
+//            ]
+//        ]);
 
         return response()->paginatedSuccess($applications, 'Applicants filtered by job successfully');
     }
