@@ -117,6 +117,16 @@ class EmployerService
             })
             ->with([
                 'user',
+                'qualification',
+                'workExperiences',
+                'educationHistories',
+                'languages',
+                'portfolio',
+                'credentials',
+                'savedJobs',
+                'resumes',
+                'reportedJobs',
+                'profileViewCounts',
                 'jobApplications' => function ($query) use ($jobIds) {
                     $query->whereIn('job_id', $jobIds)
                         ->with('job:id,title,location,salary,job_type');
