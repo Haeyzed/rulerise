@@ -745,4 +745,43 @@ class JobService
 
         return $application;
     }
+
+    /**
+     * Change status for multiple job applications
+     *
+     * @param array $applicationIds
+     * @param string $status
+     * @param string|null $notes
+     * @return array
+     */
+    public function batchChangeApplicationStatus(array $applicationIds, string $status, ?string $notes = null): array
+    {
+        $results = [
+            'success' => [],
+            'failed' => []
+        ];
+
+        foreach ($applicationIds as $applicationId) {
+            try {
+                $application = JobApplication::query()->findOrFail($applicationId);
+
+                $application->status = $status;
+
+                if ($notes) {
+                    $application->employer_notes = $notes;
+                }
+
+                $application->save();
+
+                $results['success'][] = $application->id;
+            } catch (\Exception $e) {
+                $results['failed'][] = [
+                    'application_id' => $applicationId,
+                    'reason' => $e->getMessage()
+                ];
+            }
+        }
+
+        return $results;
+    }
 }

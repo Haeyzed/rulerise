@@ -43,6 +43,7 @@ Route::middleware(['auth:api', 'role:employer,employer_staff'])->group(function 
         Route::delete('{id}', [JobsController::class, 'delete']);
         Route::get('{id}/filter-applicants-by-job', [JobApplicantController::class, 'filterApplicantsByJob']);
         Route::post('applicants/update-hiring-stage', [JobApplicantController::class, 'changeHiringStage']);
+        Route::post('applicants/batch-update-hiring-stage', [JobApplicantController::class, 'batchChangeHiringStage']);
         Route::post('{id}/set-open-close', [JobsController::class, 'setOpenClose']);
         Route::post('{id}/publish-job', [JobsController::class, 'publishJob']);
         Route::get('{id}/view-application', [JobApplicantController::class, 'viewApplication']);
@@ -108,7 +109,7 @@ Route::middleware(['auth:api', 'role:employer'])->group(function () {
         Route::get('/', [UsersController::class, 'index']);
         Route::get('{id}', [UsersController::class, 'show']);
         Route::post('/', [UsersController::class, 'store']);
-        Route::put('{id}', [UsersController::class, 'update']);
+        Route::put('/', [UsersController::class, 'update']);
         Route::delete('{id}', [UsersController::class, 'delete']);
     });
 

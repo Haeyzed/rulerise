@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Employer;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Employer\BatchChangeHiringStageRequest;
 use App\Http\Requests\Employer\ChangeHiringStageRequest;
 use App\Models\Job;
 use App\Models\JobApplication;
@@ -105,6 +106,65 @@ class JobApplicantController extends Controller implements HasMiddleware
         );
 
         return response()->success($application,'Hiring stage updated successfully');
+    }
+
+    /**
+     * Change hiring stage for multiple applications
+     *
+     * @param BatchChangeHiringStageRequest $request
+     * @return JsonResponse
+     */
+    public function batchChangeHiringStage(BatchChangeHiringStageRequest $request): JsonResponse
+    {
+        $user = auth()->user();
+        $employer = $user->employer;
+        $data = $request->validated();
+
+        $applicationIds = $data['application_ids'];
+        $status = $data['status'];
+        $notes = $data['notes'] ?? null;
+
+        $results = [
+            'success' => [],
+            'failed' => []
+        ];
+
+        foreach ($applicationIds as $applicationId) {
+            try {
+                $application = JobApplication::query()->findOrFail($applicationId);
+
+                // Check if the application belongs to a job owned by this employer
+                $job = Job::query()->findOrFail($application->job_id);
+                if ($job->employer_id !== $employer->id) {
+                    $results['failed'][] = [
+                        'application_id' => $applicationId,
+                        'reason' => 'This application does not belong to a job owned by this employer'
+                    ];
+                    continue;
+                }
+
+                // Update the application status
+                $updatedApplication = $this->jobService->changeApplicationStatus(
+                    $application,
+                    $status,
+                    $notes
+                );
+
+                $results['success'][] = $updatedApplication->id;
+            } catch (\Exception $e) {
+                $results['failed'][] = [
+                    'application_id' => $applicationId,
+                    'reason' => $e->getMessage()
+                ];
+            }
+        }
+
+        return response()->success([
+            'results' => $results,
+            'total' => count($applicationIds),
+            'successful' => count($results['success']),
+            'failed' => count($results['failed'])
+        ], 'Batch hiring stage update processed');
     }
 
     /**
