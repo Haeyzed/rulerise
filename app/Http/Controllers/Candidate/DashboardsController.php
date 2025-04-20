@@ -77,11 +77,11 @@ class DashboardsController extends Controller implements HasMiddleware
 
         return response()->success([
             'metrics' => $metrics,
-            'latest_blog_posts' => $latestBlogPosts,
-            'user' => [
-                'name' => $user->first_name . ' ' . $user->last_name,
-                'profile_picture_url' => $user->profile_picture_url,
-            ],
+//            'latest_blog_posts' => $latestBlogPosts,
+//            'user' => [
+//                'name' => $user->first_name . ' ' . $user->last_name,
+//                'profile_picture_url' => $user->profile_picture_url,
+//            ],
         ], 'Dashboard data retrieved successfully');
     }
 
