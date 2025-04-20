@@ -23,6 +23,72 @@ use Illuminate\Support\Str;
 class JobService
 {
 
+    /**
+     * Get applicants by job with optional filtering and sorting
+     *
+     * @param Employer $employer
+     * @param array $filters
+     * @param string $sortBy
+     * @param string $sortOrder
+     * @param int $perPage
+     * @return array
+     */
+    public function getApplicantByJobs(
+        Employer $employer,
+        array $filters = [],
+        string $sortBy = 'created_at',
+        string $sortOrder = 'desc',
+        int $perPage = 15
+    ): array {
+
+        // Get application counts for different statuses
+        $totalApplications = $employer->applications()->count();
+        $unsortedCount = $employer->applications()->where('status', 'unsorted')->count();
+        $shortlistedCount = $employer->applications()->where('status', 'shortlisted')->count();
+        $offerSentCount = $employer->applications()->where('status', 'offer_sent')->count();
+        $rejectedCount = $employer->applications()->where('status', 'rejected')->count();
+
+        // Build the query
+        $query = $employer->applications();
+
+        // Apply status filter if provided
+        if (isset($filters['status']) && in_array($filters['status'], ['unsorted', 'shortlisted', 'offer_sent', 'rejected'])) {
+            $query->where('status', $filters['status']);
+        }
+
+        // Eager load relationships
+        $query->with([
+            'candidate.user',
+            'candidate.qualification',
+            'candidate.workExperiences',
+            'candidate.educationHistories',
+            'candidate.languages',
+            'candidate.portfolio',
+            'candidate.credentials',
+            'candidate.savedJobs',
+            'candidate.resumes',
+            'candidate.reportedJobs',
+            'candidate.profileViewCounts',
+        ]);
+
+        // Apply sorting
+        $query->orderBy($sortBy, $sortOrder);
+
+        // Get paginated results
+        $applications = $query->paginate($perPage);
+
+        // Return both the paginated applications and the counts
+        return [
+            'job_applications' => $applications,
+            'counts' => [
+                'total' => $totalApplications,
+                'unsorted' => $unsortedCount,
+                'shortlisted' => $shortlistedCount,
+                'offer_sent' => $offerSentCount,
+                'rejected' => $rejectedCount
+            ]
+        ];
+    }
 
     /**
      * Get employer jobs with optional filtering and sorting

@@ -78,39 +78,36 @@ class JobApplicantController extends Controller implements HasMiddleware
         $sortBy = $request->input('sort_by', 'created_at');
         $sortOrder = $request->input('sort_order', 'desc');
         $perPage = $request->input('per_page', config('app.pagination.per_page'));
-        $applications = $query->paginate($perPage);
 
-//        $result = $this->jobService->getApplicantJobs(
-//            $employer,
-//            $filters,
-//            $sortBy,
-//            $sortOrder,
-//            $perPage
-//        );
-//
-//        // Extract jobs and counts from the result
-//        $jobs = $result['jobs'];
-//        $counts = $result['counts'];
-//
-//        // Add pagination data
-//        $paginationData = [
-//            'current_page' => $jobs->currentPage(),
-//            'last_page' => $jobs->lastPage(),
-//            'per_page' => $jobs->perPage(),
-//            'total' => $jobs->total(),
-//        ];
-//
-//        return response()->json([
-//            'success' => true,
-//            'message' => 'Jobs retrieved successfully.',
-//            'data' => [
-//                'counts' => $counts,
-//                'jobs' => $jobs,
-//                'meta' => $paginationData,
-//            ]
-//        ]);
+        $result = $this->jobService->getApplicantByJobs(
+            $employer,
+            $filters,
+            $sortBy,
+            $sortOrder,
+            $perPage
+        );
 
-        return response()->paginatedSuccess($applications, 'Applicants filtered by job successfully');
+        // Extract jobs and counts from the result
+        $jobApplications = $result['job_applications'];
+        $counts = $result['counts'];
+
+        // Add pagination data
+        $paginationData = [
+            'current_page' => $jobApplications->currentPage(),
+            'last_page' => $jobApplications->lastPage(),
+            'per_page' => $jobApplications->perPage(),
+            'total' => $jobApplications->total(),
+        ];
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Applicants Jobs retrieved successfully.',
+            'data' => [
+                'counts' => $counts,
+                'jobs' => $jobApplications,
+                'meta' => $paginationData,
+            ]
+        ]);
     }
 
     /**
