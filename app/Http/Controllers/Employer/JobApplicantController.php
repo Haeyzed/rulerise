@@ -67,10 +67,10 @@ class JobApplicantController extends Controller implements HasMiddleware
             ->with(['candidate.user', 'resume']);
 
         // Apply filters
-        if ($request->has('status')) {
-            $status = $request->input('status');
-            $applications->where('status', $status);
-        }
+//        if ($request->has('status')) {
+//            $status = $request->input('status');
+//            $applications->where('status', $status);
+//        }
 
         // Sort
         $sortBy = $request->input('sort_by', 'created_at');
