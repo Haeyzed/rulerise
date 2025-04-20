@@ -58,25 +58,30 @@ class JobApplicantController extends Controller implements HasMiddleware
         $user = auth()->user();
         $employer = $user->employer;
 
-        $job = $employer->jobs()->findOrFail($id);
+        // Find the job and verify it belongs to this employer
+        $job = Job::query()->where('employer_id', $employer->id)
+            ->findOrFail($id);
 
-        $query = $job->applications()->with(['candidate.user', 'resume']);
+        // Get applications with related data
+        $applications = JobApplication::query()->where('job_id', $job->id)
+            ->with(['candidate.user', 'resume']);
 
         // Apply filters
         if ($request->has('status')) {
             $status = $request->input('status');
-            $query->where('status', $status);
+            $applications->where('status', $status);
         }
 
         // Sort
         $sortBy = $request->input('sort_by', 'created_at');
         $sortOrder = $request->input('sort_order', 'desc');
-        $query->orderBy($sortBy, $sortOrder);
+        $applications->orderBy($sortBy, $sortOrder);
 
-        $perPage = $request->input('per_page', 10);
-        $applications = $query->paginate($perPage);
+        // Paginate results
+        $perPage = $request->input('per_page', config('app.pagination.per_page'));
+        $paginatedApplications = $applications->paginate($perPage);
 
-        return response()->paginatedSuccess($applications, 'Applicants filtered by job successfully');
+        return response()->paginatedSuccess($paginatedApplications, 'Applicants filtered by job successfully');
     }
 
     /**
