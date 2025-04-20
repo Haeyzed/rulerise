@@ -119,7 +119,19 @@ class CandidateJobPoolsController extends Controller implements HasMiddleware
 
         $pool = $employer->candidatePools()->withCount('candidates')->findOrFail($id);
 
-        $query = $pool->candidates()->with(['user']);
+        $query = $pool->candidates()->with([
+            'user',
+            'qualification',
+            'workExperiences',
+            'educationHistories',
+            'languages',
+            'portfolio',
+            'credentials',
+            'savedJobs',
+            'resumes',
+            'reportedJobs',
+            'profileViewCounts',
+        ]);
 
         // Sort
         $sortBy = $request->input('sort_by', 'created_at');
