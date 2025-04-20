@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Candidate;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\JobApplicationResource;
 use App\Http\Resources\JobResource;
+use App\Http\Resources\SavedJobResource;
 use App\Services\CandidateDashboardService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -53,26 +55,26 @@ class DashboardsController extends Controller implements HasMiddleware
     {
         $user = auth()->user();
         $candidate = $user->candidate;
-        
+
         if (!$candidate) {
             return response()->error('Candidate profile not found');
         }
-        
+
         // Get days parameter from request or use default (30)
         $days = $request->input('days', 30);
-        
+
         // Get dashboard metrics
         $metrics = $this->dashboardService->getDashboardMetrics($candidate, $days);
-        
+
         // Transform job collections to resources
         $metrics['newest_jobs'] = JobResource::collection($metrics['newest_jobs']);
         $metrics['recommended_jobs'] = JobResource::collection($metrics['recommended_jobs']);
-        $metrics['saved_jobs'] = JobResource::collection($metrics['saved_jobs']);
-        $metrics['applied_jobs'] = JobResource::collection($metrics['applied_jobs']);
-        
+        $metrics['saved_jobs'] = SavedJobResource::collection($metrics['saved_jobs']);
+        $metrics['applied_jobs'] = JobApplicationResource::collection($metrics['applied_jobs']);
+
         // Get latest blog posts
         $latestBlogPosts = $this->dashboardService->getLatestBlogPosts();
-        
+
         return response()->success([
             'metrics' => $metrics,
             'latest_blog_posts' => $latestBlogPosts,
@@ -82,7 +84,7 @@ class DashboardsController extends Controller implements HasMiddleware
             ],
         ], 'Dashboard data retrieved successfully');
     }
-    
+
     /**
      * Get paginated jobs by type
      *
@@ -94,17 +96,17 @@ class DashboardsController extends Controller implements HasMiddleware
     {
         $user = auth()->user();
         $candidate = $user->candidate;
-        
+
         if (!$candidate) {
             return response()->error('Candidate profile not found');
         }
-        
+
         // Get per_page parameter from request or use default (10)
         $perPage = $request->input('per_page', 10);
-        
+
         // Get paginated jobs
         $jobs = $this->dashboardService->getPaginatedJobs($candidate, $type, $perPage);
-        
+
         return response()->success([
             'jobs' => JobResource::collection($jobs),
             'pagination' => [

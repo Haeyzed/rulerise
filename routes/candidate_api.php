@@ -40,6 +40,7 @@ use Illuminate\Support\Facades\Route;
 Route::middleware(['auth:api', 'role:candidate'])->group(function () {
     // Dashboard
     Route::get('dashboard', [DashboardsController::class, 'index']);
+    Route::get('jobs/{type}', [DashboardsController::class, 'getJobs']);
 
     // Meta information
     Route::get('languageProficiency', [MetaInformationController::class, 'languageProficiency']);
