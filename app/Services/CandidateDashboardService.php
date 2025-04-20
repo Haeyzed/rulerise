@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\BlogPost;
 use App\Models\Candidate;
 use App\Models\Job;
 use App\Models\JobApplication;
@@ -176,9 +177,9 @@ class CandidateDashboardService
      *
      * @param Candidate $candidate
      * @param int $limit
-     * @return Collection
+     * @return \Illuminate\Support\Collection
      */
-    public function getSavedJobs(Candidate $candidate, int $limit = 10): Collection
+    public function getSavedJobs(Candidate $candidate, int $limit = 10): \Illuminate\Support\Collection
     {
         return SavedJob::where('candidate_id', $candidate->id)
             ->where('is_saved', true)
@@ -194,9 +195,9 @@ class CandidateDashboardService
      *
      * @param Candidate $candidate
      * @param int $limit
-     * @return Collection
+     * @return \Illuminate\Support\Collection
      */
-    public function getAppliedJobs(Candidate $candidate, int $limit = 10): Collection
+    public function getAppliedJobs(Candidate $candidate, int $limit = 10): \Illuminate\Support\Collection
     {
         return JobApplication::where('candidate_id', $candidate->id)
             ->with(['job.employer', 'job.category'])
@@ -398,19 +399,12 @@ class CandidateDashboardService
      * Get latest blog posts
      *
      * @param int $limit
-     * @return Collection
+     * @return mixed
      */
-    public function getLatestBlogPosts(int $limit = 2): Collection
+    public function getLatestBlogPosts(int $limit = 2): mixed
     {
-        // Assuming you have a BlogPost model
-        // If not, you can replace this with your actual blog post retrieval logic
-        if (class_exists('App\Models\BlogPost')) {
-            return \App\Models\BlogPost::orderBy('created_at', 'desc')
-                ->limit($limit)
-                ->get();
-        }
-
-        // Return empty collection if BlogPost model doesn't exist
-        return new Collection();
+        return BlogPost::orderBy('created_at', 'desc')
+            ->limit($limit)
+            ->get();
     }
 }

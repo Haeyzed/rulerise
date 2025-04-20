@@ -3,9 +3,7 @@
 namespace App\Http\Controllers\Candidate;
 
 use App\Http\Controllers\Controller;
-use App\Http\Resources\JobApplicationResource;
 use App\Http\Resources\JobResource;
-use App\Http\Resources\SavedJobResource;
 use App\Services\CandidateDashboardService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -69,19 +67,19 @@ class DashboardsController extends Controller implements HasMiddleware
         // Transform job collections to resources
         $metrics['newest_jobs'] = JobResource::collection($metrics['newest_jobs']);
         $metrics['recommended_jobs'] = JobResource::collection($metrics['recommended_jobs']);
-        $metrics['saved_jobs'] = SavedJobResource::collection($metrics['saved_jobs']);
-        $metrics['applied_jobs'] = JobApplicationResource::collection($metrics['applied_jobs']);
+        $metrics['saved_jobs'] = JobResource::collection($metrics['saved_jobs']);
+        $metrics['applied_jobs'] = JobResource::collection($metrics['applied_jobs']);
 
         // Get latest blog posts
         $latestBlogPosts = $this->dashboardService->getLatestBlogPosts();
 
         return response()->success([
             'metrics' => $metrics,
-//            'latest_blog_posts' => $latestBlogPosts,
-//            'user' => [
-//                'name' => $user->first_name . ' ' . $user->last_name,
-//                'profile_picture_url' => $user->profile_picture_url,
-//            ],
+            'latest_blog_posts' => $latestBlogPosts,
+            'user' => [
+                'name' => $user->first_name . ' ' . $user->last_name,
+                'profile_picture_url' => $user->profile_picture_url,
+            ],
         ], 'Dashboard data retrieved successfully');
     }
 
@@ -107,14 +105,6 @@ class DashboardsController extends Controller implements HasMiddleware
         // Get paginated jobs
         $jobs = $this->dashboardService->getPaginatedJobs($candidate, $type, $perPage);
 
-        return response()->success([
-            'jobs' => JobResource::collection($jobs),
-            'pagination' => [
-                'current_page' => $jobs->currentPage(),
-                'last_page' => $jobs->lastPage(),
-                'per_page' => $jobs->perPage(),
-                'total' => $jobs->total(),
-            ],
-        ], 'Jobs retrieved successfully');
+        return response()->paginatedSuccess(JobResource::collection($jobs), 'Jobs retrieved successfully');
     }
 }
