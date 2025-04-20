@@ -62,18 +62,18 @@ class DashboardsController extends Controller implements HasMiddleware
     public function index(Request $request): JsonResponse
     {
         $user = auth()->user();
-        
+
         // Get employer (either directly or through relation for staff)
         $employer = $user->isEmployer() ? $user->employer : $user->employerRelation;
-        
+
         if (!$employer) {
-            return response()->error('Employer profile not found');
+            return response()->notFound('Employer profile not found');
         }
 
         // Parse date range from request or use default (last 7 days)
         $endDate = Carbon::now();
         $startDate = Carbon::now()->subDays(6); // Last 7 days including today
-        
+
         if ($request->has('start_date') && $request->has('end_date')) {
             $startDate = Carbon::parse($request->input('start_date'));
             $endDate = Carbon::parse($request->input('end_date'));
