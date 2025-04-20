@@ -25,17 +25,6 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-// Auth routes (no auth required)
-//Route::group(['prefix' => 'auth'], function () {
-//    Route::post('register', [AuthController::class, 'register']);
-//    Route::post('resendEmailVerification/{email}', [AuthController::class, 'resendEmailVerification']);
-//    Route::post('verifyEmail', [AuthController::class, 'verifyEmail']);
-//    Route::post('login', [AuthController::class, 'login']);
-//    Route::post('forgot-password/{email}', [AuthController::class, 'sendResetPasswordLink']);
-//    Route::post('verify-forgot-password', [AuthController::class, 'verifyResetPasswordLink']);
-//    Route::post('reset-password', [AuthController::class, 'resetPassword']);
-//});
-
 // Routes that require authentication
 Route::middleware(['auth:api', 'role:candidate'])->group(function () {
     // Dashboard

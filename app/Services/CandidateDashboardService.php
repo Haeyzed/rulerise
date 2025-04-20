@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Models\BlogPost;
 use App\Models\Candidate;
 use App\Models\Job;
 use App\Models\JobApplication;
@@ -97,7 +96,12 @@ class CandidateDashboardService
      */
     public function getNewestJobs(int $limit = 10): Collection
     {
-        return Job::publiclyAvailable()
+        return Job::where('is_active', true)
+            ->where('is_approved', true)
+            ->where(function($query) {
+                $query->whereNull('deadline')
+                    ->orWhere('deadline', '>=', now());
+            })
             ->with(['employer', 'category'])
             ->orderBy('created_at', 'desc')
             ->limit($limit)
@@ -120,7 +124,12 @@ class CandidateDashboardService
         $location = $candidate->location;
 
         // Build query for recommended jobs
-        $query = Job::publiclyAvailable()
+        $query = Job::where('is_active', true)
+            ->where('is_approved', true)
+            ->where(function($query) {
+                $query->whereNull('deadline')
+                    ->orWhere('deadline', '>=', now());
+            })
             ->with(['employer', 'category']);
 
         // Filter by industry if available
@@ -265,7 +274,12 @@ class CandidateDashboardService
     {
         switch ($type) {
             case 'newest':
-                return Job::publiclyAvailable()
+                return Job::where('is_active', true)
+                    ->where('is_approved', true)
+                    ->where(function($query) {
+                        $query->whereNull('deadline')
+                            ->orWhere('deadline', '>=', now());
+                    })
                     ->with(['employer', 'category'])
                     ->orderBy('created_at', 'desc')
                     ->paginate($perPage);
@@ -278,7 +292,12 @@ class CandidateDashboardService
                 $location = $candidate->location;
 
                 // Build query for recommended jobs
-                $query = Job::publiclyAvailable()
+                $query = Job::where('is_active', true)
+                    ->where('is_approved', true)
+                    ->where(function($query) {
+                        $query->whereNull('deadline')
+                            ->orWhere('deadline', '>=', now());
+                    })
                     ->with(['employer', 'category']);
 
                 // Filter by industry if available
@@ -340,7 +359,12 @@ class CandidateDashboardService
                     ->paginate($perPage);
 
             default:
-                return Job::publiclyAvailable()
+                return Job::where('is_active', true)
+                    ->where('is_approved', true)
+                    ->where(function($query) {
+                        $query->whereNull('deadline')
+                            ->orWhere('deadline', '>=', now());
+                    })
                     ->with(['employer', 'category'])
                     ->orderBy('created_at', 'desc')
                     ->paginate($perPage);
@@ -362,7 +386,7 @@ class CandidateDashboardService
         ?string $userAgent = null,
         ?int $viewerId = null
     ): ProfileViewCount {
-        return ProfileViewCount::query()->create([
+        return ProfileViewCount::create([
             'candidate_id' => $candidate->id,
             'ip_address' => $ipAddress,
             'user_agent' => $userAgent,
@@ -378,8 +402,15 @@ class CandidateDashboardService
      */
     public function getLatestBlogPosts(int $limit = 2): Collection
     {
-        return BlogPost::orderBy('created_at', 'desc')
-            ->limit($limit)
-            ->get();
+        // Assuming you have a BlogPost model
+        // If not, you can replace this with your actual blog post retrieval logic
+        if (class_exists('App\Models\BlogPost')) {
+            return \App\Models\BlogPost::orderBy('created_at', 'desc')
+                ->limit($limit)
+                ->get();
+        }
+
+        // Return empty collection if BlogPost model doesn't exist
+        return new Collection();
     }
 }
