@@ -9,6 +9,7 @@ use App\Http\Controllers\Employer\JobsController;
 use App\Http\Controllers\Employer\JobApplicantController;
 use App\Http\Controllers\Employer\CandidateJobPoolsController;
 use App\Http\Controllers\Employer\EmployersController;
+use App\Http\Controllers\Employer\MessagesController;
 use App\Http\Controllers\Employer\SubscriptionPaymentController;
 use App\Http\Controllers\Employer\SubscriptionsController;
 use App\Http\Controllers\Employer\JobNotificationTemplatesController;
@@ -62,6 +63,17 @@ Route::middleware(['auth:api', 'role:employer,employer_staff'])->group(function 
     Route::prefix('candidate')->group(function () {
         Route::get('/', [CandidatesController::class, 'index']);
         Route::get('{id}', [CandidatesController::class, 'show']);
+    });
+
+    // Messages
+    Route::prefix('messages')->group(function () {
+        Route::get('/', [MessagesController::class, 'index']);
+        Route::post('/', [MessagesController::class, 'store']);
+        Route::get('{id}', [MessagesController::class, 'show']);
+        Route::delete('{id}', [MessagesController::class, 'destroy']);
+        Route::post('{id}/mark-as-read', [MessagesController::class, 'markAsRead']);
+        Route::post('mark-all-as-read', [MessagesController::class, 'markAllAsRead']);
+        Route::get('unread-count', [MessagesController::class, 'getUnreadCount']);
     });
 
     // Profile
