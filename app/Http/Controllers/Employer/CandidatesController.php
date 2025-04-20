@@ -7,6 +7,7 @@ use App\Http\Requests\Candidate\UpdateProfileRequest;
 use App\Http\Resources\CandidateResource;
 use App\Http\Resources\UserResource;
 use App\Models\Candidate;
+use App\Services\CandidateService;
 use App\Services\EmployerService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -26,14 +27,23 @@ class CandidatesController extends Controller implements HasMiddleware
     protected EmployerService $employerService;
 
     /**
+     * Candidate service instance
+     *
+     * @var CandidateService
+     */
+    protected CandidateService $candidateService;
+
+
+    /**
      * Create a new controller instance.
      *
      * @param EmployerService $employerService
      * @return void
      */
-    public function __construct(EmployerService $employerService)
+    public function __construct(EmployerService $employerService, CandidateService $candidateService)
     {
         $this->employerService = $employerService;
+        $this->candidateService = $candidateService;
     }
 
     /**
@@ -152,7 +162,7 @@ class CandidatesController extends Controller implements HasMiddleware
         ])->findOrFail($id);
 
         // Record profile view
-        $this->employerService->recordProfileView(
+        $this->candidateService->recordProfileView(
             $candidate,
             $request->ip(),
             $request->userAgent(),
