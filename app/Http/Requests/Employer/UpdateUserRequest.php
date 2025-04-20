@@ -20,14 +20,13 @@ class UpdateUserRequest extends BaseRequest
     public function rules(): array
     {
         return [
-            'id' => 'required|integer|exists:users,id',
             'first_name' => 'sometimes|string|max:255',
             'last_name' => 'sometimes|string|max:255',
             'email' => [
                 'required',
                 'email',
-                Rule::unique('users')->where(function ($query) {
-                    return $query->where('user_type', 'employer_staff');
+                Rule::unique('users')->ignore($this->route('id'))->where(function ($query) {
+                    return $query->where('user_type', $this->input('user_type', 'employer_staff'));
                 }),
             ],
             'phone' => 'nullable|string|max:20',

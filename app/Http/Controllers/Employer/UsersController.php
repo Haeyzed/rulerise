@@ -167,7 +167,7 @@ class UsersController extends Controller implements HasMiddleware
      * @param UpdateUserRequest $request
      * @return JsonResponse
      */
-    public function update(UpdateUserRequest $request): JsonResponse
+    public function update(int $id, UpdateUserRequest $request): JsonResponse
     {
         $user = auth()->user();
         $employer = $user->employer;
@@ -176,7 +176,7 @@ class UsersController extends Controller implements HasMiddleware
         try {
             // Find the staff user and ensure they belong to this employer
             $staffUser = User::query()
-                ->where('id', $data['id'])
+                ->where('id', $id)
                 ->where('user_type', 'employer_staff')
                 ->where('employer_id', $employer->id)
                 ->firstOrFail();
