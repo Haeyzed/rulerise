@@ -10,6 +10,7 @@ use App\Http\Controllers\Candidate\CandidateEducationHistoriesController;
 use App\Http\Controllers\Candidate\JobsController;
 use App\Http\Controllers\Candidate\UserAccountSettingsController;
 use App\Http\Controllers\Candidate\WorkExperiencesController;
+use App\Http\Controllers\Candidate\DashboardsController;
 use App\Http\Controllers\Public\MetaInformationController;
 use Illuminate\Support\Facades\Route;
 
@@ -38,7 +39,7 @@ use Illuminate\Support\Facades\Route;
 // Routes that require authentication
 Route::middleware(['auth:api', 'role:candidate'])->group(function () {
     // Dashboard
-    Route::get('metrics', [DashboardController::class, 'metrics']);
+    Route::get('dashboard', [DashboardsController::class, 'index']);
 
     // Meta information
     Route::get('languageProficiency', [MetaInformationController::class, 'languageProficiency']);
