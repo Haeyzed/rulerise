@@ -549,8 +549,12 @@ class EmployerService
                 unset($data['company_logo']);
             }
 
+            if (isset($data['company_logo_path'])) {
+                $employerData['company_logo'] = $data['company_logo_path'];
+            }
+
             // Update blog post
-            $employer->update($data);
+            $employer->update($employerData);
 
             return $employer;
         });
