@@ -346,9 +346,6 @@ class AuthService
             try {
                 // Delete related data based on user type
                 if ($user->isCandidate() && $user->candidate) {
-                    // Detach skills
-                    $user->candidate->skills()->detach();
-
                     // Delete candidate profile
                     if ($permanent) {
                         $user->candidate->forceDelete();
