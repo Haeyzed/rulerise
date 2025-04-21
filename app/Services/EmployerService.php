@@ -542,11 +542,11 @@ class EmployerService
                 if ($employer->company_logo) {
                     $this->storageService->delete($employer->company_logo);
                 }
-
-                $data['company_logo'] = $this->uploadImage(
+                $data['company_logo_path'] = $this->uploadImage(
                     $data['company_logo'],
                     config('filestorage.paths.company_logos')
                 );
+                unset($data['company_logo']);
             }
 
             // Update blog post

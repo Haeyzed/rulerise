@@ -33,7 +33,8 @@ class UploadLogoRequest extends BaseRequest
              * @example "banner.jpg"
              */
             'company_logo' => [
-                $this->isMethod('post') ? 'required' : 'nullable',
+                'required',
+//                $this->isMethod('post') ? 'required' : 'nullable',
                 'image',
                 'mimes:jpeg,png,jpg,gif',
                 'max:2048'
