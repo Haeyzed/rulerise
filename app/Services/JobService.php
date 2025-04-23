@@ -470,9 +470,9 @@ class JobService
             throw new Exception('This job is not currently accepting applications');
         }
 
-        if (!$job->is_approved) {
-            throw new Exception('This job is pending approval and not available for applications');
-        }
+//        if (!$job->is_approved) {
+//            throw new Exception('This job is pending approval and not available for applications');
+//        }
 
         // Check if candidate has already applied
         $existingApplication = JobApplication::query()->where('job_id', $job->id)
