@@ -445,7 +445,7 @@ class CandidateService
     public function uploadResume(Candidate $candidate, array $data): Resume
     {
         return DB::transaction(function () use ($candidate, $data) {
-            // Handle banner cv
+            // Handle resume document upload
             if (isset($data['document']) && $data['document'] instanceof UploadedFile) {
                 $data['document'] = $this->uploadCV(
                     $data['document'],
@@ -453,28 +453,27 @@ class CandidateService
                 );
             }
 
-            // If this is set as primary, unset other primary resumes
+            // Determine if this should be primary
             if (isset($data['is_primary']) && $data['is_primary']) {
+                // If marked as primary, unset all other primary resumes
                 $candidate->resumes()->update(['is_primary' => false]);
             } else {
-                // Default to primary if it's the first resume
-                $data['is_primary'] = $candidate->resumes()->count() === 0;
+                // If not provided, and no other resumes exist, make it primary
+                if (!$candidate->resumes()->exists()) {
+                    $data['is_primary'] = true;
+                } else {
+                    $data['is_primary'] = false;
+                }
             }
 
-            // Generate a name if not provided
+            // Generate resume name if not provided
             if (empty($data['name'])) {
-                // Get the candidate's user
                 $user = $candidate->user;
-                $username = $user->first_name . ' ' . $user->last_name;
-
-                // Count existing resumes to create a version number
                 $resumeCount = $candidate->resumes()->count() + 1;
-
-                // Generate name with version suffix
-                $data['name'] = $username . ' - Resume v' . $resumeCount;
+                $data['name'] = "{$user->first_name} {$user->last_name} - Resume v{$resumeCount}";
             }
 
-            // Create resume record
+            // Create and return the resume
             return $candidate->resumes()->create([
                 'name' => $data['name'],
                 'document' => $data['document'],
@@ -482,7 +481,6 @@ class CandidateService
             ]);
         });
     }
-
     /**
      * Delete resume
      *
