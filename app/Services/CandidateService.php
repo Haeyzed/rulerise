@@ -82,7 +82,14 @@ class CandidateService
         return DB::transaction(function () use ($user, $data) {
             // Handle profile picture
             if (isset($data['profile_picture']) && $data['profile_picture'] instanceof UploadedFile) {
-                $fileName = Str::slug($user->first_name . '-' . $user->last_name) . '-' . time() . '.' . $data['profile_picture']->getClientOriginalExtension();
+                $extension = $data['profile_picture']->getClientOriginalExtension();
+                $fileName = Str::slug($user->first_name . '-' . $user->last_name) . '-' . time();
+
+                // Only add extension if it's not already included
+                if (!empty($extension)) {
+                    $fileName .= '.' . $extension;
+                }
+
                 $profilePicturePath = $this->uploadImage(
                     $data['profile_picture'],
                     config('filestorage.paths.profile_images'),
@@ -212,7 +219,7 @@ class CandidateService
      * Upload profile picture
      *
      * @param User $user
-     * @param UploadedFile $profile_picture
+     * @param UploadedFile $file
      * @return User
      */
     public function uploadProfilePicture(User $user, UploadedFile $profile_picture): User
@@ -223,7 +230,14 @@ class CandidateService
         }
 
         // Store new profile picture
-        $fileName = Str::slug($user->first_name . '-' . $user->last_name) . '-' . time() . '.' . $profile_picture->getClientOriginalExtension();
+        $extension = $profile_picture->getClientOriginalExtension();
+        $fileName = Str::slug($user->first_name . '-' . $user->last_name) . '-' . time();
+
+        // Only add extension if it's not already included
+        if (!empty($extension)) {
+            $fileName .= '.' . $extension;
+        }
+
         $path = $this->uploadImage(
             $profile_picture,
             config('filestorage.paths.profile_images'),
@@ -446,15 +460,22 @@ class CandidateService
      * @param Candidate $candidate
      * @param array $data
      * @return Resume
-     * @throws \Throwable
      */
     public function uploadResume(Candidate $candidate, array $data): Resume
     {
         return DB::transaction(function () use ($candidate, $data) {
             // Handle resume document upload
             if (isset($data['document']) && $data['document'] instanceof UploadedFile) {
+                // Get the original file extension
+                $extension = $data['document']->getClientOriginalExtension();
+
                 // Generate a unique filename for the resume
-                $fileName = Str::slug($candidate->user->first_name . '-' . $candidate->user->last_name) . '-resume-' . time() . '.' . $data['document']->getClientOriginalExtension();
+                $fileName = Str::slug($candidate->user->first_name . '-' . $candidate->user->last_name) . '-resume-' . time();
+
+                // Only add extension if it's not already included and not empty
+                if (!empty($extension)) {
+                    $fileName .= '.' . $extension;
+                }
 
                 $data['document'] = $this->uploadCV(
                     $data['document'],
