@@ -17,6 +17,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Throwable;
 
 /**
  * Service class for candidate related operations
@@ -82,14 +83,7 @@ class CandidateService
         return DB::transaction(function () use ($user, $data) {
             // Handle profile picture
             if (isset($data['profile_picture']) && $data['profile_picture'] instanceof UploadedFile) {
-                $extension = $data['profile_picture']->getClientOriginalExtension();
-                $fileName = Str::slug($user->first_name . '-' . $user->last_name) . '-' . time();
-
-                // Only add extension if it's not already included
-                if (!empty($extension)) {
-                    $fileName .= '.' . $extension;
-                }
-
+                $fileName = Str::slug($user->first_name . '-' . $user->last_name) . '-' . time() . '.' . $data['profile_picture']->getClientOriginalExtension();
                 $profilePicturePath = $this->uploadImage(
                     $data['profile_picture'],
                     config('filestorage.paths.profile_images'),
@@ -219,7 +213,7 @@ class CandidateService
      * Upload profile picture
      *
      * @param User $user
-     * @param UploadedFile $file
+     * @param UploadedFile $profile_picture
      * @return User
      */
     public function uploadProfilePicture(User $user, UploadedFile $profile_picture): User
@@ -230,14 +224,7 @@ class CandidateService
         }
 
         // Store new profile picture
-        $extension = $profile_picture->getClientOriginalExtension();
-        $fileName = Str::slug($user->first_name . '-' . $user->last_name) . '-' . time();
-
-        // Only add extension if it's not already included
-        if (!empty($extension)) {
-            $fileName .= '.' . $extension;
-        }
-
+        $fileName = Str::slug($user->first_name . '-' . $user->last_name) . '-' . time() . '.' . $profile_picture->getClientOriginalExtension();
         $path = $this->uploadImage(
             $profile_picture,
             config('filestorage.paths.profile_images'),
@@ -460,22 +447,15 @@ class CandidateService
      * @param Candidate $candidate
      * @param array $data
      * @return Resume
+     * @throws Throwable
      */
     public function uploadResume(Candidate $candidate, array $data): Resume
     {
         return DB::transaction(function () use ($candidate, $data) {
             // Handle resume document upload
             if (isset($data['document']) && $data['document'] instanceof UploadedFile) {
-                // Get the original file extension
-                $extension = $data['document']->getClientOriginalExtension();
-
                 // Generate a unique filename for the resume
-                $fileName = Str::slug($candidate->user->first_name . '-' . $candidate->user->last_name) . '-resume-' . time();
-
-                // Only add extension if it's not already included and not empty
-                if (!empty($extension)) {
-                    $fileName .= '.' . $extension;
-                }
+                $fileName = Str::slug($candidate->user->first_name . '-' . $candidate->user->last_name) . '-resume-' . time() . '.' . $data['document']->getClientOriginalExtension();
 
                 $data['document'] = $this->uploadCV(
                     $data['document'],
@@ -512,11 +492,13 @@ class CandidateService
             ]);
         });
     }
+
     /**
      * Delete resume
      *
      * @param Resume $resume
      * @return bool|null
+     * @throws Throwable
      */
     public function deleteResume(Resume $resume): ?bool
     {
