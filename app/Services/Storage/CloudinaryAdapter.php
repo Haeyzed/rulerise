@@ -42,17 +42,31 @@ class CloudinaryAdapter implements StorageAdapterInterface
             $name = $name . '.' . $extension;
         }
 
+        // Clean the path and filename for Cloudinary
+        $cleanPath = trim($path, './');
+        $cleanName = pathinfo($name, PATHINFO_FILENAME);
+
+        // Remove any leading dots or slashes from the name
+        $cleanName = ltrim($cleanName, './');
+
         // Cloudinary specific options
         $cloudinaryOptions = [
             'resource_type' => $this->getResourceType($file),
-            'folder' => $path,
-            'public_id' => pathinfo($name, PATHINFO_FILENAME), // Use filename without extension for public_id
+            'folder' => $cleanPath, // Use cleaned path as folder
+            'public_id' => $cleanName, // Use cleaned filename without extension for public_id
             'overwrite' => true,
             ...$options
         ];
 
         // Store the file with the specified name
-        return Storage::disk($this->disk)->putFileAs('', $file, $name, $cloudinaryOptions);
+        $result = Storage::disk($this->disk)->putFileAs('', $file, $name, $cloudinaryOptions);
+
+        // If path is provided, prepend it to the result for consistent path handling
+        if (!empty($cleanPath)) {
+            return $cleanPath . '/' . $name;
+        }
+
+        return $result;
     }
 
     /**
