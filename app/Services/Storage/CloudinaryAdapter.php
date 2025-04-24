@@ -32,10 +32,12 @@ class CloudinaryAdapter implements StorageAdapterInterface
      */
     public function upload(UploadedFile $file, string $path, array $options = []): string
     {
-        return $file->store($path, [
-            'disk' => $this->disk,
-            ...$options
-        ]);
+        $content = file_get_contents($file->getRealPath());
+        return Storage::disk($this->disk)->put($file, $content, $options);
+//        return $file->store($path, [
+//            'disk' => $this->disk,
+//            ...$options
+//        ]);
     }
 
     /**

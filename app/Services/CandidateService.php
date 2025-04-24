@@ -518,16 +518,16 @@ class CandidateService
     }
 
     /**
-     * Upload an image to storage.
+     * Upload an document to storage.
      *
-     * @param UploadedFile $image The image file to upload.
+     * @param UploadedFile $document The document file to upload.
      * @param string $path The storage path.
      * @param array $options Additional options for the upload.
-     * @return string The path to the uploaded image.
+     * @return string The path to the uploaded document.
      */
-    private function uploadCv(UploadedFile $image, string $path, array $options = []): string
+    private function uploadCv(UploadedFile $document, string $path, array $options = []): string
     {
-        return $this->storageService->upload($image, $path, $options);
+        return $this->storageService->upload($document, $path, $options);
     }
 
     /**
