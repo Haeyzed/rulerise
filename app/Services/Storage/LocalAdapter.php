@@ -23,16 +23,17 @@ class LocalAdapter implements StorageAdapterInterface
     }
 
     /**
-     * Upload a file to storage.
+     * Store a file in storage with a specific name.
      *
      * @param UploadedFile $file
      * @param string $path
+     * @param string $name
      * @param array $options
      * @return string
      */
-    public function upload(UploadedFile $file, string $path, array $options = []): string
+    public function upload(UploadedFile $file, string $path, string $name, array $options = []): string
     {
-        return $file->store($path, [
+        return $file->storeAs($path, $name, [
             'disk' => $this->disk,
             ...$options
         ]);

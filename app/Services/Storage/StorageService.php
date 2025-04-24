@@ -22,16 +22,17 @@ class StorageService
     }
 
     /**
-     * Upload a file to storage.
+     * Store a file in storage with a specific name.
      *
      * @param UploadedFile $file
      * @param string $path
+     * @param string $name
      * @param array $options
      * @return string
      */
-    public function upload(UploadedFile $file, string $path, array $options = []): string
+    public function upload(UploadedFile $file, string $path, string $name, array $options = []): string
     {
-        return $this->adapter->upload($file, $path, $options);
+        return $this->adapter->upload($file, $path, $name, $options);
     }
 
     /**

@@ -16,6 +16,7 @@ use DateTime;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 /**
  * Service class for candidate related operations
@@ -81,9 +82,11 @@ class CandidateService
         return DB::transaction(function () use ($user, $data) {
             // Handle profile picture
             if (isset($data['profile_picture']) && $data['profile_picture'] instanceof UploadedFile) {
+                $fileName = Str::slug($user->first_name . '-' . $user->last_name) . '-' . time() . '.' . $data['profile_picture']->getClientOriginalExtension();
                 $profilePicturePath = $this->uploadImage(
                     $data['profile_picture'],
-                    config('filestorage.paths.profile_images')
+                    config('filestorage.paths.profile_images'),
+                    $fileName
                 );
 
                 // Update user's profile picture
@@ -209,7 +212,7 @@ class CandidateService
      * Upload profile picture
      *
      * @param User $user
-     * @param UploadedFile $file
+     * @param UploadedFile $profile_picture
      * @return User
      */
     public function uploadProfilePicture(User $user, UploadedFile $profile_picture): User
@@ -220,9 +223,11 @@ class CandidateService
         }
 
         // Store new profile picture
+        $fileName = Str::slug($user->first_name . '-' . $user->last_name) . '-' . time() . '.' . $profile_picture->getClientOriginalExtension();
         $path = $this->uploadImage(
             $profile_picture,
-            config('filestorage.paths.profile_images')
+            config('filestorage.paths.profile_images'),
+            $fileName
         );
 
         $user->profile_picture = $path;
@@ -441,15 +446,20 @@ class CandidateService
      * @param Candidate $candidate
      * @param array $data
      * @return Resume
+     * @throws \Throwable
      */
     public function uploadResume(Candidate $candidate, array $data): Resume
     {
         return DB::transaction(function () use ($candidate, $data) {
             // Handle resume document upload
             if (isset($data['document']) && $data['document'] instanceof UploadedFile) {
+                // Generate a unique filename for the resume
+                $fileName = Str::slug($candidate->user->first_name . '-' . $candidate->user->last_name) . '-resume-' . time() . '.' . $data['document']->getClientOriginalExtension();
+
                 $data['document'] = $this->uploadCV(
                     $data['document'],
-                    config('filestorage.paths.resumes')
+                    config('filestorage.paths.resumes'),
+                    $fileName
                 );
             }
 
@@ -522,12 +532,13 @@ class CandidateService
      *
      * @param UploadedFile $document The document file to upload.
      * @param string $path The storage path.
+     * @param string $fileName The name to store the file as.
      * @param array $options Additional options for the upload.
      * @return string The path to the uploaded document.
      */
-    private function uploadCv(UploadedFile $document, string $path, array $options = []): string
+    private function uploadCv(UploadedFile $document, string $path, string $fileName, array $options = []): string
     {
-        return $this->storageService->upload($document, $path, $options);
+        return $this->storageService->upload($document, $path, $fileName, $options);
     }
 
     /**
@@ -535,11 +546,12 @@ class CandidateService
      *
      * @param UploadedFile $image The image file to upload.
      * @param string $path The storage path.
+     * @param string $fileName The name to store the file as.
      * @param array $options Additional options for the upload.
      * @return string The path to the uploaded image.
      */
-    private function uploadImage(UploadedFile $image, string $path, array $options = []): string
+    private function uploadImage(UploadedFile $image, string $path, string $fileName, array $options = []): string
     {
-        return $this->storageService->upload($image, $path, $options);
+        return $this->storageService->upload($image, $path, $fileName, $options);
     }
 }
