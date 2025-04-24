@@ -430,6 +430,10 @@ class EmployerService
             'applications'
         ])->first();
 
+        if ($employer) {
+            $employer->append('company_logo_url');
+        }
+
         return [
             'user' => $user,
             'employer' => $employer,
