@@ -46,6 +46,8 @@ class JobApplicantController extends Controller implements HasMiddleware
         ];
     }
 
+
+
     /**
      * Filter applicants by job
      *
@@ -127,7 +129,7 @@ class JobApplicantController extends Controller implements HasMiddleware
         // Check if the application belongs to a job owned by this employer
         $job = Job::query()->findOrFail($application->job_id);
         if ($job->employer_id !== $employer->id) {
-            return response()->forbidden('This application does not belongs to a job owned by this employer');
+            return response()->forbidden('This application does not belong to a job owned by this employer');
         }
 
         $application = $this->jobService->changeApplicationStatus(
@@ -136,7 +138,7 @@ class JobApplicantController extends Controller implements HasMiddleware
             $data['notes'] ?? null
         );
 
-        return response()->success($application,'Hiring stage updated successfully');
+        return response()->success($application, 'Hiring stage updated successfully');
     }
 
     /**
@@ -155,40 +157,7 @@ class JobApplicantController extends Controller implements HasMiddleware
         $status = $data['status'];
         $notes = $data['notes'] ?? null;
 
-        $results = [
-            'success' => [],
-            'failed' => []
-        ];
-
-        foreach ($applicationIds as $applicationId) {
-            try {
-                $application = JobApplication::query()->findOrFail($applicationId);
-
-                // Check if the application belongs to a job owned by this employer
-                $job = Job::query()->findOrFail($application->job_id);
-                if ($job->employer_id !== $employer->id) {
-                    $results['failed'][] = [
-                        'application_id' => $applicationId,
-                        'reason' => 'This application does not belong to a job owned by this employer'
-                    ];
-                    continue;
-                }
-
-                // Update the application status
-                $updatedApplication = $this->jobService->changeApplicationStatus(
-                    $application,
-                    $status,
-                    $notes
-                );
-
-                $results['success'][] = $updatedApplication->id;
-            } catch (\Exception $e) {
-                $results['failed'][] = [
-                    'application_id' => $applicationId,
-                    'reason' => $e->getMessage()
-                ];
-            }
-        }
+        $results = $this->jobService->batchChangeApplicationStatus($applicationIds, $status, $notes);
 
         return response()->success([
             'results' => $results,
@@ -214,7 +183,7 @@ class JobApplicantController extends Controller implements HasMiddleware
         // Check if the application belongs to a job owned by this employer
         $job = Job::query()->findOrFail($application->job_id);
         if ($job->employer_id !== $employer->id) {
-            return response()->forbidden('This application does not belongs to a job owned by this employer');
+            return response()->forbidden('This application does not belong to a job owned by this employer');
         }
 
         return response()->success($application, 'Application viewed successfully');

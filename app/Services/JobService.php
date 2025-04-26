@@ -12,6 +12,7 @@ use App\Models\JobViewCount;
 use App\Models\ReportedJob;
 use App\Models\Resume;
 use App\Models\SavedJob;
+use App\Notifications\ApplicationStatusChanged;
 use App\Notifications\CandidateApplicationReceived;
 use App\Notifications\CandidateWithdrewApplication;
 use App\Notifications\EmployerApplicationReceived;
@@ -27,6 +28,7 @@ use Illuminate\Support\Str;
  */
 class JobService
 {
+
     /**
      * Withdraw a job application
      *
@@ -152,6 +154,220 @@ class JobService
                 'withdrawn' => $withdrawnCount
             ]
         ];
+    }
+
+    /**
+     * Apply for a job
+     *
+     * @param Job $job
+     * @param Candidate $candidate
+     * @param Resume|null $resume
+     * @param string|null $coverLetter
+     * @param string $applyVia
+     * @return JobApplication
+     * @throws Exception
+     */
+    public function applyForJob(Job $job, Candidate $candidate, ?Resume $resume = null, ?string $coverLetter = null, string $applyVia = 'profile_cv'): JobApplication
+    {
+        // Check if job is available for application
+        if ($job->is_draft) {
+            throw new Exception('This job is not available for applications');
+        }
+
+        if (!$job->is_active) {
+            throw new Exception('This job is not currently accepting applications');
+        }
+
+        // Check if candidate has already applied
+        $existingApplication = JobApplication::query()->where('job_id', $job->id)
+            ->where('candidate_id', $candidate->id)
+            ->first();
+
+        if ($existingApplication) {
+            throw new Exception('You have already applied for this job');
+        }
+
+        // Validate apply_via value
+        if (!in_array($applyVia, ['custom_cv', 'profile_cv'])) {
+            throw new Exception('Invalid application method');
+        }
+
+        // If no resume is provided, use the primary resume
+        if (!$resume) {
+            $resume = $candidate->primaryResume;
+
+            if (!$resume) {
+                throw new Exception('No resume provided or found');
+            }
+        }
+
+        // Create job application
+        $application = JobApplication::query()->create([
+            'job_id' => $job->id,
+            'candidate_id' => $candidate->id,
+            'resume_id' => $resume->id,
+            'cover_letter' => $coverLetter,
+            'status' => 'applied',
+            'apply_via' => $applyVia,
+        ]);
+
+        // Send notifications
+        $this->sendApplicationNotifications($application);
+
+        return $application;
+    }
+
+    /**
+     * Send notifications for a new job application
+     *
+     * @param JobApplication $application
+     * @return void
+     */
+    private function sendApplicationNotifications(JobApplication $application): void
+    {
+        $candidate = $application->candidate;
+        $candidateUser = $candidate->user;
+        $job = $application->job;
+        $employer = $job->employer;
+        $employerUser = $employer->user;
+
+        // Notify the candidate
+        $candidateUser?->notify(new CandidateApplicationReceived($application, $job));
+
+        // Notify the employer using their template
+        if ($employerUser) {
+            // Get the employer's application received notification template
+            $applicationTemplate = $employer->notificationTemplates()
+                ->where('type', JobNotificationTemplateTypeEnum::APPLICATION_RECEIVED->value)
+                ->first();
+
+            // Use the template if available, otherwise use default notification
+            if ($applicationTemplate) {
+                $employerUser->notify(new EmployerApplicationReceived(
+                    $application,
+                    $candidate,
+                    $job,
+                    $applicationTemplate
+                ));
+            } else {
+                $employerUser->notify(new EmployerApplicationReceived(
+                    $application,
+                    $candidate,
+                    $job
+                ));
+            }
+        }
+    }
+
+    /**
+     * Change job application status
+     *
+     * @param JobApplication $application
+     * @param string $status
+     * @param string|null $notes
+     * @return JobApplication
+     */
+    public function changeApplicationStatus(JobApplication $application, string $status, ?string $notes = null): JobApplication
+    {
+        // Store the previous status for comparison
+        $previousStatus = $application->status;
+
+        // Update application status
+        $application->status = $status;
+
+        if ($notes) {
+            $application->employer_notes = $notes;
+        }
+
+        $application->save();
+
+        // Only send notification if status has actually changed
+        if ($previousStatus !== $status) {
+            $this->sendStatusChangeNotification($application, $status);
+        }
+
+        return $application;
+    }
+
+    /**
+     * Send notification to candidate about status change
+     *
+     * @param JobApplication $application
+     * @param string $status
+     * @return void
+     */
+    private function sendStatusChangeNotification(JobApplication $application, string $status): void
+    {
+        $candidate = $application->candidate;
+        $candidateUser = $candidate->user;
+        $job = $application->job;
+        $employer = $job->employer;
+
+        if (!$candidateUser) {
+            return;
+        }
+
+        // Get the appropriate template type for this status
+        $templateType = JobNotificationTemplateTypeEnum::fromApplicationStatus($status);
+
+        // Get the employer's template for this status if available
+        $template = $employer->notificationTemplates()
+            ->where('type', $templateType->value)
+            ->first();
+
+        // Send notification to candidate
+        $candidateUser->notify(new ApplicationStatusChanged(
+            $application,
+            $job,
+            $status,
+            $template
+        ));
+    }
+
+    /**
+     * Change status for multiple job applications
+     *
+     * @param array $applicationIds
+     * @param string $status
+     * @param string|null $notes
+     * @return array
+     */
+    public function batchChangeApplicationStatus(array $applicationIds, string $status, ?string $notes = null): array
+    {
+        $results = [
+            'success' => [],
+            'failed' => []
+        ];
+
+        foreach ($applicationIds as $applicationId) {
+            try {
+                $application = JobApplication::query()->findOrFail($applicationId);
+
+                // Store previous status
+                $previousStatus = $application->status;
+
+                // Update status and notes
+                $application->status = $status;
+                if ($notes) {
+                    $application->employer_notes = $notes;
+                }
+                $application->save();
+
+                // Send notification if status changed
+                if ($previousStatus !== $status) {
+                    $this->sendStatusChangeNotification($application, $status);
+                }
+
+                $results['success'][] = $application->id;
+            } catch (\Exception $e) {
+                $results['failed'][] = [
+                    'application_id' => $applicationId,
+                    'reason' => $e->getMessage()
+                ];
+            }
+        }
+
+        return $results;
     }
 
     /**
@@ -510,111 +726,6 @@ class JobService
         return $job;
     }
 
-
-
-    /**
-     * Apply for a job
-     *
-     * @param Job $job
-     * @param Candidate $candidate
-     * @param Resume|null $resume
-     * @param string|null $coverLetter
-     * @param string $applyVia
-     * @return JobApplication
-     * @throws Exception
-     */
-    public function applyForJob(Job $job, Candidate $candidate, ?Resume $resume = null, ?string $coverLetter = null, string $applyVia = 'profile_cv'): JobApplication
-    {
-        // Check if job is available for application
-        if ($job->is_draft) {
-            throw new Exception('This job is not available for applications');
-        }
-
-        if (!$job->is_active) {
-            throw new Exception('This job is not currently accepting applications');
-        }
-
-        // Check if candidate has already applied
-        $existingApplication = JobApplication::query()->where('job_id', $job->id)
-            ->where('candidate_id', $candidate->id)
-            ->first();
-
-        if ($existingApplication) {
-            throw new Exception('You have already applied for this job');
-        }
-
-        // Validate apply_via value
-        if (!in_array($applyVia, ['custom_cv', 'profile_cv'])) {
-            throw new Exception('Invalid application method');
-        }
-
-        // If no resume is provided, use the primary resume
-        if (!$resume) {
-            $resume = $candidate->primaryResume;
-
-            if (!$resume) {
-                throw new Exception('No resume provided or found');
-            }
-        }
-
-        // Create job application
-        $application = JobApplication::query()->create([
-            'job_id' => $job->id,
-            'candidate_id' => $candidate->id,
-            'resume_id' => $resume->id,
-            'cover_letter' => $coverLetter,
-            'status' => 'applied',
-            'apply_via' => $applyVia,
-        ]);
-
-        // Send notifications
-        $this->sendApplicationNotifications($application);
-
-        return $application;
-    }
-
-    /**
-     * Send notifications for a new job application
-     *
-     * @param JobApplication $application
-     * @return void
-     */
-    private function sendApplicationNotifications(JobApplication $application): void
-    {
-        $candidate = $application->candidate;
-        $candidateUser = $candidate->user;
-        $job = $application->job;
-        $employer = $job->employer;
-        $employerUser = $employer->user;
-
-        // Notify the candidate
-        $candidateUser?->notify(new CandidateApplicationReceived($application, $job));
-
-        // Notify the employer using their template
-        if ($employerUser) {
-            // Get the employer's application received notification template
-            $applicationTemplate = $employer->notificationTemplates()
-                ->where('type', JobNotificationTemplateTypeEnum::APPLICATION_RECEIVED->value)
-                ->first();
-
-            // Use the template if available, otherwise use default notification
-            if ($applicationTemplate) {
-                $employerUser->notify(new EmployerApplicationReceived(
-                    $application,
-                    $candidate,
-                    $job,
-                    $applicationTemplate
-                ));
-            } else {
-                $employerUser->notify(new EmployerApplicationReceived(
-                    $application,
-                    $candidate,
-                    $job
-                ));
-            }
-        }
-    }
-
     /**
      * Save a job
      *
@@ -896,65 +1007,5 @@ class JobService
         }
 
         return $query->paginate($perPage);
-    }
-
-    /**
-     * Change job application status
-     *
-     * @param JobApplication $application
-     * @param string $status
-     * @param string|null $notes
-     * @return JobApplication
-     */
-    public function changeApplicationStatus(JobApplication $application, string $status, ?string $notes = null): JobApplication
-    {
-        $application->status = $status;
-
-        if ($notes) {
-            $application->employer_notes = $notes;
-        }
-
-        $application->save();
-
-        return $application;
-    }
-
-    /**
-     * Change status for multiple job applications
-     *
-     * @param array $applicationIds
-     * @param string $status
-     * @param string|null $notes
-     * @return array
-     */
-    public function batchChangeApplicationStatus(array $applicationIds, string $status, ?string $notes = null): array
-    {
-        $results = [
-            'success' => [],
-            'failed' => []
-        ];
-
-        foreach ($applicationIds as $applicationId) {
-            try {
-                $application = JobApplication::query()->findOrFail($applicationId);
-
-                $application->status = $status;
-
-                if ($notes) {
-                    $application->employer_notes = $notes;
-                }
-
-                $application->save();
-
-                $results['success'][] = $application->id;
-            } catch (\Exception $e) {
-                $results['failed'][] = [
-                    'application_id' => $applicationId,
-                    'reason' => $e->getMessage()
-                ];
-            }
-        }
-
-        return $results;
     }
 }

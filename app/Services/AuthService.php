@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
 use Spatie\Permission\Models\Permission;
+use Throwable;
 
 /**
  * Service class for authentication related operations
@@ -45,15 +46,13 @@ class AuthService
         $this->employerService = $employerService;
     }
 
-
-
     /**
      * Register a new user
      *
      * @param array $data
      * @param string $userType
      * @return array
-     * @throws Exception
+     * @throws Exception|Throwable
      */
     public function register(array $data, string $userType = 'candidate'): array
     {
@@ -177,6 +176,36 @@ class AuthService
                         'subject' => 'Application Withdrawn: {JOB_TITLE}',
                         'content' => "Dear {EMPLOYER_NAME},\n\n{CANDIDATE_NAME} has withdrawn their application for the {JOB_TITLE} position at {COMPANY_NAME}.\n\nReason provided: {WITHDRAWAL_REASON}\n\nThe application status has been automatically updated in your dashboard.\n\nBest regards,\nYour Recruitment Team",
                         'type' => JobNotificationTemplateTypeEnum::APPLICATION_WITHDRAWN->value,
+                    ],
+                    [
+                        'name' => 'Application Shortlisted Template',
+                        'subject' => 'Your Application for {JOB_TITLE} Has Been Shortlisted',
+                        'content' => "Dear {CANDIDATE_NAME},\n\nCongratulations! We are pleased to inform you that your application for the {JOB_TITLE} position at {COMPANY_NAME} has been shortlisted.\n\nOur hiring team was impressed with your qualifications and experience, and we would like to move forward with your candidacy.\n\nYou will be contacted shortly regarding the next steps in our recruitment process.\n\nBest regards,\n{EMPLOYER_NAME}\n{COMPANY_NAME}",
+                        'type' => JobNotificationTemplateTypeEnum::STATUS_SHORTLISTED->value,
+                    ],
+                    [
+                        'name' => 'Application Under Review Template',
+                        'subject' => 'Your Application for {JOB_TITLE} is Under Review',
+                        'content' => "Dear {CANDIDATE_NAME},\n\nThank you for applying for the {JOB_TITLE} position at {COMPANY_NAME}.\n\nWe would like to inform you that your application is currently under review by our hiring team.\n\nWe will contact you once we have completed our initial assessment of all applications.\n\nBest regards,\n{EMPLOYER_NAME}\n{COMPANY_NAME}",
+                        'type' => JobNotificationTemplateTypeEnum::STATUS_UNSORTED->value,
+                    ],
+                    [
+                        'name' => 'Application Rejected Template',
+                        'subject' => 'Update on Your Application for {JOB_TITLE}',
+                        'content' => "Dear {CANDIDATE_NAME},\n\nThank you for your interest in the {JOB_TITLE} position at {COMPANY_NAME}.\n\nAfter careful consideration, we regret to inform you that we have decided to move forward with other candidates whose qualifications more closely align with our current requirements.\n\nWe appreciate your interest in joining our team and wish you success in your job search.\n\nBest regards,\n{EMPLOYER_NAME}\n{COMPANY_NAME}",
+                        'type' => JobNotificationTemplateTypeEnum::STATUS_REJECTED->value,
+                    ],
+                    [
+                        'name' => 'Offer Sent Template',
+                        'subject' => 'Job Offer: {JOB_TITLE} at {COMPANY_NAME}',
+                        'content' => "Dear {CANDIDATE_NAME},\n\nCongratulations! We are pleased to offer you the position of {JOB_TITLE} at {COMPANY_NAME}.\n\nWe were impressed with your qualifications and believe you would be a valuable addition to our team. Please find attached the formal offer letter with details about compensation, benefits, and start date.\n\nPlease review the offer and let us know your decision by {STATUS_DATE}.\n\nBest regards,\n{EMPLOYER_NAME}\n{COMPANY_NAME}",
+                        'type' => JobNotificationTemplateTypeEnum::STATUS_OFFER_SENT->value,
+                    ],
+                    [
+                        'name' => 'Candidate Hired Template',
+                        'subject' => 'Welcome to {COMPANY_NAME}!',
+                        'content' => "Dear {CANDIDATE_NAME},\n\nCongratulations on accepting our offer for the {JOB_TITLE} position at {COMPANY_NAME}!\n\nWe are thrilled to welcome you to our team and look forward to your contributions. You will receive additional information about your onboarding process shortly.\n\nBest regards,\n{EMPLOYER_NAME}\n{COMPANY_NAME}",
+                        'type' => JobNotificationTemplateTypeEnum::STATUS_HIRED->value,
                     ],
                 ];
 
