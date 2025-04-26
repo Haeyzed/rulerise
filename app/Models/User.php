@@ -82,6 +82,8 @@ class User extends Authenticatable implements JWTSubject, MustVerifyEmail
         'remember_token',
     ];
 
+    protected $appends = ['profile_picture_url'];
+
     /**
      * Get the attributes that should be cast.
      *
