@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Employer;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Employer\VerifySubscriptionRequest;
 use App\Models\SubscriptionPlan;
-use App\Services\EmployerService;
+use App\Services\SubscriptionPlanService;
 use App\Services\SubscriptionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -18,13 +18,6 @@ use Illuminate\Routing\Controllers\Middleware;
 class SubscriptionPaymentController extends Controller implements HasMiddleware
 {
     /**
-     * Employer service instance
-     *
-     * @var EmployerService
-     */
-    protected EmployerService $employerService;
-
-    /**
      * Subscription service instance
      *
      * @var SubscriptionService
@@ -32,16 +25,25 @@ class SubscriptionPaymentController extends Controller implements HasMiddleware
     protected SubscriptionService $subscriptionService;
 
     /**
+     * Subscription plan service instance
+     *
+     * @var SubscriptionPlanService
+     */
+    protected SubscriptionPlanService $subscriptionPlanService;
+
+    /**
      * Create a new controller instance.
      *
-     * @param EmployerService $employerService
      * @param SubscriptionService $subscriptionService
+     * @param SubscriptionPlanService $subscriptionPlanService
      * @return void
      */
-    public function __construct(EmployerService $employerService, SubscriptionService $subscriptionService)
-    {
-        $this->employerService = $employerService;
+    public function __construct(
+        SubscriptionService $subscriptionService,
+        SubscriptionPlanService $subscriptionPlanService
+    ) {
         $this->subscriptionService = $subscriptionService;
+        $this->subscriptionPlanService = $subscriptionPlanService;
     }
 
     /**
@@ -61,9 +63,8 @@ class SubscriptionPaymentController extends Controller implements HasMiddleware
      */
     public function subscriptionList(): JsonResponse
     {
-        $plans = SubscriptionPlan::query()->where('is_active', true)->get();
-
-        return response()->success($plans, 'Subscription list retrieved successfully.');
+        $plans = $this->subscriptionPlanService->getActivePlans();
+        return response()->success($plans, 'Subscription plans retrieved successfully.');
     }
 
     /**
@@ -80,9 +81,9 @@ class SubscriptionPaymentController extends Controller implements HasMiddleware
         $gateway = $request->input('gateway', SubscriptionService::GATEWAY_STRIPE);
         $callbackUrl = $request->input('callback_url', route('employer.subscription.verify'));
 
-        $plan = SubscriptionPlan::query()->findOrFail($id);
-
         try {
+            $plan = $this->subscriptionPlanService->getPlan($id);
+            
             $result = $this->subscriptionService->generatePaymentLink(
                 $employer,
                 $plan,
@@ -112,15 +113,21 @@ class SubscriptionPaymentController extends Controller implements HasMiddleware
         $employer = $user->employer;
         $data = $request->validated();
 
-        $plan = SubscriptionPlan::query()->findOrFail($data['plan_id']);
-        $gateway = $data['gateway'] ?? SubscriptionService::GATEWAY_STRIPE;
-        $reference = $data['reference'] ?? $data['session_id'] ?? $data['transaction_id'] ?? null;
-
-        if (!$reference) {
-            return response()->badRequest('Payment reference is required');
-        }
-
         try {
+            $plan = $this->subscriptionPlanService->getPlan($data['plan_id']);
+            $gateway = $data['gateway'] ?? SubscriptionService::GATEWAY_STRIPE;
+            
+            // Determine the reference based on the gateway
+            $reference = match($gateway) {
+                SubscriptionService::GATEWAY_STRIPE => $data['session_id'] ?? '',
+                SubscriptionService::GATEWAY_PAYPAL => $data['paypal_order_id'] ?? '',
+                default => $data['reference'] ?? '',
+            };
+
+            if (!$reference) {
+                return response()->badRequest('Payment reference is required');
+            }
+
             // Verify the payment first
             $verificationResult = $this->subscriptionService->verifyPayment($reference, $gateway);
             
@@ -155,11 +162,11 @@ class SubscriptionPaymentController extends Controller implements HasMiddleware
         $user = auth()->user();
         $employer = $user->employer;
         
-        $subscription = $employer->subscriptions()->findOrFail($id);
-        $plan = SubscriptionPlan::query()->findOrFail($request->input('plan_id'));
-        $gateway = $request->input('gateway', SubscriptionService::GATEWAY_STRIPE);
-        
         try {
+            $subscription = $employer->subscriptions()->findOrFail($id);
+            $plan = $this->subscriptionPlanService->getPlan($request->input('plan_id'));
+            $gateway = $request->input('gateway', SubscriptionService::GATEWAY_STRIPE);
+            
             $updatedSubscription = $this->subscriptionService->updateSubscription(
                 $subscription,
                 $plan,

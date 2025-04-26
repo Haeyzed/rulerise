@@ -4,7 +4,6 @@ namespace App\Services\Payment;
 
 use App\Models\Employer;
 use App\Models\SubscriptionPlan;
-use Illuminate\Http\UploadedFile;
 
 /**
  * Interface for payment gateway implementations
@@ -42,9 +41,8 @@ interface PaymentGatewayInterface
     /**
      * Cancel a subscription
      *
-     * @param string $transactionId
-     * @param string|null $reference
+     * @param string $subscriptionId
      * @return bool
      */
-    public function cancelSubscription(string $transactionId, ?string $reference = null): bool;
+    public function cancelSubscription(string $subscriptionId): bool;
 }

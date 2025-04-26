@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Employer;
 
 use App\Http\Controllers\Controller;
-use App\Services\EmployerService;
 use App\Services\SubscriptionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -16,13 +15,6 @@ use Illuminate\Routing\Controllers\Middleware;
 class SubscriptionsController extends Controller implements HasMiddleware
 {
     /**
-     * Employer service instance
-     *
-     * @var EmployerService
-     */
-    protected EmployerService $employerService;
-    
-    /**
      * Subscription service instance
      *
      * @var SubscriptionService
@@ -32,13 +24,11 @@ class SubscriptionsController extends Controller implements HasMiddleware
     /**
      * Create a new controller instance.
      *
-     * @param EmployerService $employerService
      * @param SubscriptionService $subscriptionService
      * @return void
      */
-    public function __construct(EmployerService $employerService, SubscriptionService $subscriptionService)
+    public function __construct(SubscriptionService $subscriptionService)
     {
-        $this->employerService = $employerService;
         $this->subscriptionService = $subscriptionService;
     }
 
@@ -62,13 +52,13 @@ class SubscriptionsController extends Controller implements HasMiddleware
         $user = auth()->user();
         $employer = $user->employer;
 
-        $subscription = $employer->activeSubscription()->with('plan')->first();
+        $subscription = $this->subscriptionService->getActiveSubscription($employer);
 
         if (!$subscription) {
             return response()->notFound('No active subscription found');
         }
 
-        return response()->success($subscription, 'Subscription information');
+        return response()->success($subscription, 'Subscription information retrieved successfully');
     }
 
     /**
@@ -82,7 +72,11 @@ class SubscriptionsController extends Controller implements HasMiddleware
         $employer = $user->employer;
 
         try {
-            $this->employerService->updateCvDownloadUsage($employer);
+            $result = $this->subscriptionService->decrementCvDownloadsLeft($employer);
+            
+            if (!$result) {
+                return response()->badRequest('No CV downloads left or no active subscription');
+            }
 
             return response()->success('CV download usage updated successfully');
         } catch (\Exception $e) {
@@ -101,10 +95,14 @@ class SubscriptionsController extends Controller implements HasMiddleware
         $user = auth()->user();
         $employer = $user->employer;
         
-        $subscription = $employer->subscriptions()->findOrFail($id);
-        
         try {
-            $this->subscriptionService->cancelSubscription($subscription);
+            $subscription = $employer->subscriptions()->findOrFail($id);
+            
+            $result = $this->subscriptionService->cancelSubscription($subscription);
+            
+            if (!$result) {
+                return response()->badRequest('Failed to cancel subscription');
+            }
             
             return response()->success('Subscription cancelled successfully');
         } catch (\Exception $e) {
@@ -124,10 +122,7 @@ class SubscriptionsController extends Controller implements HasMiddleware
         $employer = $user->employer;
         
         $perPage = $request->input('per_page', 10);
-        $subscriptions = $employer->subscriptions()
-            ->with('plan')
-            ->orderBy('created_at', 'desc')
-            ->paginate($perPage);
+        $subscriptions = $this->subscriptionService->getSubscriptionHistory($employer, $perPage);
         
         return response()->paginatedSuccess($subscriptions, 'Subscriptions retrieved successfully');
     }

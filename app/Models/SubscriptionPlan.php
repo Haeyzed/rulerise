@@ -70,6 +70,36 @@ class SubscriptionPlan extends Model
      */
     public function subscriptions(): HasMany
     {
-        return $this->hasMany(Subscription::class);
+        return $this->hasMany(Subscription::class, 'subscription_plan_id');
+    }
+
+    /**
+     * Get formatted duration.
+     *
+     * @return string
+     */
+    public function getFormattedDuration(): string
+    {
+        if ($this->duration_days % 30 === 0) {
+            $months = $this->duration_days / 30;
+            return $months === 1 ? '1 month' : "$months months";
+        }
+
+        if ($this->duration_days % 7 === 0) {
+            $weeks = $this->duration_days / 7;
+            return $weeks === 1 ? '1 week' : "$weeks weeks";
+        }
+
+        return $this->duration_days === 1 ? '1 day' : "{$this->duration_days} days";
+    }
+
+    /**
+     * Get formatted price with currency.
+     *
+     * @return string
+     */
+    public function getFormattedPrice(): string
+    {
+        return number_format($this->price, 2) . ' ' . strtoupper($this->currency);
     }
 }

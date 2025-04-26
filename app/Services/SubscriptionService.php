@@ -5,25 +5,20 @@ namespace App\Services;
 use App\Models\Employer;
 use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
-use App\Services\Payment\FlutterwaveService;
 use App\Services\Payment\PaymentGatewayInterface;
-use App\Services\Payment\PaystackService;
+use App\Services\Payment\PayPalService;
 use App\Services\Payment\StripeService;
-use App\Services\Storage\StorageService;
 use Exception;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Service class for subscription related operations
  */
 class SubscriptionService
 {
-    /**
-     * @var StorageService
-     */
-    protected StorageService $storageService;
-
     /**
      * @var PaymentGatewayInterface
      */
@@ -33,18 +28,14 @@ class SubscriptionService
      * Supported payment gateways
      */
     const GATEWAY_STRIPE = 'stripe';
-    const GATEWAY_PAYSTACK = 'paystack';
-    const GATEWAY_FLUTTERWAVE = 'flutterwave';
+    const GATEWAY_PAYPAL = 'paypal';
 
     /**
      * SubscriptionService constructor.
-     *
-     * @param StorageService $storageService
+     * @throws Exception
      */
-    public function __construct(StorageService $storageService)
+    public function __construct()
     {
-        $this->storageService = $storageService;
-
         // Set default payment gateway from config
         $defaultGateway = config('services.payment.default_gateway', self::GATEWAY_STRIPE);
         $this->setPaymentGateway($defaultGateway);
@@ -59,24 +50,43 @@ class SubscriptionService
      */
     public function setPaymentGateway(string $gateway): self
     {
-        switch ($gateway) {
-            case self::GATEWAY_STRIPE:
-                $this->paymentGateway = app(StripeService::class);
-                break;
-
-            case self::GATEWAY_PAYSTACK:
-                $this->paymentGateway = app(PaystackService::class);
-                break;
-
-            case self::GATEWAY_FLUTTERWAVE:
-                $this->paymentGateway = app(FlutterwaveService::class);
-                break;
-
-            default:
-                throw new Exception("Unsupported payment gateway: {$gateway}");
-        }
+        $this->paymentGateway = match ($gateway) {
+            self::GATEWAY_STRIPE => app(StripeService::class),
+            self::GATEWAY_PAYPAL => app(PayPalService::class),
+            default => throw new Exception("Unsupported payment gateway: {$gateway}"),
+        };
 
         return $this;
+    }
+
+    /**
+     * Get active subscription for an employer
+     *
+     * @param Employer $employer
+     * @return Subscription|null
+     */
+    public function getActiveSubscription(Employer $employer): ?Subscription
+    {
+        return $employer->subscriptions()
+            ->where('is_active', true)
+            ->where('end_date', '>=', now())
+            ->with('plan')
+            ->first();
+    }
+
+    /**
+     * Get subscription history for an employer
+     *
+     * @param Employer $employer
+     * @param int $perPage
+     * @return LengthAwarePaginator
+     */
+    public function getSubscriptionHistory(Employer $employer, int $perPage = 10): LengthAwarePaginator
+    {
+        return $employer->subscriptions()
+            ->with('plan')
+            ->orderBy('created_at', 'desc')
+            ->paginate($perPage);
     }
 
     /**
@@ -129,6 +139,7 @@ class SubscriptionService
             'payment_method' => $gateway,
             'transaction_id' => $paymentResult['transaction_id'] ?? null,
             'payment_reference' => $paymentResult['payment_reference'] ?? null,
+            'subscription_id' => $paymentResult['subscription_id'] ?? null,
             'receipt_path' => $receiptPath,
             'job_posts_left' => $plan->job_posts,
             'featured_jobs_left' => $plan->featured_jobs,
@@ -179,7 +190,7 @@ class SubscriptionService
         if ($receiptFile) {
             // Delete old receipt if exists
             if ($subscription->receipt_path) {
-                $this->storageService->delete($subscription->receipt_path);
+                Storage::delete($subscription->receipt_path);
             }
             $receiptPath = $this->uploadReceipt($receiptFile);
         }
@@ -201,6 +212,7 @@ class SubscriptionService
             'payment_method' => $gateway,
             'transaction_id' => $paymentResult['transaction_id'] ?? $subscription->transaction_id,
             'payment_reference' => $paymentResult['payment_reference'] ?? $subscription->payment_reference,
+            'subscription_id' => $paymentResult['subscription_id'] ?? $subscription->subscription_id,
             'receipt_path' => $receiptPath,
             'job_posts_left' => $newPlan->job_posts,
             'featured_jobs_left' => $newPlan->featured_jobs,
@@ -216,6 +228,7 @@ class SubscriptionService
      *
      * @param Subscription $subscription
      * @return bool
+     * @throws Exception
      */
     public function cancelSubscription(Subscription $subscription): bool
     {
@@ -223,11 +236,8 @@ class SubscriptionService
         $this->setPaymentGateway($subscription->payment_method);
 
         // For subscriptions with external payment providers, we might need to cancel on their end too
-        if (in_array($subscription->payment_method, [self::GATEWAY_STRIPE, self::GATEWAY_PAYSTACK, self::GATEWAY_FLUTTERWAVE])) {
-            $this->paymentGateway->cancelSubscription(
-                $subscription->transaction_id,
-                $subscription->payment_reference
-            );
+        if (in_array($subscription->payment_method, [self::GATEWAY_STRIPE, self::GATEWAY_PAYPAL])) {
+            $this->paymentGateway->cancelSubscription($subscription->subscription_id ?? '');
         }
 
         // Mark as inactive but don't delete the record
@@ -280,6 +290,96 @@ class SubscriptionService
     }
 
     /**
+     * Check if employer has enough job posts left
+     *
+     * @param Employer $employer
+     * @return bool
+     */
+    public function hasJobPostsLeft(Employer $employer): bool
+    {
+        $subscription = $this->getActiveSubscription($employer);
+        return $subscription && $subscription->job_posts_left > 0;
+    }
+
+    /**
+     * Decrement job posts left
+     *
+     * @param Employer $employer
+     * @return bool
+     */
+    public function decrementJobPostsLeft(Employer $employer): bool
+    {
+        $subscription = $this->getActiveSubscription($employer);
+
+        if (!$subscription || $subscription->job_posts_left <= 0) {
+            return false;
+        }
+
+        $subscription->job_posts_left -= 1;
+        return $subscription->save();
+    }
+
+    /**
+     * Check if employer has enough featured jobs left
+     *
+     * @param Employer $employer
+     * @return bool
+     */
+    public function hasFeaturedJobsLeft(Employer $employer): bool
+    {
+        $subscription = $this->getActiveSubscription($employer);
+        return $subscription && $subscription->featured_jobs_left > 0;
+    }
+
+    /**
+     * Decrement featured jobs left
+     *
+     * @param Employer $employer
+     * @return bool
+     */
+    public function decrementFeaturedJobsLeft(Employer $employer): bool
+    {
+        $subscription = $this->getActiveSubscription($employer);
+
+        if (!$subscription || $subscription->featured_jobs_left <= 0) {
+            return false;
+        }
+
+        $subscription->featured_jobs_left -= 1;
+        return $subscription->save();
+    }
+
+    /**
+     * Check if employer has enough CV downloads left
+     *
+     * @param Employer $employer
+     * @return bool
+     */
+    public function hasCvDownloadsLeft(Employer $employer): bool
+    {
+        $subscription = $this->getActiveSubscription($employer);
+        return $subscription && $subscription->cv_downloads_left > 0;
+    }
+
+    /**
+     * Decrement CV downloads left
+     *
+     * @param Employer $employer
+     * @return bool
+     */
+    public function decrementCvDownloadsLeft(Employer $employer): bool
+    {
+        $subscription = $this->getActiveSubscription($employer);
+
+        if (!$subscription || $subscription->cv_downloads_left <= 0) {
+            return false;
+        }
+
+        $subscription->cv_downloads_left -= 1;
+        return $subscription->save();
+    }
+
+    /**
      * Get the current payment gateway
      *
      * @return string
@@ -288,10 +388,8 @@ class SubscriptionService
     {
         if ($this->paymentGateway instanceof StripeService) {
             return self::GATEWAY_STRIPE;
-        } elseif ($this->paymentGateway instanceof PaystackService) {
-            return self::GATEWAY_PAYSTACK;
-        } elseif ($this->paymentGateway instanceof FlutterwaveService) {
-            return self::GATEWAY_FLUTTERWAVE;
+        } elseif ($this->paymentGateway instanceof PayPalService) {
+            return self::GATEWAY_PAYPAL;
         }
 
         return config('services.payment.default_gateway', self::GATEWAY_STRIPE);
@@ -305,11 +403,8 @@ class SubscriptionService
      */
     protected function uploadReceipt(UploadedFile $file): string
     {
-        return $this->storageService->upload(
-            $file,
-            config('filestorage.paths.receipts', 'receipts'),
-            ['visibility' => 'private']
-        );
+        $path = $file->store('receipts', 'private');
+        return $path;
     }
 
     /**

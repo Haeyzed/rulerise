@@ -19,6 +19,9 @@ use Illuminate\Support\Carbon;
  * @property string $currency
  * @property string|null $payment_method
  * @property string|null $transaction_id
+ * @property string|null $payment_reference
+ * @property string|null $subscription_id
+ * @property string|null $receipt_path
  * @property int $job_posts_left
  * @property int $featured_jobs_left
  * @property int $cv_downloads_left
@@ -48,6 +51,7 @@ class Subscription extends Model
         'payment_method',
         'transaction_id',
         'payment_reference',
+        'subscription_id',
         'receipt_path',
         'job_posts_left',
         'featured_jobs_left',
@@ -124,5 +128,37 @@ class Subscription extends Model
     public function hasCvDownloadsLeft(): bool
     {
         return $this->cv_downloads_left > 0;
+    }
+
+    /**
+     * Get days remaining in the subscription.
+     *
+     * @return int
+     */
+    public function daysRemaining(): int
+    {
+        if ($this->isExpired()) {
+            return 0;
+        }
+
+        return now()->diffInDays($this->end_date);
+    }
+
+    /**
+     * Get subscription status text.
+     *
+     * @return string
+     */
+    public function getStatusText(): string
+    {
+        if (!$this->is_active) {
+            return 'Cancelled';
+        }
+
+        if ($this->isExpired()) {
+            return 'Expired';
+        }
+
+        return 'Active';
     }
 }

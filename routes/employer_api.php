@@ -123,7 +123,7 @@ Route::middleware(['auth:api', 'role:employer'])->group(function () {
         Route::get('/plans', [SubscriptionPaymentController::class, 'subscriptionList']);
 
         // Create payment link
-        Route::get('/payment-link/{id}', [SubscriptionPaymentController::class, 'createPaymentLink']);
+        Route::post('/payment-link/{id}', [SubscriptionPaymentController::class, 'createPaymentLink']);
 
         // Verify subscription payment
         Route::post('/verify', [SubscriptionPaymentController::class, 'verifySubscription'])
