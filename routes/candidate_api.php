@@ -86,6 +86,7 @@ Route::middleware(['auth:api', 'role:candidate'])->group(function () {
         Route::get('{id}/detail', [JobsController::class, 'show']);
         Route::post('{id}/saveJob', [JobsController::class, 'saveJob']);
         Route::post('applyJob', [JobsController::class, 'applyJob']);
+        Route::post('applications/{id}/withdraw', [JobsController::class, 'withdrawApplication']);
         Route::get('{id}/similarJobs', [JobsController::class, 'similarJobs']);
         Route::post('{id}/reportJob', [JobsController::class, 'reportJob']);
 

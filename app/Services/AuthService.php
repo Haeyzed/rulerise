@@ -45,6 +45,8 @@ class AuthService
         $this->employerService = $employerService;
     }
 
+
+
     /**
      * Register a new user
      *
@@ -106,13 +108,6 @@ class AuthService
                 }
 
                 $user->candidate()->create($candidateData);
-                // Handle skills
-//                if (!empty($data['skills']) && is_array($data['skills'])) {
-//                    foreach ($data['skills'] as $skillName) {
-//                        $skill = Skill::query()->firstOrCreate(['name' => $skillName]);
-//                        $candidate->skills()->attach($skill->id);
-//                    }
-//                }
             } elseif ($userType === 'employer') {
                 // Handle company logo (employer)
                 if (isset($data['company_logo']) && $data['company_logo'] instanceof UploadedFile) {
@@ -151,49 +146,49 @@ class AuthService
 
                 $employer = $user->employer()->create($employerData);
 
+                // Create default notification templates for employer
                 $defaultTemplates = [
                     [
-                        'name' => 'Rejected Template',
-                        'subject' => '{JOB_TITLE}: Application Update Notification',
-                        'content' => 'We regret to inform you about your application for the {JOB_TITLE} role.',
+                        'name' => 'Application Received Template',
+                        'subject' => 'New Application for {JOB_TITLE}',
+                        'content' => "Dear {EMPLOYER_NAME},\n\nA new candidate ({CANDIDATE_NAME}) has applied for the {JOB_TITLE} position at {COMPANY_NAME}.\n\nCandidate details:\nName: {CANDIDATE_NAME}\nEmail: {CANDIDATE_EMAIL}\nPhone: {CANDIDATE_PHONE}\n\nYou can review this application in your dashboard.\n\nBest regards,\nYour Recruitment Team",
+                        'type' => JobNotificationTemplateTypeEnum::APPLICATION_RECEIVED->value,
+                    ],
+                    [
+                        'name' => 'Rejection Template',
+                        'subject' => 'Update on Your Application for {JOB_TITLE}',
+                        'content' => "Dear {CANDIDATE_NAME},\n\nThank you for your interest in the {JOB_TITLE} position at {COMPANY_NAME}.\n\nAfter careful consideration of your application, we regret to inform you that we have decided to move forward with other candidates whose qualifications more closely match our current needs.\n\nWe appreciate your interest in {COMPANY_NAME} and wish you success in your job search.\n\nBest regards,\n{EMPLOYER_NAME}\n{COMPANY_NAME}",
                         'type' => JobNotificationTemplateTypeEnum::REJECTION->value,
                     ],
                     [
-                        'name' => 'Shortlisted Template',
-                        'subject' => '{JOB_TITLE}: Application Update Notification',
-                        'content' => 'You have been shortlisted for the {JOB_TITLE} role.',
+                        'name' => 'Interview Invitation Template',
+                        'subject' => 'Interview Invitation: {JOB_TITLE} at {COMPANY_NAME}',
+                        'content' => "Dear {CANDIDATE_NAME},\n\nWe are pleased to inform you that your application for the {JOB_TITLE} position has been shortlisted.\n\nWe would like to invite you for an interview to further discuss your qualifications and experience. Please let us know your availability for the coming week.\n\nBest regards,\n{EMPLOYER_NAME}\n{COMPANY_NAME}",
                         'type' => JobNotificationTemplateTypeEnum::INTERVIEW_INVITATION->value,
                     ],
                     [
-                        'name' => 'Offer Sent Template',
-                        'subject' => '{JOB_TITLE}: Application Update Notification',
-                        'content' => 'We are happy to extend an offer to you for the {JOB_TITLE} role.',
+                        'name' => 'Offer Template',
+                        'subject' => 'Job Offer: {JOB_TITLE} at {COMPANY_NAME}',
+                        'content' => "Dear {CANDIDATE_NAME},\n\nWe are delighted to offer you the position of {JOB_TITLE} at {COMPANY_NAME}.\n\nWe were impressed with your background and would like to welcome you to our team. Please review the attached offer letter for details regarding compensation, benefits, and start date.\n\nBest regards,\n{EMPLOYER_NAME}\n{COMPANY_NAME}",
                         'type' => JobNotificationTemplateTypeEnum::OFFER->value,
+                    ],
+                    [
+                        'name' => 'Application Withdrawn Template',
+                        'subject' => 'Application Withdrawn: {JOB_TITLE}',
+                        'content' => "Dear {EMPLOYER_NAME},\n\n{CANDIDATE_NAME} has withdrawn their application for the {JOB_TITLE} position at {COMPANY_NAME}.\n\nReason provided: {WITHDRAWAL_REASON}\n\nThe application status has been automatically updated in your dashboard.\n\nBest regards,\nYour Recruitment Team",
+                        'type' => JobNotificationTemplateTypeEnum::APPLICATION_WITHDRAWN->value,
                     ],
                 ];
 
                 foreach ($defaultTemplates as $templateData) {
                     $this->employerService->saveNotificationTemplate($employer, $templateData);
                 }
-
-                // Handle company benefits
-//                if (!empty($data['company_benefit_offered']) && is_array($data['company_benefit_offered'])) {
-//                    foreach ($data['company_benefit_offered'] as $benefit) {
-//                        CompanyBenefit::query()->create([
-//                            'employer_id' => $employer->id,
-//                            'benefit' => $benefit
-//                        ]);
-//                    }
-//                }
-                } elseif ($userType === 'admin') {
-                    // No specific profile to create for admin
-                    // Assign all permissions to admin by default
-                    $permissions = app(Permission::class)->pluck('name')->toArray();
-                    $user->syncPermissions($permissions);
+            } elseif ($userType === 'admin') {
+                // No specific profile to create for admin
+                // Assign all permissions to admin by default
+                $permissions = app(Permission::class)->pluck('name')->toArray();
+                $user->syncPermissions($permissions);
             }
-
-            // Generate token (optional)
-            // $token = Auth::login($user);
 
             return [
                 'user' => $user,

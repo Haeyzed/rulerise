@@ -276,4 +276,37 @@ class JobsController extends Controller implements HasMiddleware
             return response()->serverError('Failed to retrieve recommended jobs', $e->getMessage());
         }
     }
+
+    /**
+     * Withdraw a job application
+     *
+     * @param int $id
+     * @param WithdrawApplicationRequest $request
+     * @return JsonResponse
+     */
+    public function withdrawApplication(int $id, WithdrawApplicationRequest $request): JsonResponse
+    {
+        $user = auth()->user();
+
+        try {
+            // Find the application and ensure it belongs to the authenticated candidate
+            $application = JobApplication::where('id', $id)
+                ->where('candidate_id', $user->candidate->id)
+                ->firstOrFail();
+
+            $data = $request->validated();
+            $reason = $data['reason'] ?? null;
+
+            $application = $this->jobService->withdrawApplication($application, $reason);
+
+            return response()->success(
+                new JobApplicationResource($application),
+                'Your application has been successfully withdrawn'
+            );
+        } catch (ModelNotFoundException $e) {
+            return response()->notFound('Application not found or you do not have permission to withdraw it.');
+        } catch (Exception $e) {
+            return response()->badRequest($e->getMessage());
+        }
+    }
 }

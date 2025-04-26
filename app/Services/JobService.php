@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\JobNotificationTemplateTypeEnum;
 use App\Models\Candidate;
 use App\Models\Employer;
 use App\Models\Job;
@@ -11,6 +12,10 @@ use App\Models\JobViewCount;
 use App\Models\ReportedJob;
 use App\Models\Resume;
 use App\Models\SavedJob;
+use App\Notifications\CandidateApplicationReceived;
+use App\Notifications\CandidateWithdrewApplication;
+use App\Notifications\EmployerApplicationReceived;
+use App\Notifications\JobApplicationWithdrawn;
 use Exception;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
@@ -22,6 +27,63 @@ use Illuminate\Support\Str;
  */
 class JobService
 {
+    /**
+     * Withdraw a job application
+     *
+     * @param JobApplication $application
+     * @param string|null $reason
+     * @return JobApplication
+     * @throws Exception
+     */
+    public function withdrawApplication(JobApplication $application, ?string $reason = null): JobApplication
+    {
+        // Check if the application can be withdrawn (not already withdrawn, rejected, or hired)
+        if (in_array($application->status, ['withdrawn', 'rejected', 'hired'])) {
+            throw new Exception('This application cannot be withdrawn due to its current status: ' . $application->status);
+        }
+
+        // Update application status to withdrawn
+        $application->status = 'withdrawn';
+        $application->withdrawal_reason = $reason;
+        $application->withdrawn_at = now();
+        $application->save();
+
+        // Get related entities
+        $candidate = $application->candidate;
+        $user = $candidate->user;
+        $job = $application->job;
+        $employer = $job->employer;
+        $employerUser = $employer->user;
+
+        // Notify the candidate
+        $user?->notify(new JobApplicationWithdrawn($application, $job));
+
+        // Notify the employer/HR team using their template
+        if ($employerUser) {
+            // Get the employer's withdrawal notification template
+            $withdrawalTemplate = $employer->notificationTemplates()
+                ->where('type', JobNotificationTemplateTypeEnum::APPLICATION_WITHDRAWN->value)
+                ->first();
+
+            // Use the template if available, otherwise use default notification
+            if ($withdrawalTemplate) {
+                $employerUser->notify(new CandidateWithdrewApplication(
+                    $application,
+                    $candidate,
+                    $job,
+                    $withdrawalTemplate
+                ));
+            } else {
+                $employerUser->notify(new CandidateWithdrewApplication(
+                    $application,
+                    $candidate,
+                    $job
+                ));
+            }
+        }
+
+        return $application;
+    }
 
     /**
      * Get applicants by job with optional filtering and sorting
@@ -47,12 +109,13 @@ class JobService
         $shortlistedCount = $employer->applications()->where('status', 'shortlisted')->count();
         $offerSentCount = $employer->applications()->where('status', 'offer_sent')->count();
         $rejectedCount = $employer->applications()->where('status', 'rejected')->count();
+        $withdrawnCount = $employer->applications()->where('status', 'withdrawn')->count();
 
         // Build the query
         $query = $employer->applications();
 
         // Apply status filter if provided
-        if (isset($filters['status']) && in_array($filters['status'], ['unsorted', 'shortlisted', 'offer_sent', 'rejected'])) {
+        if (isset($filters['status']) && in_array($filters['status'], ['unsorted', 'shortlisted', 'offer_sent', 'rejected', 'withdrawn'])) {
             $query->where('status', $filters['status']);
         }
 
@@ -85,7 +148,8 @@ class JobService
                 'unsorted' => $unsortedCount,
                 'shortlisted' => $shortlistedCount,
                 'offer_sent' => $offerSentCount,
-                'rejected' => $rejectedCount
+                'rejected' => $rejectedCount,
+                'withdrawn' => $withdrawnCount
             ]
         ];
     }
@@ -470,10 +534,6 @@ class JobService
             throw new Exception('This job is not currently accepting applications');
         }
 
-//        if (!$job->is_approved) {
-//            throw new Exception('This job is pending approval and not available for applications');
-//        }
-
         // Check if candidate has already applied
         $existingApplication = JobApplication::query()->where('job_id', $job->id)
             ->where('candidate_id', $candidate->id)
@@ -498,7 +558,7 @@ class JobService
         }
 
         // Create job application
-        return JobApplication::query()->create([
+        $application = JobApplication::query()->create([
             'job_id' => $job->id,
             'candidate_id' => $candidate->id,
             'resume_id' => $resume->id,
@@ -506,6 +566,53 @@ class JobService
             'status' => 'applied',
             'apply_via' => $applyVia,
         ]);
+
+        // Send notifications
+        $this->sendApplicationNotifications($application);
+
+        return $application;
+    }
+
+    /**
+     * Send notifications for a new job application
+     *
+     * @param JobApplication $application
+     * @return void
+     */
+    private function sendApplicationNotifications(JobApplication $application): void
+    {
+        $candidate = $application->candidate;
+        $candidateUser = $candidate->user;
+        $job = $application->job;
+        $employer = $job->employer;
+        $employerUser = $employer->user;
+
+        // Notify the candidate
+        $candidateUser?->notify(new CandidateApplicationReceived($application, $job));
+
+        // Notify the employer using their template
+        if ($employerUser) {
+            // Get the employer's application received notification template
+            $applicationTemplate = $employer->notificationTemplates()
+                ->where('type', JobNotificationTemplateTypeEnum::APPLICATION_RECEIVED->value)
+                ->first();
+
+            // Use the template if available, otherwise use default notification
+            if ($applicationTemplate) {
+                $employerUser->notify(new EmployerApplicationReceived(
+                    $application,
+                    $candidate,
+                    $job,
+                    $applicationTemplate
+                ));
+            } else {
+                $employerUser->notify(new EmployerApplicationReceived(
+                    $application,
+                    $candidate,
+                    $job
+                ));
+            }
+        }
     }
 
     /**
