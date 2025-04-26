@@ -111,7 +111,7 @@ class AuthService
                 $user->candidate()->create($candidateData);
             } elseif ($userType === 'employer') {
                 // Handle company logo (employer)
-                $fileName = Str::slug($data['company_name']. '-' . time() . '.' . $data['company_logo']->getClientOriginalExtension();
+                $fileName = Str::slug($data['company_name'] . '-' . time()) . '.' . $data['company_logo']->getClientOriginalExtension();
                 if (isset($data['company_logo']) && $data['company_logo'] instanceof UploadedFile) {
                     $data['company_logo_path'] = $this->uploadImage(
                         $data['company_logo'],
