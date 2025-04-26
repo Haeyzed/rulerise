@@ -188,6 +188,7 @@ class EmployerService
      * @param string|null $notes
      * @param Employer $employer
      * @return array
+     * @throws Exception
      */
     public function addCandidatesToMultiplePools(array $poolIds, array $candidateIds, ?string $notes = null, Employer $employer): array
     {
