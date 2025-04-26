@@ -439,33 +439,20 @@ class EmployerService
         return $employer->jobs()
             ->with([
                 'category',
-                'applications' => function($query) {
-                    $query->with([
-                        'candidate' => function($query) {
-                            $query->with([
-                                'user:id,first_name,last_name,email,phone,profile_picture',
-                                'qualification',
-                                'workExperiences',
-                                'educationHistories',
-                                'languages',
-                                'portfolio',
-                                'credentials',
-                                'resumes' => function($query) {
-                                    $query->where('is_primary', true)->orWhere('is_active', true);
-                                }
-                            ]);
-                        },
-                        'resume'
-                    ]);
-                },
-                'employer' => function($query) {
-                    $query->with(['candidatePools' => function($query) {
-                        $query->select('id', 'employer_id', 'name', 'description')
-                            ->withCount('candidates');
-                    }]);
-                }
-            ])
-            ->withCount('applications')
+                'applications.candidate.user',
+                'applications.candidate.qualification',
+                'applications.candidate.workExperiences',
+                'applications.candidate.educationHistories',
+                'applications.candidate.languages',
+                'applications.candidate.portfolio',
+                'applications.candidate.credentials',
+                'applications.candidate.jobApplications',
+                'applications.candidate.savedJobs',
+                'applications.candidate.resumes',
+                'applications.candidate.reportedJobs',
+                'applications.candidate.profileViewCounts',
+                'employer.candidatePools'
+            ])->withCount('applications')
             ->findOrFail($jobId);
     }
 
