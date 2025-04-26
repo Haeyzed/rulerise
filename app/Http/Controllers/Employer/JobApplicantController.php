@@ -83,6 +83,7 @@ class JobApplicantController extends Controller implements HasMiddleware
 
         $result = $this->jobService->getApplicantByJobs(
             $employer,
+            $job->id,
             $filters,
             $sortBy,
             $sortOrder,
