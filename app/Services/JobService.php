@@ -91,6 +91,7 @@ class JobService
      * Get applicants by job with optional filtering and sorting
      *
      * @param Employer $employer
+     * @param int $jobId
      * @param array $filters
      * @param string $sortBy
      * @param string $sortOrder
@@ -99,22 +100,25 @@ class JobService
      */
     public function getApplicantByJobs(
         Employer $employer,
+        int $jobId,
         array $filters = [],
         string $sortBy = 'created_at',
         string $sortOrder = 'desc',
         int $perPage = 15
     ): array {
+        // Find the job and ensure it belongs to the employer
+        $job = $employer->jobs()->findOrFail($jobId);
 
-        // Get application counts for different statuses
-        $totalApplications = $employer->applications()->count();
-        $unsortedCount = $employer->applications()->where('status', 'unsorted')->count();
-        $shortlistedCount = $employer->applications()->where('status', 'shortlisted')->count();
-        $offerSentCount = $employer->applications()->where('status', 'offer_sent')->count();
-        $rejectedCount = $employer->applications()->where('status', 'rejected')->count();
-        $withdrawnCount = $employer->applications()->where('status', 'withdrawn')->count();
+        // Get application counts for different statuses for this specific job
+        $totalApplications = $job->applications()->count();
+        $unsortedCount = $job->applications()->where('status', 'unsorted')->count();
+        $shortlistedCount = $job->applications()->where('status', 'shortlisted')->count();
+        $offerSentCount = $job->applications()->where('status', 'offer_sent')->count();
+        $rejectedCount = $job->applications()->where('status', 'rejected')->count();
+        $withdrawnCount = $job->applications()->where('status', 'withdrawn')->count();
 
-        // Build the query
-        $query = $employer->applications();
+        // Build the query for applications for this specific job
+        $query = $job->applications();
 
         // Apply status filter if provided
         if (isset($filters['status']) && in_array($filters['status'], ['unsorted', 'shortlisted', 'offer_sent', 'rejected', 'withdrawn'])) {
@@ -123,17 +127,23 @@ class JobService
 
         // Eager load relationships
         $query->with([
-            'candidate.user',
-            'candidate.qualification',
-            'candidate.workExperiences',
-            'candidate.educationHistories',
-            'candidate.languages',
-            'candidate.portfolio',
-            'candidate.credentials',
-            'candidate.savedJobs',
-            'candidate.resumes',
-            'candidate.reportedJobs',
-            'candidate.profileViewCounts',
+            'candidate' => function($query) {
+                $query->with([
+                    'user',
+                    'qualification',
+                    'workExperiences',
+                    'educationHistories',
+                    'languages',
+                    'portfolio',
+                    'credentials',
+                    'savedJobs',
+                    'resumes',
+                    'reportedJobs',
+                    'profileViewCounts',
+                ]);
+            },
+            'resume',
+            'job'
         ]);
 
         // Apply sorting
