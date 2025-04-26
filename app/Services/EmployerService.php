@@ -427,7 +427,7 @@ class EmployerService
     }
 
     /**
-     * Get a specific job for an employer
+     * Get a specific job for an employer with only its own applications
      *
      * @param Employer $employer
      * @param int $jobId
@@ -436,27 +436,35 @@ class EmployerService
      */
     public function getEmployerJob(Employer $employer, int $jobId): Job
     {
-        return $employer->jobs()
+        $job = $employer->jobs()
             ->with([
                 'category',
-                'applications.candidate.user',
-                'applications.candidate.qualification',
-                'applications.candidate.workExperiences',
-                'applications.candidate.educationHistories',
-                'applications.candidate.languages',
-                'applications.candidate.portfolio',
-                'applications.candidate.credentials',
-                // Add a constrained relationship that only loads applications for this job
-                'applications.candidate.jobApplications' => function($query) use ($jobId) {
-                    $query->where('job_id', $jobId);
+                'applications' => function($query) {
+                    $query->with([
+                        'candidate' => function($query) {
+                            $query->with([
+                                'user',
+                                'qualification',
+                                'workExperiences',
+                                'educationHistories',
+                                'languages',
+                                'portfolio',
+                                'credentials',
+                                'savedJobs',
+                                'resumes',
+                                'reportedJobs',
+                                'profileViewCounts'
+                            ]);
+                        },
+                        'resume'
+                    ]);
                 },
-                'applications.candidate.savedJobs',
-                'applications.candidate.resumes',
-                'applications.candidate.reportedJobs',
-                'applications.candidate.profileViewCounts',
                 'employer.candidatePools'
-            ])->withCount('applications')
+            ])
+            ->withCount('applications')
             ->findOrFail($jobId);
+
+        return $job;
     }
 
     /**
