@@ -59,9 +59,11 @@ class AuthService
         return DB::transaction(function () use ($data, $userType) {
             // Handle profile picture (candidate)
             if (isset($data['profile_picture']) && $data['profile_picture'] instanceof UploadedFile) {
+                $fileName = Str::slug($data['first_name'] . '-' . $data['last_name']) . '-' . time() . '.' . $data['profile_picture']->getClientOriginalExtension();
                 $data['profile_picture_path'] = $this->uploadImage(
                     $data['profile_picture'],
-                    config('filestorage.paths.profile_images')
+                    config('filestorage.paths.profile_images'),
+                    $fileName
                 );
                 unset($data['profile_picture']);
             }
@@ -109,10 +111,12 @@ class AuthService
                 $user->candidate()->create($candidateData);
             } elseif ($userType === 'employer') {
                 // Handle company logo (employer)
+                $fileName = Str::slug($data['company_name']. '-' . time() . '.' . $data['company_logo']->getClientOriginalExtension();
                 if (isset($data['company_logo']) && $data['company_logo'] instanceof UploadedFile) {
                     $data['company_logo_path'] = $this->uploadImage(
                         $data['company_logo'],
-                        config('filestorage.paths.company_logos')
+                        config('filestorage.paths.company_logos'),
+                        $fileName
                     );
                     unset($data['company_logo']);
                 }
@@ -448,11 +452,12 @@ class AuthService
      *
      * @param UploadedFile $image The image file to upload.
      * @param string $path The storage path.
+     * @param string $fileName The name to store the file as.
      * @param array $options Additional options for the upload.
      * @return string The path to the uploaded image.
      */
-    private function uploadImage(UploadedFile $image, string $path, array $options = []): string
+    private function uploadImage(UploadedFile $image, string $path, string $fileName, array $options = []): string
     {
-        return $this->storageService->upload($image, $path, $options);
+        return $this->storageService->upload($image, $path, $fileName, $options);
     }
 }
