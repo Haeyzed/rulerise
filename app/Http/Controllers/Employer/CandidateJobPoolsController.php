@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Employer\AttachSingleCandidatePoolRequest;
 use App\Http\Requests\Employer\CandidatePoolRequest;
 use App\Http\Requests\Employer\AttachCandidatePoolRequest;
+use App\Http\Requests\Employer\AttachCandidatesMultiPoolRequest;
 use App\Http\Requests\Employer\DetachCandidatePoolRequest;
+use App\Http\Requests\Employer\DetachCandidatesMultiPoolRequest;
 use App\Http\Requests\Employer\DetachSingleCandidatePoolRequest;
 use App\Http\Resources\CandidatePoolResource;
 use App\Http\Resources\CandidateResource;
@@ -201,11 +203,6 @@ class CandidateJobPoolsController extends Controller implements HasMiddleware
         try {
             $this->employerService->removeCandidateFromPool($pool, $candidate);
 
-            // Get the updated pool with candidate count
-//            $updatedPool = $employer->candidatePools()
-//                ->withCount('candidates')
-//                ->findOrFail($data['pool_id']);
-
             return response()->success(
                 null,
                 'Candidate removed from pool successfully'
@@ -282,6 +279,75 @@ class CandidateJobPoolsController extends Controller implements HasMiddleware
                 'pool' => new CandidatePoolResource($updatedPool),
                 'results' => $results
             ], 'Candidates removed from pool');
+        } catch (Exception $e) {
+            return response()->badRequest($e->getMessage());
+        }
+    }
+
+    /**
+     * Attach candidates to multiple pools
+     *
+     * @param AttachCandidatesMultiPoolRequest $request
+     * @return JsonResponse
+     */
+    public function attachCandidatesMultiPool(AttachCandidatesMultiPoolRequest $request): JsonResponse
+    {
+        $user = auth()->user();
+        $employer = $user->employer;
+        $data = $request->validated();
+
+        try {
+            $results = $this->employerService->addCandidatesToMultiplePools(
+                $data['pool_ids'],
+                $data['candidate_ids'],
+                $data['notes'] ?? null,
+                $employer
+            );
+
+            // Get updated pools with candidate counts
+            $updatedPools = $employer->candidatePools()
+                ->whereIn('id', $data['pool_ids'])
+                ->withCount('candidates')
+                ->get();
+
+            return response()->success([
+                'pools' => CandidatePoolResource::collection($updatedPools),
+                'results' => $results
+            ], 'Candidates added to multiple pools');
+        } catch (Exception $e) {
+            return response()->badRequest($e->getMessage());
+        }
+    }
+
+    /**
+     * Detach candidates from multiple pools
+     *
+     * @param DetachCandidatesMultiPoolRequest $request
+     * @return JsonResponse
+     */
+    public function detachCandidatesMultiPool(DetachCandidatesMultiPoolRequest $request): JsonResponse
+    {
+        $user = auth()->user();
+        $employer = $user->employer;
+        $data = $request->validated();
+
+        try {
+            $results = $this->employerService->removeCandidatesFromMultiplePools(
+                $data['pool_ids'],
+                $data['candidate_ids'],
+                $employer
+            );
+
+            // Get updated pools with candidate counts
+            $updatedPools = $employer->candidatePools()
+                ->whereIn('id', $data['pool_ids'])
+                ->withCount('candidates')
+                ->get();
+
+            return response()->success([
+                'pools' => CandidatePoolResource::collection($updatedPools),
+                'results' => $results
+            ], 'Candidates removed from multiple pools');
         } catch (Exception $e) {
             return response()->badRequest($e->getMessage());
         }

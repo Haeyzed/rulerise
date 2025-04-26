@@ -58,6 +58,10 @@ Route::middleware(['auth:api', 'role:employer,employer_staff'])->group(function 
         Route::post('detach-candidate', [CandidateJobPoolsController::class, 'detachCandidatePool']);
         Route::post('attach-multiple-candidate', [CandidateJobPoolsController::class, 'attachCandidatesPool']);
         Route::post('detach-multiple-candidate', [CandidateJobPoolsController::class, 'detachCandidatesPool']);
+
+        // New multi-pool endpoints
+        Route::post('attach-candidates-multi-pool', [CandidateJobPoolsController::class, 'attachCandidatesMultiPool']);
+        Route::post('detach-candidates-multi-pool', [CandidateJobPoolsController::class, 'detachCandidatesMultiPool']);
     });
 
     // Candidates

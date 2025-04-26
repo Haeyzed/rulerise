@@ -181,6 +181,182 @@ class EmployerService
     }
 
     /**
+     * Add candidates to multiple pools
+     *
+     * @param array $poolIds
+     * @param array $candidateIds
+     * @param string|null $notes
+     * @param Employer $employer
+     * @return array
+     */
+    public function addCandidatesToMultiplePools(array $poolIds, array $candidateIds, ?string $notes = null, Employer $employer): array
+    {
+        $results = [
+            'success' => [],
+            'failed' => [],
+            'pools' => []
+        ];
+
+        // Verify all pools belong to the employer
+        $pools = $employer->candidatePools()->whereIn('id', $poolIds)->get();
+
+        if ($pools->count() !== count($poolIds)) {
+            throw new Exception('One or more pools do not belong to this employer');
+        }
+
+        // Process each pool
+        foreach ($pools as $pool) {
+            $poolResult = $this->addCandidatesToPool($pool, $candidateIds, $notes);
+
+            // Track results for this pool
+            $results['pools'][] = [
+                'pool_id' => $pool->id,
+                'pool_name' => $pool->name,
+                'success_count' => count($poolResult['success']),
+                'failed_count' => count($poolResult['failed'])
+            ];
+
+            // Merge success and failed results
+            $results['success'] = array_merge($results['success'], $poolResult['success']);
+            $results['failed'] = array_merge($results['failed'], $poolResult['failed']);
+        }
+
+        // Remove duplicates from success array
+        $results['success'] = array_unique($results['success']);
+
+        return $results;
+    }
+
+    /**
+     * Remove candidates from multiple pools
+     *
+     * @param array $poolIds
+     * @param array $candidateIds
+     * @param Employer $employer
+     * @return array
+     * @throws Exception
+     */
+    public function removeCandidatesFromMultiplePools(array $poolIds, array $candidateIds, Employer $employer): array
+    {
+        $results = [
+            'success' => [],
+            'failed' => [],
+            'pools' => []
+        ];
+
+        // Verify all pools belong to the employer
+        $pools = $employer->candidatePools()->whereIn('id', $poolIds)->get();
+
+        if ($pools->count() !== count($poolIds)) {
+            throw new Exception('One or more pools do not belong to this employer');
+        }
+
+        // Process each pool
+        foreach ($pools as $pool) {
+            $poolResult = $this->removeCandidatesFromPool($pool, $candidateIds);
+
+            // Track results for this pool
+            $results['pools'][] = [
+                'pool_id' => $pool->id,
+                'pool_name' => $pool->name,
+                'success_count' => count($poolResult['success']),
+                'failed_count' => count($poolResult['failed'])
+            ];
+
+            // Merge success and failed results
+            $results['success'] = array_merge($results['success'], $poolResult['success']);
+            $results['failed'] = array_merge($results['failed'], $poolResult['failed']);
+        }
+
+        // Remove duplicates from success array
+        $results['success'] = array_unique($results['success']);
+
+        return $results;
+    }
+
+    /**
+     * Add multiple candidates to pool
+     *
+     * @param CandidatePool $pool
+     * @param array $candidateIds
+     * @param string|null $notes
+     * @return array
+     * @throws Exception
+     */
+    public function addCandidatesToPool(CandidatePool $pool, array $candidateIds, ?string $notes = null): array
+    {
+        $results = [
+            'success' => [],
+            'failed' => []
+        ];
+
+        foreach ($candidateIds as $candidateId) {
+            try {
+                $candidate = Candidate::query()->findOrFail($candidateId);
+
+                // Check if candidate is already in the pool
+                if ($pool->candidates()->where('candidate_id', $candidate->id)->exists()) {
+                    $results['failed'][] = [
+                        'candidate_id' => $candidate->id,
+                        'reason' => 'Candidate is already in this pool'
+                    ];
+                    continue;
+                }
+
+                $pool->candidates()->attach($candidate->id, ['notes' => $notes]);
+                $results['success'][] = $candidate->id;
+            } catch (Exception $e) {
+                $results['failed'][] = [
+                    'candidate_id' => $candidateId,
+                    'reason' => $e->getMessage()
+                ];
+            }
+        }
+
+        return $results;
+    }
+
+    /**
+     * Remove multiple candidates from pool
+     *
+     * @param CandidatePool $pool
+     * @param array $candidateIds
+     * @return array
+     */
+    public function removeCandidatesFromPool(CandidatePool $pool, array $candidateIds): array
+    {
+        $results = [
+            'success' => [],
+            'failed' => []
+        ];
+
+        foreach ($candidateIds as $candidateId) {
+            try {
+                $candidate = Candidate::query()->findOrFail($candidateId);
+
+                // Check if candidate is in the pool
+                if (!$pool->candidates()->where('candidate_id', $candidate->id)->exists()) {
+                    $results['failed'][] = [
+                        'candidate_id' => $candidate->id,
+                        'reason' => 'Candidate is not in this pool'
+                    ];
+                    continue;
+                }
+
+                $pool->candidates()->detach($candidate->id);
+                $results['success'][] = $candidate->id;
+            } catch (Exception $e) {
+                $results['failed'][] = [
+                    'candidate_id' => $candidateId,
+                    'reason' => $e->getMessage()
+                ];
+            }
+        }
+
+        return $results;
+    }
+
+    /**
      * Get employer jobs with optional filtering and sorting
      *
      * @param Employer $employer
@@ -607,87 +783,87 @@ class EmployerService
         $pool->candidates()->attach($candidate->id, ['notes' => $notes]);
     }
 
-    /**
-     * Add multiple candidates to pool
-     *
-     * @param CandidatePool $pool
-     * @param array $candidateIds
-     * @param string|null $notes
-     * @return array
-     * @throws Exception
-     */
-    public function addCandidatesToPool(CandidatePool $pool, array $candidateIds, ?string $notes = null): array
-    {
-        $results = [
-            'success' => [],
-            'failed' => []
-        ];
+//    /**
+//     * Add multiple candidates to pool
+//     *
+//     * @param CandidatePool $pool
+//     * @param array $candidateIds
+//     * @param string|null $notes
+//     * @return array
+//     * @throws Exception
+//     */
+//    public function addCandidatesToPool(CandidatePool $pool, array $candidateIds, ?string $notes = null): array
+//    {
+//        $results = [
+//            'success' => [],
+//            'failed' => []
+//        ];
+//
+//        foreach ($candidateIds as $candidateId) {
+//            try {
+//                $candidate = Candidate::query()->findOrFail($candidateId);
+//
+//                // Check if candidate is already in the pool
+//                if ($pool->candidates()->where('candidate_id', $candidate->id)->exists()) {
+//                    $results['failed'][] = [
+//                        'candidate_id' => $candidate->id,
+//                        'reason' => 'Candidate is already in this pool'
+//                    ];
+//                    continue;
+//                }
+//
+//                $pool->candidates()->attach($candidate->id, ['notes' => $notes]);
+//                $results['success'][] = $candidate->id;
+//            } catch (Exception $e) {
+//                $results['failed'][] = [
+//                    'candidate_id' => $candidateId,
+//                    'reason' => $e->getMessage()
+//                ];
+//            }
+//        }
+//
+//        return $results;
+//    }
 
-        foreach ($candidateIds as $candidateId) {
-            try {
-                $candidate = Candidate::query()->findOrFail($candidateId);
-
-                // Check if candidate is already in the pool
-                if ($pool->candidates()->where('candidate_id', $candidate->id)->exists()) {
-                    $results['failed'][] = [
-                        'candidate_id' => $candidate->id,
-                        'reason' => 'Candidate is already in this pool'
-                    ];
-                    continue;
-                }
-
-                $pool->candidates()->attach($candidate->id, ['notes' => $notes]);
-                $results['success'][] = $candidate->id;
-            } catch (Exception $e) {
-                $results['failed'][] = [
-                    'candidate_id' => $candidateId,
-                    'reason' => $e->getMessage()
-                ];
-            }
-        }
-
-        return $results;
-    }
-
-    /**
-     * Remove multiple candidates from pool
-     *
-     * @param CandidatePool $pool
-     * @param array $candidateIds
-     * @return array
-     */
-    public function removeCandidatesFromPool(CandidatePool $pool, array $candidateIds): array
-    {
-        $results = [
-            'success' => [],
-            'failed' => []
-        ];
-
-        foreach ($candidateIds as $candidateId) {
-            try {
-                $candidate = Candidate::findOrFail($candidateId);
-
-                // Check if candidate is in the pool
-                if (!$pool->candidates()->where('candidate_id', $candidate->id)->exists()) {
-                    $results['failed'][] = [
-                        'candidate_id' => $candidate->id,
-                        'reason' => 'Candidate is not in this pool'
-                    ];
-                    continue;
-                }
-
-                $pool->candidates()->detach($candidate->id);
-                $results['success'][] = $candidate->id;
-            } catch (Exception $e) {
-                $results['failed'][] = [
-                    'candidate_id' => $candidateId,
-                    'reason' => $e->getMessage()
-                ];
-            }
-        }
-
-        return $results;
-    }
+//    /**
+//     * Remove multiple candidates from pool
+//     *
+//     * @param CandidatePool $pool
+//     * @param array $candidateIds
+//     * @return array
+//     */
+//    public function removeCandidatesFromPool(CandidatePool $pool, array $candidateIds): array
+//    {
+//        $results = [
+//            'success' => [],
+//            'failed' => []
+//        ];
+//
+//        foreach ($candidateIds as $candidateId) {
+//            try {
+//                $candidate = Candidate::findOrFail($candidateId);
+//
+//                // Check if candidate is in the pool
+//                if (!$pool->candidates()->where('candidate_id', $candidate->id)->exists()) {
+//                    $results['failed'][] = [
+//                        'candidate_id' => $candidate->id,
+//                        'reason' => 'Candidate is not in this pool'
+//                    ];
+//                    continue;
+//                }
+//
+//                $pool->candidates()->detach($candidate->id);
+//                $results['success'][] = $candidate->id;
+//            } catch (Exception $e) {
+//                $results['failed'][] = [
+//                    'candidate_id' => $candidateId,
+//                    'reason' => $e->getMessage()
+//                ];
+//            }
+//        }
+//
+//        return $results;
+//    }
 
     /**
      * Remove candidate from pool
