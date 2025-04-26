@@ -446,7 +446,10 @@ class EmployerService
                 'applications.candidate.languages',
                 'applications.candidate.portfolio',
                 'applications.candidate.credentials',
-                'applications.candidate.jobApplications',
+                // Add a constrained relationship that only loads applications for this job
+                'applications.candidate.jobApplications' => function($query) use ($jobId) {
+                    $query->where('job_id', $jobId);
+                },
                 'applications.candidate.savedJobs',
                 'applications.candidate.resumes',
                 'applications.candidate.reportedJobs',
