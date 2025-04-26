@@ -18,7 +18,7 @@ class SubscriptionPlanService
      */
     public function getActivePlans(): Collection
     {
-        return SubscriptionPlan::where('is_active', true)->get();
+        return SubscriptionPlan::query()->where('is_active', true)->get();
     }
 
     /**
@@ -29,7 +29,7 @@ class SubscriptionPlanService
      */
     public function getAllPlans(int $perPage = 10): LengthAwarePaginator
     {
-        return SubscriptionPlan::orderBy('price')->paginate($perPage);
+        return SubscriptionPlan::query()->orderBy('price')->paginate($perPage);
     }
 
     /**
@@ -40,7 +40,7 @@ class SubscriptionPlanService
      */
     public function getPlan(int $id): SubscriptionPlan
     {
-        return SubscriptionPlan::findOrFail($id);
+        return SubscriptionPlan::query()->findOrFail($id);
     }
 
     /**
@@ -51,7 +51,7 @@ class SubscriptionPlanService
      */
     public function createPlan(array $data): SubscriptionPlan
     {
-        return SubscriptionPlan::create($data);
+        return SubscriptionPlan::query()->create($data);
     }
 
     /**
@@ -92,12 +92,12 @@ class SubscriptionPlanService
     public function deletePlan(int $id): bool
     {
         $plan = $this->getPlan($id);
-        
+
         // Check if the plan has any active subscriptions
         if ($plan->subscriptions()->where('is_active', true)->exists()) {
             throw new \Exception('Cannot delete a plan with active subscriptions');
         }
-        
+
         return $plan->delete();
     }
 
