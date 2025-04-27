@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Models\BlogPostCategory;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 class BlogPostCategoryService
 {
@@ -21,7 +20,7 @@ class BlogPostCategoryService
             ->when($request->filled('search'), function ($query) use ($request) {
                 $query->where(function ($q) use ($request) {
                     $q->where('name', 'like', "%{$request->search}%")
-                      ->orWhere('description', 'like', "%{$request->search}%");
+                        ->orWhere('description', 'like', "%{$request->search}%");
                 });
             })
             ->when($request->boolean('active_only'), function ($query) {
@@ -56,11 +55,6 @@ class BlogPostCategoryService
     public function create(array $data): BlogPostCategory
     {
         return DB::transaction(function () use ($data) {
-            // Generate slug if not provided
-            if (!isset($data['slug']) || empty($data['slug'])) {
-                $data['slug'] = Str::slug($data['name']);
-            }
-
             // Set default order if not provided
             if (!isset($data['order'])) {
                 $data['order'] = BlogPostCategory::max('order') + 1;
@@ -81,11 +75,6 @@ class BlogPostCategoryService
     public function update(BlogPostCategory $category, array $data): BlogPostCategory
     {
         return DB::transaction(function () use ($category, $data) {
-            // Generate slug if not provided
-            if (isset($data['name']) && (!isset($data['slug']) || empty($data['slug']))) {
-                $data['slug'] = Str::slug($data['name']);
-            }
-
             // Update blog post category
             $category->update($data);
 

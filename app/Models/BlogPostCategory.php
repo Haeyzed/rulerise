@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Str;
 
 class BlogPostCategory extends Model
 {
@@ -35,6 +36,50 @@ class BlogPostCategory extends Model
         'is_active' => 'boolean',
         'order' => 'integer',
     ];
+
+    /**
+     * The "booted" method of the model.
+     *
+     * @return void
+     */
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($category) {
+            // Only generate slug if not provided
+            if (empty($category->slug)) {
+                $category->slug = static::generateUniqueSlug($category->name);
+            }
+        });
+
+        static::updating(function ($category) {
+            // Only regenerate slug if name changed and slug is empty
+            if ($category->isDirty('name') && empty($category->slug)) {
+                $category->slug = static::generateUniqueSlug($category->name);
+            }
+        });
+    }
+
+    /**
+     * Generate a unique slug based on the given name.
+     *
+     * @param string $name
+     * @return string
+     */
+    protected static function generateUniqueSlug(string $name): string
+    {
+        $slug = Str::slug($name);
+        $originalSlug = $slug;
+        $count = 1;
+
+        // Check if the slug already exists
+        while (static::where('slug', $slug)->exists()) {
+            $slug = $originalSlug . '-' . $count++;
+        }
+
+        return $slug;
+    }
 
     /**
      * Get the blog posts for the category.

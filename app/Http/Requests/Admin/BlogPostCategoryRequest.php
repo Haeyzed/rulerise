@@ -33,12 +33,13 @@ class BlogPostCategoryRequest extends BaseRequest
 
             /**
              * The slug of the blog post category.
+             * If not provided, it will be automatically generated from the name.
              *
-             * @var string $slug
+             * @var string|null $slug
              * @example "technology"
              */
             'slug' => [
-                'required',
+                'nullable',
                 'string',
                 'max:255',
                 'alpha_dash',
