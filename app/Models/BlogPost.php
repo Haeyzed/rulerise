@@ -24,13 +24,13 @@ class BlogPost extends Model
     protected $fillable = [
         'title',
         'subtitle',
-        'category',
         'body',
         'banner_image',
         'caption',
         'read_time',
         'status',
         'user_id',
+        'category_id',
         'views',
     ];
 
@@ -52,6 +52,16 @@ class BlogPost extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Get the category that the blog post belongs to.
+     *
+     * @return BelongsTo
+     */
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(BlogPostCategory::class, 'category_id');
     }
 
     /**

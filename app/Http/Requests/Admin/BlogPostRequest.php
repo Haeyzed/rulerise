@@ -72,12 +72,12 @@ class BlogPostRequest extends BaseRequest
             'caption' => ['nullable', 'string', 'max:255'],
 
             /**
-             * The category for the blog post.
+             * The category ID for the blog post.
              *
-             * @var string|null $category
-             * @example "A beautiful sunset over the mountains."
+             * @var int|null $category_id
+             * @example 1
              */
-            'category' => ['nullable', 'string', 'max:255'],
+            'category_id' => ['nullable', 'integer', 'exists:blog_post_categories,id'],
 
             /**
              * The read time for the blog post.
@@ -125,6 +125,7 @@ class BlogPostRequest extends BaseRequest
             'subtitle' => 'Sub-title',
             'body' => 'Story body',
             'banner_image' => 'Banner image',
+            'category_id' => 'Category',
             'related_images.*' => 'Related image',
             'related_images' => 'Related images',
         ];
@@ -141,6 +142,7 @@ class BlogPostRequest extends BaseRequest
             'banner_image.max' => 'The banner image must not be larger than 500KB.',
             'related_images.*.max' => 'Each related image must not be larger than 500KB.',
             'related_images.max' => 'You can upload a maximum of 5 related images.',
+            'category_id.exists' => 'The selected category does not exist.',
         ];
     }
 }

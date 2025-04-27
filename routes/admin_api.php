@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\BlogPostCategoryController;
 use App\Http\Controllers\Admin\BlogPostController;
 use App\Http\Controllers\Admin\FaqController;
 use Illuminate\Support\Facades\Route;
@@ -120,6 +121,21 @@ Route::middleware(['auth:api', 'role:admin'])->group(function () {
         Route::post('/{blogPost}/restore', [BlogPostController::class, 'restore'])
             ->name('restore')
             ->withTrashed();
+    });
+
+    // Blog Post Categories
+    Route::apiResource('blog-post-categories', BlogPostCategoryController::class);
+    Route::prefix('blog-post-categories')->name('blog-post-categories.')->group(function () {
+        // Soft delete management
+        Route::delete('/{blogPostCategory}/force', [BlogPostCategoryController::class, 'forceDestroy'])
+            ->name('force-destroy')
+            ->withTrashed();
+        Route::post('/{blogPostCategory}/restore', [BlogPostCategoryController::class, 'restore'])
+            ->name('restore')
+            ->withTrashed();
+        // Reordering
+        Route::post('/reorder', [BlogPostCategoryController::class, 'reorder'])
+            ->name('reorder');
     });
 
     Route::prefix('admin/faqs')->group(function () {
