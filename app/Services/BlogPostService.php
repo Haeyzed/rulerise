@@ -8,6 +8,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Str;
+use Throwable;
 
 class BlogPostService
 {
@@ -57,7 +58,7 @@ class BlogPostService
                 $request->input('start_date'),
                 $request->input('end_date')
             )
-            ->with(['user', 'images'])
+            ->with(['user', 'images', 'category'])
             ->paginate($request->integer('per_page', config('app.pagination.per_page', 15)));
     }
 
@@ -146,6 +147,7 @@ class BlogPostService
      * @param BlogPost $blogPost The blog post to update.
      * @param array $data The validated data for updating the blog post.
      * @return BlogPost The updated blog post.
+     * @throws Throwable
      */
     public function update(BlogPost $blogPost, array $data): BlogPost
     {
@@ -173,7 +175,7 @@ class BlogPostService
                 $this->handleRelatedImages($blogPost, $data['related_images']);
             }
 
-            return $blogPost->load(['user', 'images']);
+            return $blogPost->load(['user', 'images', 'category']);
         });
     }
 
@@ -224,7 +226,7 @@ class BlogPostService
     {
         return DB::transaction(function () use ($blogPost) {
             $blogPost->restore();
-            return $blogPost->load(['user', 'images']);
+            return $blogPost->load(['user', 'images', 'category']);
         });
     }
 }

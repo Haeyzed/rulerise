@@ -58,9 +58,9 @@ class BlogPostResource extends JsonResource
             'category_id' => $this->category_id,
 
             /**
-             * The category details of the blog post.
-             *
-             * @var array|null $category_details
+             * The category of the blog post.
+             *z
+             * @var array|null $category
              * @example {"id": 1, "name": "Technology", "slug": "technology"}
              */
             'category' => $this->whenLoaded('category', function () {
