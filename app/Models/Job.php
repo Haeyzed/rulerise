@@ -113,6 +113,7 @@ class Job extends Model
         'email_apply' => 'boolean',
         'vacancies' => 'integer',
         'skills_required' => 'array',
+        'language' => 'array', // Cast language as array
     ];
 
     /**
@@ -213,7 +214,7 @@ class Job extends Model
     /**
      * Get the candidate pools associated with this job through the employer.
      */
-    public function candidatePools()
+    public function candidatePools(): HasMany
     {
         return $this->employer->candidatePools();
     }

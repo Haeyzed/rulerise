@@ -12,6 +12,7 @@
         "php": "^8.2",
         "cloudinary-labs/cloudinary-laravel": "^3.0",
         "dedoc/scramble": "^0.12.17",
+        "doctrine/dbal": "^4.2",
         "laravel/framework": "^12.0",
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^2.10.1",

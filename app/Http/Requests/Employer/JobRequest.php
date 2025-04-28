@@ -30,7 +30,8 @@ class JobRequest extends BaseRequest
             'location' => 'required|string|max:255',
             'state' => 'required|string|max:255',
             'job_level' => 'nullable|string|max:100',
-            'language' => 'nullable|string|max:100',
+            'language' => 'nullable|array', // Changed to array
+            'language.*' => 'string|max:100', // Validate each item in the array
             'experience_level' => 'required|string|in:entry,mid,senior,executive',
             'salary' => 'nullable|numeric|min:0',
             'salary_payment_mode' => 'nullable|string|max:100',
@@ -68,6 +69,8 @@ class JobRequest extends BaseRequest
             'deadline.after' => 'The application deadline must be a future date.',
             'skills_required.array' => 'Skills required must be an array.',
             'skills_required.*.string' => 'Each skill must be a string.',
+            'language.array' => 'Languages must be an array.',
+            'language.*.string' => 'Each language must be a string.',
         ];
     }
 
@@ -87,6 +90,8 @@ class JobRequest extends BaseRequest
             'job_industry' => 'industry',
             'location' => 'job location',
             'job_level' => 'job level',
+            'language' => 'languages',
+            'language.*' => 'language',
             'experience_level' => 'experience level',
             'salary' => 'salary',
             'salary_payment_mode' => 'salary payment mode',
