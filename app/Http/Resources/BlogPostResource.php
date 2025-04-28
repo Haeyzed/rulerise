@@ -63,7 +63,7 @@ class BlogPostResource extends JsonResource
              * @var array|null $category_details
              * @example {"id": 1, "name": "Technology", "slug": "technology"}
              */
-            'category_details' => $this->whenLoaded('category', function () {
+            'category' => $this->whenLoaded('category', function () {
                 return new BlogPostCategoryResource($this->category);
             }),
 
