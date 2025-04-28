@@ -30,7 +30,7 @@ return new class extends Migration
             $table->string('job_industry')->nullable();
             $table->string('location');
             $table->string('state');
-            $table->string('language')->nullable();
+            $table->json('language')->nullable();
             $table->string('job_level')->nullable();
             $table->string('experience_level');
             $table->json('skills_required')->nullable();
