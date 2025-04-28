@@ -7,6 +7,7 @@ use App\Services\Storage\StorageService;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
+use Str;
 
 class BlogPostService
 {
@@ -76,9 +77,11 @@ class BlogPostService
 
             // Handle banner image
             if (isset($data['banner_image']) && $data['banner_image'] instanceof UploadedFile) {
+                $fileName = Str::slug($data['title']) . '-' . time();
                 $data['banner_image'] = $this->uploadImage(
                     $data['banner_image'],
-                    config('filestorage.paths.blog_banners')
+                    config('filestorage.paths.blog_banners'),
+                    $fileName
                 );
             }
 
@@ -99,12 +102,16 @@ class BlogPostService
      *
      * @param UploadedFile $image The image file to upload.
      * @param string $path The storage path.
+     * @param string $fileName The name to store the file as.
      * @param array $options Additional options for the upload.
      * @return string The path to the uploaded image.
      */
-    private function uploadImage(UploadedFile $image, string $path, array $options = []): string
+    private function uploadImage(UploadedFile $image, string $path, &$fileName = null, array $options = []): string
     {
-        return $this->storageService->upload($image, $path, $options);
+        // Generate a filename based on the current timestamp and a random string
+        $fileName = time() . '-' . Str::slug(pathinfo($image->getClientOriginalName(), PATHINFO_FILENAME)) . '.' . $image->getClientOriginalExtension();
+
+        return $this->storageService->upload($image, $path, $fileName, $options);
     }
 
     /**
@@ -120,10 +127,12 @@ class BlogPostService
 
         foreach ($images as $image) {
             if ($image instanceof UploadedFile) {
+                $fileName = Str::slug($blogPost->title) . '-image-' . $order . '-' . time();
                 $blogPost->images()->create([
                     'image_path' => $this->uploadImage(
                         $image,
-                        config('filestorage.paths.blog_images')
+                        config('filestorage.paths.blog_images'),
+                        $fileName
                     ),
                     'order' => $order++,
                 ]);
@@ -148,9 +157,11 @@ class BlogPostService
                     $this->storageService->delete($blogPost->banner_image);
                 }
 
+                $fileName = Str::slug($data['title'] ?? $blogPost->title) . '-' . time();
                 $data['banner_image'] = $this->uploadImage(
                     $data['banner_image'],
-                    config('filestorage.paths.blog_banners')
+                    config('filestorage.paths.blog_banners'),
+                    $fileName
                 );
             }
 
