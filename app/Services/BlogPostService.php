@@ -58,7 +58,7 @@ class BlogPostService
                 $request->input('start_date'),
                 $request->input('end_date')
             )
-            ->with(['user', 'images', 'category'])
+            ->with(['user', 'images'])
             ->paginate($request->integer('per_page', config('app.pagination.per_page', 15)));
     }
 
@@ -94,7 +94,7 @@ class BlogPostService
                 $this->handleRelatedImages($blogPost, $data['related_images']);
             }
 
-            return $blogPost->load(['user', 'images', 'category']);
+            return $blogPost->load(['user', 'images']);
         });
     }
 
@@ -175,7 +175,7 @@ class BlogPostService
                 $this->handleRelatedImages($blogPost, $data['related_images']);
             }
 
-            return $blogPost->load(['user', 'images', 'category']);
+            return $blogPost->load(['user', 'images']);
         });
     }
 
@@ -226,7 +226,7 @@ class BlogPostService
     {
         return DB::transaction(function () use ($blogPost) {
             $blogPost->restore();
-            return $blogPost->load(['user', 'images', 'category']);
+            return $blogPost->load(['user', 'images']);
         });
     }
 }
