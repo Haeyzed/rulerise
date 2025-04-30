@@ -46,7 +46,7 @@ class BlogPostRequest extends BaseRequest
              * @var string $body
              * @example "Laravel is a powerful PHP framework..."
              */
-            'body' => ['required', 'string'],
+            'body' => ['nullable', 'string'],
 
             /**
              * The banner image for the blog post.
