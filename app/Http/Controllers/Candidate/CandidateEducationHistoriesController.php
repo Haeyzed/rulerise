@@ -45,6 +45,24 @@ class CandidateEducationHistoriesController extends Controller implements HasMid
     }
 
     /**
+     * Get all education histories for the authenticated candidate
+     *
+     * @return JsonResponse
+     */
+    public function index(): JsonResponse
+    {
+        $user = auth()->user();
+        $candidate = $user->candidate;
+
+        $educationHistories = $this->candidateService->getEducationHistories($candidate);
+
+        return response()->success(
+            EducationHistoryResource::collection($educationHistories),
+            'Education histories retrieved successfully'
+        );
+    }
+
+    /**
      * Store a new education history
      *
      * @param EducationHistoryRequest $request

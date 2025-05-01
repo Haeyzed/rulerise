@@ -45,6 +45,24 @@ class CredentialsController extends Controller implements HasMiddleware
     }
 
     /**
+     * Get all credentials for the authenticated candidate
+     *
+     * @return JsonResponse
+     */
+    public function index(): JsonResponse
+    {
+        $user = auth()->user();
+        $candidate = $user->candidate;
+
+        $credentials = $this->candidateService->getCredentials($candidate);
+
+        return response()->success(
+            CredentialResource::collection($credentials),
+            'Credentials retrieved successfully'
+        );
+    }
+
+    /**
      * Store a new credential
      *
      * @param CredentialRequest $request

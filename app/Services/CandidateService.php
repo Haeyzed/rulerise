@@ -12,7 +12,9 @@ use App\Models\Resume;
 use App\Models\User;
 use App\Models\WorkExperience;
 use App\Services\Storage\StorageService;
+use DateMalformedStringException;
 use DateTime;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -243,7 +245,7 @@ class CandidateService
      * @param Candidate $candidate
      * @param array $data
      * @return WorkExperience
-     * @throws \DateMalformedStringException
+     * @throws DateMalformedStringException
      */
     public function addWorkExperience(Candidate $candidate, array $data): WorkExperience
     {
@@ -284,7 +286,7 @@ class CandidateService
      * @param WorkExperience $workExperience
      * @param array $data
      * @return WorkExperience
-     * @throws \DateMalformedStringException
+     * @throws DateMalformedStringException
      */
     public function updateWorkExperience(WorkExperience $workExperience, array $data): WorkExperience
     {
@@ -528,6 +530,50 @@ class CandidateService
             'user_agent' => $userAgent,
             'employer_id' => $employerId,
         ]);
+    }
+
+    /**
+     * Get candidate education histories
+     *
+     * @param Candidate $candidate
+     * @return Collection
+     */
+    public function getEducationHistories(Candidate $candidate): Collection
+    {
+        return $candidate->educationHistories()->orderBy('start_date', 'desc')->get();
+    }
+
+    /**
+     * Get candidate work experiences
+     *
+     * @param Candidate $candidate
+     * @return Collection
+     */
+    public function getWorkExperiences(Candidate $candidate): Collection
+    {
+        return $candidate->workExperiences()->orderBy('start_date', 'desc')->get();
+    }
+
+    /**
+     * Get candidate credentials
+     *
+     * @param Candidate $candidate
+     * @return Collection
+     */
+    public function getCredentials(Candidate $candidate): Collection
+    {
+        return $candidate->credentials()->orderBy('issue_date', 'desc')->get();
+    }
+
+    /**
+     * Get candidate languages
+     *
+     * @param Candidate $candidate
+     * @return Collection
+     */
+    public function getLanguages(Candidate $candidate): Collection
+    {
+        return $candidate->languages()->get();
     }
 
     /**

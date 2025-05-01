@@ -45,6 +45,24 @@ class CandidateLanguagesController extends Controller implements HasMiddleware
     }
 
     /**
+     * Get all languages for the authenticated candidate
+     *
+     * @return JsonResponse
+     */
+    public function index(): JsonResponse
+    {
+        $user = auth()->user();
+        $candidate = $user->candidate;
+
+        $languages = $this->candidateService->getLanguages($candidate);
+
+        return response()->success(
+            LanguageResource::collection($languages),
+            'Languages retrieved successfully'
+        );
+    }
+
+    /**
      * Store a new language
      *
      * @param LanguageRequest $request

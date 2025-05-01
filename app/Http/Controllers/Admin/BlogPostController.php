@@ -33,11 +33,6 @@ class BlogPostController extends Controller implements HasMiddleware
     protected BlogPostService $blogPostService;
 
     /**
-     * @var bool
-     */
-    protected bool $isPublicRoute = false;
-
-    /**
      * BlogPostController constructor.
      *
      * @param BlogPostService $blogPostService

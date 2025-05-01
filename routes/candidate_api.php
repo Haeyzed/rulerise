@@ -54,6 +54,7 @@ Route::middleware(['auth:api', 'role:candidate'])->group(function () {
 
     // Work experience
     Route::prefix('work-experience')->group(function () {
+        Route::get('/', [WorkExperiencesController::class, 'index']);
         Route::post('/', [WorkExperiencesController::class, 'store']);
         Route::put('/{id}', [WorkExperiencesController::class, 'update']);
         Route::delete('/{id}', [WorkExperiencesController::class, 'delete']);
@@ -61,6 +62,7 @@ Route::middleware(['auth:api', 'role:candidate'])->group(function () {
 
     // Education history
     Route::prefix('education-history')->group(function () {
+        Route::get('/', [CandidateEducationHistoriesController::class, 'index']);
         Route::post('/', [CandidateEducationHistoriesController::class, 'store']);
         Route::put('/{id}', [CandidateEducationHistoriesController::class, 'update']);
         Route::delete('/{id}', [CandidateEducationHistoriesController::class, 'delete']);
@@ -68,6 +70,7 @@ Route::middleware(['auth:api', 'role:candidate'])->group(function () {
 
     // Credentials
     Route::prefix('credential')->group(function () {
+        Route::get('/', [CredentialsController::class, 'index']);
         Route::post('/', [CredentialsController::class, 'store']);
         Route::put('/{id}', [CredentialsController::class, 'update']);
         Route::delete('/{id}', [CredentialsController::class, 'delete']);
@@ -75,6 +78,7 @@ Route::middleware(['auth:api', 'role:candidate'])->group(function () {
 
     // Languages
     Route::prefix('language')->group(function () {
+        Route::get('/', [CandidateLanguagesController::class, 'index']);
         Route::post('/', [CandidateLanguagesController::class, 'store']);
         Route::put('/{id}', [CandidateLanguagesController::class, 'update']);
         Route::delete('/{id}', [CandidateLanguagesController::class, 'delete']);

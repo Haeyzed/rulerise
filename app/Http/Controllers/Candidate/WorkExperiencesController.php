@@ -45,6 +45,24 @@ class WorkExperiencesController extends Controller implements HasMiddleware
     }
 
     /**
+     * Get all work experiences for the authenticated candidate
+     *
+     * @return JsonResponse
+     */
+    public function index(): JsonResponse
+    {
+        $user = auth()->user();
+        $candidate = $user->candidate;
+
+        $workExperiences = $this->candidateService->getWorkExperiences($candidate);
+
+        return response()->success(
+            WorkExperienceResource::collection($workExperiences),
+            'Work experiences retrieved successfully'
+        );
+    }
+
+    /**
      * Store a new work experience
      *
      * @param WorkExperienceRequest $request
