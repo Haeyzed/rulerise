@@ -57,7 +57,7 @@ class BlogPostRequest extends BaseRequest
              * @example "banner.jpg"
              */
             'banner_image' => [
-                $this->isMethod('post') ? 'required' : 'nullable',
+                'nullable',
                 'image',
                 'mimes:jpeg,png,jpg,gif',
                 'max:2048'

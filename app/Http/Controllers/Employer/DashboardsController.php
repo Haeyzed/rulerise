@@ -70,10 +70,14 @@ class DashboardsController extends Controller implements HasMiddleware
             return response()->notFound('Employer profile not found');
         }
 
-        // Parse date range from request or use default (last 7 days)
-        $endDate = Carbon::now();
-        $startDate = Carbon::now()->subDays(6); // Last 7 days including today
+        // Get time period from request (week, month, year) or default to week
+        $period = $request->input('period', 'week');
 
+        // Parse date range based on period
+        $endDate = Carbon::now();
+        $startDate = $this->getStartDateForPeriod($period);
+
+        // Override with custom date range if provided
         if ($request->has('start_date') && $request->has('end_date')) {
             $startDate = Carbon::parse($request->input('start_date'));
             $endDate = Carbon::parse($request->input('end_date'));
@@ -95,6 +99,25 @@ class DashboardsController extends Controller implements HasMiddleware
                 'start_date' => $startDate->format('Y-m-d'),
                 'end_date' => $endDate->format('Y-m-d'),
             ],
+            'period' => $period,
         ], 'Dashboard data retrieved successfully');
+    }
+
+    /**
+     * Get start date based on the selected period
+     *
+     * @param string $period
+     * @return Carbon
+     */
+    private function getStartDateForPeriod(string $period): Carbon
+    {
+        $now = Carbon::now();
+
+        return match ($period) {
+            'week' => $now->copy()->subDays(6), // Last 7 days including today
+            'month' => $now->copy()->startOfMonth(), // Current month
+            'year' => $now->copy()->startOfYear(), // Current year
+            default => $now->copy()->subDays(6), // Default to week
+        };
     }
 }
