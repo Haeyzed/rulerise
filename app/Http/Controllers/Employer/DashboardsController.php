@@ -74,19 +74,22 @@ class DashboardsController extends Controller implements HasMiddleware
         $period = $request->input('period', 'week');
 
         // Parse date range based on period
-        $endDate = Carbon::now();
+        $endDate = Carbon::now()->endOfDay();
         $startDate = $this->getStartDateForPeriod($period);
 
         // Override with custom date range if provided
         if ($request->has('start_date') && $request->has('end_date')) {
-            $startDate = Carbon::parse($request->input('start_date'));
-            $endDate = Carbon::parse($request->input('end_date'));
+            $startDate = Carbon::parse($request->input('start_date'))->startOfDay();
+            $endDate = Carbon::parse($request->input('end_date'))->endOfDay();
+            // Determine period from custom date range
+            $period = $this->determinePeriodFromDateRange($startDate, $endDate);
         }
 
         // Get dashboard metrics
         $metrics = $this->dashboardService->getEmployerDashboardMetrics($employer, [
             'start_date' => $startDate,
             'end_date' => $endDate,
+            'period' => $period,
         ]);
 
         // Get recent messages
@@ -114,10 +117,30 @@ class DashboardsController extends Controller implements HasMiddleware
         $now = Carbon::now();
 
         return match ($period) {
-            'week' => $now->copy()->subDays(6), // Last 7 days including today
-            'month' => $now->copy()->startOfMonth(), // Current month
-            'year' => $now->copy()->startOfYear(), // Current year
-            default => $now->copy()->subDays(6), // Default to week
+            'week' => $now->copy()->subDays(6)->startOfDay(), // Last 7 days including today
+            'month' => $now->copy()->startOfMonth()->startOfDay(), // Current month
+            'year' => $now->copy()->startOfYear()->startOfDay(), // Current year
+            default => $now->copy()->subDays(6)->startOfDay(), // Default to week
         };
+    }
+
+    /**
+     * Determine the period based on date range
+     *
+     * @param Carbon $startDate
+     * @param Carbon $endDate
+     * @return string
+     */
+    private function determinePeriodFromDateRange(Carbon $startDate, Carbon $endDate): string
+    {
+        $diffInDays = $startDate->diffInDays($endDate);
+
+        if ($diffInDays <= 7) {
+            return 'week';
+        } elseif ($diffInDays <= 31) {
+            return 'month';
+        } else {
+            return 'year';
+        }
     }
 }

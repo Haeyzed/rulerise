@@ -26,6 +26,7 @@ class DashboardService
     {
         $startDate = Carbon::parse($dateRange['start_date']);
         $endDate = Carbon::parse($dateRange['end_date']);
+        $period = $dateRange['period'] ?? $this->determinePeriodFromDateRange($startDate, $endDate);
 
         // Get active jobs count
         $activeJobsCount = $this->getActiveJobsCount($employer);
@@ -37,16 +38,13 @@ class DashboardService
         $newCandidatesCount = $this->getNewCandidatesCount($employer, $startDate, $endDate);
 
         // Get job views data
-        $jobViewsData = $this->getJobViewsData($employer, $startDate, $endDate);
+        $jobViewsData = $this->getJobViewsData($employer, $startDate, $endDate, $period);
 
         // Get job applications data
-        $jobApplicationsData = $this->getJobApplicationsData($employer, $startDate, $endDate);
+        $jobApplicationsData = $this->getJobApplicationsData($employer, $startDate, $endDate, $period);
 
         // Get recent job updates
-        $recentJobUpdates = $this->getRecentJobUpdates($employer);
-
-        // Determine the period based on date range
-        $period = $this->determinePeriodFromDateRange($startDate, $endDate);
+        $recentJobUpdates = $this->getRecentJobUpdates($employer, $startDate, $endDate);
 
         return [
             'active_jobs_count' => $activeJobsCount,
@@ -132,9 +130,10 @@ class DashboardService
      * @param Employer $employer
      * @param Carbon $startDate
      * @param Carbon $endDate
+     * @param string $period
      * @return array
      */
-    private function getJobViewsData(Employer $employer, Carbon $startDate, Carbon $endDate): array
+    private function getJobViewsData(Employer $employer, Carbon $startDate, Carbon $endDate, string $period): array
     {
         // Get total job views for the date range
         $totalViews = JobViewCount::query()->whereHas('job', function ($query) use ($employer) {
@@ -144,9 +143,9 @@ class DashboardService
             ->count();
 
         // Get previous period for comparison
-        $daysDiff = $startDate->diffInDays($endDate);
-        $previousStartDate = (clone $startDate)->subDays($daysDiff + 1);
-        $previousEndDate = (clone $startDate)->subDay();
+        $previousPeriod = $this->getPreviousPeriod($startDate, $endDate, $period);
+        $previousStartDate = $previousPeriod['start_date'];
+        $previousEndDate = $previousPeriod['end_date'];
 
         $previousTotalViews = JobViewCount::whereHas('job', function ($query) use ($employer) {
             $query->where('employer_id', $employer->id);
@@ -160,8 +159,8 @@ class DashboardService
             $percentageChange = (($totalViews - $previousTotalViews) / $previousTotalViews) * 100;
         }
 
-        // Get appropriate grouping format based on date range
-        $groupFormat = $this->getGroupingFormat($startDate, $endDate);
+        // Get appropriate grouping format based on period
+        $groupFormat = $this->getGroupingFormat($period);
 
         // Get grouped views for chart
         $groupedViews = JobViewCount::query()->whereHas('job', function ($query) use ($employer) {
@@ -177,7 +176,7 @@ class DashboardService
             });
 
         // Fill in missing dates with zero counts
-        $result = $this->fillMissingDates($startDate, $endDate, $groupedViews, $groupFormat);
+        $result = $this->fillMissingDates($startDate, $endDate, $groupedViews, $period);
 
         return [
             'total' => $totalViews,
@@ -192,9 +191,10 @@ class DashboardService
      * @param Employer $employer
      * @param Carbon $startDate
      * @param Carbon $endDate
+     * @param string $period
      * @return array
      */
-    private function getJobApplicationsData(Employer $employer, Carbon $startDate, Carbon $endDate): array
+    private function getJobApplicationsData(Employer $employer, Carbon $startDate, Carbon $endDate, string $period): array
     {
         // Get total job applications for the date range
         $totalApplications = JobApplication::query()->whereHas('job', function ($query) use ($employer) {
@@ -204,9 +204,9 @@ class DashboardService
             ->count();
 
         // Get previous period for comparison
-        $daysDiff = $startDate->diffInDays($endDate);
-        $previousStartDate = (clone $startDate)->subDays($daysDiff + 1);
-        $previousEndDate = (clone $startDate)->subDay();
+        $previousPeriod = $this->getPreviousPeriod($startDate, $endDate, $period);
+        $previousStartDate = $previousPeriod['start_date'];
+        $previousEndDate = $previousPeriod['end_date'];
 
         $previousTotalApplications = JobApplication::query()->whereHas('job', function ($query) use ($employer) {
             $query->where('employer_id', $employer->id);
@@ -220,8 +220,8 @@ class DashboardService
             $percentageChange = (($totalApplications - $previousTotalApplications) / $previousTotalApplications) * 100;
         }
 
-        // Get appropriate grouping format based on date range
-        $groupFormat = $this->getGroupingFormat($startDate, $endDate);
+        // Get appropriate grouping format based on period
+        $groupFormat = $this->getGroupingFormat($period);
 
         // Get grouped applications for chart
         $groupedApplications = JobApplication::query()->whereHas('job', function ($query) use ($employer) {
@@ -237,12 +237,13 @@ class DashboardService
             });
 
         // Fill in missing dates with zero counts
-        $result = $this->fillMissingDates($startDate, $endDate, $groupedApplications, $groupFormat);
+        $result = $this->fillMissingDates($startDate, $endDate, $groupedApplications, $period);
 
         // Get application status counts
         $statusCounts = JobApplication::query()->whereHas('job', function ($query) use ($employer) {
             $query->where('employer_id', $employer->id);
         })
+            ->whereBetween('created_at', [$startDate, $endDate])
             ->select('status', DB::raw('COUNT(*) as count'))
             ->groupBy('status')
             ->get()
@@ -259,23 +260,57 @@ class DashboardService
     }
 
     /**
-     * Get appropriate date format for grouping based on date range
+     * Get previous period date range based on current period
      *
      * @param Carbon $startDate
      * @param Carbon $endDate
+     * @param string $period
+     * @return array
+     */
+    private function getPreviousPeriod(Carbon $startDate, Carbon $endDate, string $period): array
+    {
+        $previousStartDate = null;
+        $previousEndDate = null;
+
+        switch ($period) {
+            case 'week':
+                $previousStartDate = (clone $startDate)->subDays(7);
+                $previousEndDate = (clone $endDate)->subDays(7);
+                break;
+            case 'month':
+                $previousStartDate = (clone $startDate)->subMonth();
+                $previousEndDate = (clone $endDate)->subMonth();
+                break;
+            case 'year':
+                $previousStartDate = (clone $startDate)->subYear();
+                $previousEndDate = (clone $endDate)->subYear();
+                break;
+            default:
+                // Default to previous week
+                $previousStartDate = (clone $startDate)->subDays(7);
+                $previousEndDate = (clone $endDate)->subDays(7);
+        }
+
+        return [
+            'start_date' => $previousStartDate,
+            'end_date' => $previousEndDate,
+        ];
+    }
+
+    /**
+     * Get appropriate date format for grouping based on period
+     *
+     * @param string $period
      * @return string
      */
-    private function getGroupingFormat(Carbon $startDate, Carbon $endDate): string
+    private function getGroupingFormat(string $period): string
     {
-        $diffInDays = $startDate->diffInDays($endDate);
-
-        if ($diffInDays <= 31) {
-            return '%Y-%m-%d'; // Daily format for week and month
-        } elseif ($diffInDays <= 365) {
-            return '%Y-%m'; // Monthly format for year
-        } else {
-            return '%Y'; // Yearly format for multi-year
-        }
+        return match ($period) {
+            'week' => '%Y-%m-%d', // Daily format for week
+            'month' => '%Y-%m-%d', // Daily format for month
+            'year' => '%Y-%m', // Monthly format for year
+            default => '%Y-%m-%d', // Default to daily format
+        };
     }
 
     /**
@@ -284,24 +319,28 @@ class DashboardService
      * @param Carbon $startDate
      * @param Carbon $endDate
      * @param Collection $data
-     * @param string $groupFormat
+     * @param string $period
      * @return array
      */
-    private function fillMissingDates(Carbon $startDate, Carbon $endDate, Collection $data, string $groupFormat): array
+    private function fillMissingDates(Carbon $startDate, Carbon $endDate, Collection $data, string $period): array
     {
         $result = [];
         $currentDate = clone $startDate;
 
-        // Determine the increment method based on the grouping format
-        if ($groupFormat === '%Y-%m-%d') {
-            $incrementMethod = 'addDay';
-            $formatMethod = 'Y-m-d';
-        } elseif ($groupFormat === '%Y-%m') {
-            $incrementMethod = 'addMonth';
-            $formatMethod = 'Y-m';
-        } else {
-            $incrementMethod = 'addYear';
-            $formatMethod = 'Y';
+        // Determine the increment method and format based on period
+        switch ($period) {
+            case 'week':
+            case 'month':
+                $incrementMethod = 'addDay';
+                $formatMethod = 'Y-m-d';
+                break;
+            case 'year':
+                $incrementMethod = 'addMonth';
+                $formatMethod = 'Y-m';
+                break;
+            default:
+                $incrementMethod = 'addDay';
+                $formatMethod = 'Y-m-d';
         }
 
         while ($currentDate <= $endDate) {
@@ -317,17 +356,23 @@ class DashboardService
      * Get recent job updates for an employer
      *
      * @param Employer $employer
+     * @param Carbon $startDate
+     * @param Carbon $endDate
      * @param int $limit
      * @return Collection
      */
-    private function getRecentJobUpdates(Employer $employer, int $limit = 5): Collection
+    private function getRecentJobUpdates(Employer $employer, Carbon $startDate, Carbon $endDate, int $limit = 5): Collection
     {
         return $employer->jobs()
-            ->with(['applications' => function ($query) {
-                $query->select('job_id', DB::raw('COUNT(*) as applications_count'))
+            ->with(['applications' => function ($query) use ($startDate, $endDate) {
+                $query->whereBetween('created_at', [$startDate, $endDate])
+                    ->select('job_id', DB::raw('COUNT(*) as applications_count'))
                     ->groupBy('job_id');
             }])
-            ->withCount('applications')
+            ->withCount(['applications' => function ($query) use ($startDate, $endDate) {
+                $query->whereBetween('created_at', [$startDate, $endDate]);
+            }])
+            ->whereBetween('created_at', [$startDate, $endDate])
             ->orderBy('created_at', 'desc')
             ->limit($limit)
             ->get()
