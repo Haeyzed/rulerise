@@ -75,7 +75,7 @@ class EmployersController extends Controller implements HasMiddleware
             $employer = $this->employerService->updateProfile($user, $data);
 
             return response()->success([
-                'user' => $user->fresh(),
+                'user' => new UserResource($user->fresh()),
                 'employer' => new EmployerResource($employer)
             ], 'Profile updated successfully');
         } catch (Exception $e) {
