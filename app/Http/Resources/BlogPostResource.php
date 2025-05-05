@@ -136,15 +136,12 @@ class BlogPostResource extends JsonResource
              * @example {"id": 1, "name": "Technology", "slug": "technology"}
              */
             'category' => $this->whenLoaded('category', function () {
-                // Check if category is an object with id property
-                if (is_object($this->category) && isset($this->category->id)) {
-                    return [
-                        'id' => $this->category->id,
+                return $this->category
+                    ? [
+                         'id' => $this->category->id,
                         'name' => $this->category->name,
-                    ];
-                }
-                // Return null if category is not a valid object
-                return null;
+                    ]
+                    : null;
             }),
 
             /**
