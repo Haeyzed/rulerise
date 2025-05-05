@@ -50,24 +50,6 @@ class BlogPostResource extends JsonResource
             'subtitle' => $this->subtitle,
 
             /**
-             * The category ID of the blog post.
-             *
-             * @var int|null $category_id
-             * @example 1
-             */
-            'category_id' => $this->category_id,
-
-            /**
-             * The category of the blog post.
-             *z
-             * @var array|null $category
-             * @example {"id": 1, "name": "Technology", "slug": "technology"}
-             */
-            'category' => $this->whenLoaded('category', function () {
-                return new BlogPostCategoryResource($this->category);
-            }),
-
-            /**
              * The main body content of the blog post.
              *
              * @var string $body
@@ -145,6 +127,16 @@ class BlogPostResource extends JsonResource
                     'full_name' => $this->user->full_name,
                     'email' => $this->user->email,
                 ];
+            }),
+
+            /**
+             * The category of the blog post.
+             *z
+             * @var array|null $category
+             * @example {"id": 1, "name": "Technology", "slug": "technology"}
+             */
+            'category' => $this->whenLoaded('category', function () {
+                return new BlogPostCategoryResource($this->category);
             }),
 
             /**
