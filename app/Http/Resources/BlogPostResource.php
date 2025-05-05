@@ -136,7 +136,10 @@ class BlogPostResource extends JsonResource
              * @example {"id": 1, "name": "Technology", "slug": "technology"}
              */
             'category' => $this->whenLoaded('category', function () {
-                return new BlogPostCategoryResource($this->category);
+                return [
+                    'id' => $this->category->id,
+                    'name' => $this->category->name,
+                ];
             }),
 
             /**
