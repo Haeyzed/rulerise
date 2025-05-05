@@ -636,7 +636,7 @@ class EmployerService
      * @param User $user
      * @param array $data
      * @return Employer
-     * @throws Throwable
+     * @throws \Throwable
      */
     public function updateProfile(User $user, array $data): Employer
     {
@@ -647,56 +647,127 @@ class EmployerService
                 if ($user->employer->company_logo) {
                     $this->storageService->delete($user->employer->company_logo);
                 }
+                $fileName = Str::slug($data['title']) . '-' . time();
 
-                $fileName = Str::slug($data['company_name']) . '-' . time();
                 $logoPath = $this->uploadImage(
                     $data['company_logo'],
                     config('filestorage.paths.company_logos'),
                     $fileName
                 );
 
-                // Update employer's company logo
+                // Set the logo path in data
                 $data['company_logo'] = $logoPath;
             }
 
-            // Define user fields
-            $userFields = [
-                'first_name', 'last_name', 'title', 'email',
-                'phone', 'phone_country_code', 'country', 'state', 'city'
-            ];
-
-            // Define employer fields
-            $employerFields = [
-                'company_name', 'company_email', 'company_logo', 'company_description',
-                'company_industry', 'company_size', 'company_founded', 'company_country',
-                'company_state', 'company_address', 'company_phone_number', 'company_website',
-                'company_benefits', 'company_linkedin_url', 'company_twitter_url', 'company_facebook_url'
-            ];
-
-            // Update user data
-            $userUpdates = [];
-            foreach ($userFields as $field) {
-                if (array_key_exists($field, $data)) {
-                    $userUpdates[$field] = $data[$field];
-                }
+            // Update user data - explicitly check and update each field
+            if (isset($data['first_name'])) {
+                $user->first_name = $data['first_name'];
             }
 
-            if (!empty($userUpdates)) {
-                $user->update($userUpdates);
+            if (isset($data['last_name'])) {
+                $user->last_name = $data['last_name'];
             }
 
-            // Update employer data
-            $employerUpdates = [];
-            foreach ($employerFields as $field) {
-                if (array_key_exists($field, $data)) {
-                    $employerUpdates[$field] = $data[$field];
-                }
+            if (isset($data['title'])) {
+                $user->title = $data['title'];
             }
 
+            if (isset($data['email'])) {
+                $user->email = $data['email'];
+            }
+
+            if (isset($data['phone'])) {
+                $user->phone = $data['phone'];
+            }
+
+            if (isset($data['phone_country_code'])) {
+                $user->phone_country_code = $data['phone_country_code'];
+            }
+
+            if (isset($data['country'])) {
+                $user->country = $data['country'];
+            }
+
+            if (isset($data['state'])) {
+                $user->state = $data['state'];
+            }
+
+            if (isset($data['city'])) {
+                $user->city = $data['city'];
+            }
+
+            // Save user changes
+            $user->save();
+
+            // Update employer data - explicitly check and update each field
             $employer = $user->employer;
-            if (!empty($employerUpdates)) {
-                $employer->update($employerUpdates);
+
+            if (isset($data['company_name'])) {
+                $employer->company_name = $data['company_name'];
             }
+
+            if (isset($data['company_email'])) {
+                $employer->company_email = $data['company_email'];
+            }
+
+            if (isset($data['company_logo'])) {
+                $employer->company_logo = $data['company_logo'];
+            }
+
+            if (isset($data['company_description'])) {
+                $employer->company_description = $data['company_description'];
+            }
+
+            if (isset($data['company_industry'])) {
+                $employer->company_industry = $data['company_industry'];
+            }
+
+            if (isset($data['company_size'])) {
+                $employer->company_size = $data['company_size'];
+            }
+
+            if (isset($data['company_founded'])) {
+                $employer->company_founded = $data['company_founded'];
+            }
+
+            if (isset($data['company_country'])) {
+                $employer->company_country = $data['company_country'];
+            }
+
+            if (isset($data['company_state'])) {
+                $employer->company_state = $data['company_state'];
+            }
+
+            if (isset($data['company_address'])) {
+                $employer->company_address = $data['company_address'];
+            }
+
+            if (isset($data['company_phone_number'])) {
+                $employer->company_phone_number = $data['company_phone_number'];
+            }
+
+            if (isset($data['company_website'])) {
+                $employer->company_website = $data['company_website'];
+            }
+
+            if (isset($data['company_benefits'])) {
+                $employer->company_benefits = $data['company_benefits'];
+            }
+
+            if (isset($data['company_linkedin_url'])) {
+                $employer->company_linkedin_url = $data['company_linkedin_url'];
+            }
+
+            if (isset($data['company_twitter_url'])) {
+                $employer->company_twitter_url = $data['company_twitter_url'];
+            }
+
+            if (isset($data['company_facebook_url'])) {
+                $employer->company_facebook_url = $data['company_facebook_url'];
+            }
+
+            // Save employer changes
+            $employer->save();
 
             // Refresh the employer model to get the latest data
             $employer->refresh();
