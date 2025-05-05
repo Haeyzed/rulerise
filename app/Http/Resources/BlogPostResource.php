@@ -138,7 +138,7 @@ class BlogPostResource extends JsonResource
             'category' => $this->whenLoaded('category', function () {
                 return $this->category
                     ? [
-                         'id' => $this->category->id,
+                        // 'id' => $this->category->id,
                         'name' => $this->category->name,
                     ]
                     : null;
