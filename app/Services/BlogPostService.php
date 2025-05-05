@@ -171,7 +171,7 @@ class BlogPostService
                 $this->handleRelatedImages($blogPost, $data['related_images']);
             }
 
-            return $blogPost->load(['user', 'images']);
+            return $blogPost->load(['user', 'images', 'category']);
         });
     }
 
