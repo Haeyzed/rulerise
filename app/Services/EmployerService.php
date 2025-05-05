@@ -15,6 +15,7 @@ use Exception;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -630,6 +631,8 @@ class EmployerService
         ];
     }
 
+    use Illuminate\Support\Facades\Log;
+
     /**
      * Update employer profile
      *
@@ -640,137 +643,77 @@ class EmployerService
      */
     public function updateProfile(User $user, array $data): Employer
     {
+        Log::info('Starting employer profile update', [
+            'user_before' => $user->toArray(),
+            'employer_before' => $user->employer->toArray(),
+            'input_data' => $data,
+        ]);
+
         return DB::transaction(function () use ($user, $data) {
             // Handle company logo
             if (isset($data['company_logo']) && $data['company_logo'] instanceof UploadedFile) {
-                // Delete old logo if exists
+                Log::info('Processing new company logo');
+
                 if ($user->employer->company_logo) {
+                    Log::info('Deleting old company logo', ['path' => $user->employer->company_logo]);
                     $this->storageService->delete($user->employer->company_logo);
                 }
-                $fileName = Str::slug($data['title']) . '-' . time();
 
                 $logoPath = $this->uploadImage(
                     $data['company_logo'],
-                    config('filestorage.paths.company_logos'),
-                    $fileName
+                    config('filestorage.paths.company_logos')
                 );
 
-                // Set the logo path in data
+                Log::info('New logo uploaded', ['path' => $logoPath]);
+
                 $data['company_logo'] = $logoPath;
             }
 
-            // Update user data - explicitly check and update each field
-            if (isset($data['first_name'])) {
-                $user->first_name = $data['first_name'];
-            }
+            Log::info('Updating user data');
 
-            if (isset($data['last_name'])) {
-                $user->last_name = $data['last_name'];
-            }
+            if (isset($data['first_name'])) $user->first_name = $data['first_name'];
+            if (isset($data['last_name'])) $user->last_name = $data['last_name'];
+            if (isset($data['title'])) $user->title = $data['title'];
+            if (isset($data['email'])) $user->email = $data['email'];
+            if (isset($data['phone'])) $user->phone = $data['phone'];
+            if (isset($data['phone_country_code'])) $user->phone_country_code = $data['phone_country_code'];
+            if (isset($data['country'])) $user->country = $data['country'];
+            if (isset($data['state'])) $user->state = $data['state'];
+            if (isset($data['city'])) $user->city = $data['city'];
 
-            if (isset($data['title'])) {
-                $user->title = $data['title'];
-            }
-
-            if (isset($data['email'])) {
-                $user->email = $data['email'];
-            }
-
-            if (isset($data['phone'])) {
-                $user->phone = $data['phone'];
-            }
-
-            if (isset($data['phone_country_code'])) {
-                $user->phone_country_code = $data['phone_country_code'];
-            }
-
-            if (isset($data['country'])) {
-                $user->country = $data['country'];
-            }
-
-            if (isset($data['state'])) {
-                $user->state = $data['state'];
-            }
-
-            if (isset($data['city'])) {
-                $user->city = $data['city'];
-            }
-
-            // Save user changes
             $user->save();
+            Log::info('User updated', ['user_after' => $user->toArray()]);
 
-            // Update employer data - explicitly check and update each field
             $employer = $user->employer;
 
-            if (isset($data['company_name'])) {
-                $employer->company_name = $data['company_name'];
-            }
+            Log::info('Updating employer data');
 
-            if (isset($data['company_email'])) {
-                $employer->company_email = $data['company_email'];
-            }
+            if (isset($data['company_name'])) $employer->company_name = $data['company_name'];
+            if (isset($data['company_email'])) $employer->company_email = $data['company_email'];
+            if (isset($data['company_logo'])) $employer->company_logo = $data['company_logo'];
+            if (isset($data['company_description'])) $employer->company_description = $data['company_description'];
+            if (isset($data['company_industry'])) $employer->company_industry = $data['company_industry'];
+            if (isset($data['company_size'])) $employer->company_size = $data['company_size'];
+            if (isset($data['company_founded'])) $employer->company_founded = $data['company_founded'];
+            if (isset($data['company_country'])) $employer->company_country = $data['company_country'];
+            if (isset($data['company_state'])) $employer->company_state = $data['company_state'];
+            if (isset($data['company_address'])) $employer->company_address = $data['company_address'];
+            if (isset($data['company_phone_number'])) $employer->company_phone_number = $data['company_phone_number'];
+            if (isset($data['company_website'])) $employer->company_website = $data['company_website'];
+            if (isset($data['company_benefits'])) $employer->company_benefits = $data['company_benefits'];
+            if (isset($data['company_linkedin_url'])) $employer->company_linkedin_url = $data['company_linkedin_url'];
+            if (isset($data['company_twitter_url'])) $employer->company_twitter_url = $data['company_twitter_url'];
+            if (isset($data['company_facebook_url'])) $employer->company_facebook_url = $data['company_facebook_url'];
 
-            if (isset($data['company_logo'])) {
-                $employer->company_logo = $data['company_logo'];
-            }
-
-            if (isset($data['company_description'])) {
-                $employer->company_description = $data['company_description'];
-            }
-
-            if (isset($data['company_industry'])) {
-                $employer->company_industry = $data['company_industry'];
-            }
-
-            if (isset($data['company_size'])) {
-                $employer->company_size = $data['company_size'];
-            }
-
-            if (isset($data['company_founded'])) {
-                $employer->company_founded = $data['company_founded'];
-            }
-
-            if (isset($data['company_country'])) {
-                $employer->company_country = $data['company_country'];
-            }
-
-            if (isset($data['company_state'])) {
-                $employer->company_state = $data['company_state'];
-            }
-
-            if (isset($data['company_address'])) {
-                $employer->company_address = $data['company_address'];
-            }
-
-            if (isset($data['company_phone_number'])) {
-                $employer->company_phone_number = $data['company_phone_number'];
-            }
-
-            if (isset($data['company_website'])) {
-                $employer->company_website = $data['company_website'];
-            }
-
-            if (isset($data['company_benefits'])) {
-                $employer->company_benefits = $data['company_benefits'];
-            }
-
-            if (isset($data['company_linkedin_url'])) {
-                $employer->company_linkedin_url = $data['company_linkedin_url'];
-            }
-
-            if (isset($data['company_twitter_url'])) {
-                $employer->company_twitter_url = $data['company_twitter_url'];
-            }
-
-            if (isset($data['company_facebook_url'])) {
-                $employer->company_facebook_url = $data['company_facebook_url'];
-            }
-
-            // Save employer changes
             $employer->save();
+            Log::info('Employer updated', ['employer_after' => $employer->toArray()]);
 
-            // Refresh the employer model to get the latest data
             $employer->refresh();
+
+            Log::info('Employer profile update complete', [
+                'user_final' => $user->toArray(),
+                'employer_final' => $employer->toArray(),
+            ]);
 
             return $employer->load([
                 'notificationTemplates',
