@@ -18,6 +18,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Str;
+use Throwable;
 
 /**
  * Service class for employer related operations
@@ -634,7 +636,7 @@ class EmployerService
      * @param User $user
      * @param array $data
      * @return Employer
-     * @throws \Throwable
+     * @throws Throwable
      */
     public function updateProfile(User $user, array $data): Employer
     {
@@ -646,36 +648,52 @@ class EmployerService
                     $this->storageService->delete($user->employer->company_logo);
                 }
 
+                $fileName = Str::slug($data['company_name']) . '-' . time();
                 $logoPath = $this->uploadImage(
                     $data['company_logo'],
-                    config('filestorage.paths.company_logos')
+                    config('filestorage.paths.company_logos'),
+                    $fileName
                 );
 
                 // Update employer's company logo
                 $data['company_logo'] = $logoPath;
             }
 
-            // Update user data - fields that belong to the User model
+            // Define user fields
             $userFields = [
                 'first_name', 'last_name', 'title', 'email',
-                'phone', 'country', 'state', 'city'
+                'phone', 'phone_country_code', 'country', 'state', 'city'
             ];
 
-            $userUpdates = array_intersect_key($data, array_flip($userFields));
-            if (!empty($userUpdates)) {
-                $user->update($userUpdates);
-            }
-
-            // Update employer data - fields that belong to the Employer model
-            $employer = $user->employer;
+            // Define employer fields
             $employerFields = [
                 'company_name', 'company_email', 'company_logo', 'company_description',
                 'company_industry', 'company_size', 'company_founded', 'company_country',
                 'company_state', 'company_address', 'company_phone_number', 'company_website',
-                'company_benefits'
+                'company_benefits', 'company_linkedin_url', 'company_twitter_url', 'company_facebook_url'
             ];
 
-            $employerUpdates = array_intersect_key($data, array_flip($employerFields));
+            // Update user data
+            $userUpdates = [];
+            foreach ($userFields as $field) {
+                if (array_key_exists($field, $data)) {
+                    $userUpdates[$field] = $data[$field];
+                }
+            }
+
+            if (!empty($userUpdates)) {
+                $user->update($userUpdates);
+            }
+
+            // Update employer data
+            $employerUpdates = [];
+            foreach ($employerFields as $field) {
+                if (array_key_exists($field, $data)) {
+                    $employerUpdates[$field] = $data[$field];
+                }
+            }
+
+            $employer = $user->employer;
             if (!empty($employerUpdates)) {
                 $employer->update($employerUpdates);
             }
@@ -972,11 +990,28 @@ class EmployerService
      *
      * @param UploadedFile $image The image file to upload.
      * @param string $path The storage path.
+     * @param string $fileName The name to store the file as.
      * @param array $options Additional options for the upload.
      * @return string The path to the uploaded image.
      */
-    private function uploadImage(UploadedFile $image, string $path, array $options = []): string
+    private function uploadImage(UploadedFile $image, string $path, &$fileName = null, array $options = []): string
     {
-        return $this->storageService->upload($image, $path, $options);
+        // Generate a filename based on the current timestamp and a random string
+        $fileName = time() . '-' . Str::slug(pathinfo($image->getClientOriginalName(), PATHINFO_FILENAME)) . '.' . $image->getClientOriginalExtension();
+
+        return $this->storageService->upload($image, $path, $fileName, $options);
     }
+
+//    /**
+//     * Upload an image to storage.
+//     *
+//     * @param UploadedFile $image The image file to upload.
+//     * @param string $path The storage path.
+//     * @param array $options Additional options for the upload.
+//     * @return string The path to the uploaded image.
+//     */
+//    private function uploadImage(UploadedFile $image, string $path, array $options = []): string
+//    {
+//        return $this->storageService->upload($image, $path, $options);
+//    }
 }
