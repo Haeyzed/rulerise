@@ -641,19 +641,10 @@ class EmployerService
      */
     public function updateProfile(User $user, array $data): Employer
     {
-        Log::info('Starting employer profile update', [
-            'user_before' => $user->toArray(),
-            'employer_before' => $user->employer->toArray(),
-            'input_data' => $data,
-        ]);
-
         return DB::transaction(function () use ($user, $data) {
             // Handle company logo
             if (isset($data['company_logo']) && $data['company_logo'] instanceof UploadedFile) {
-                Log::info('Processing new company logo');
-
                 if ($user->employer->company_logo) {
-                    Log::info('Deleting old company logo', ['path' => $user->employer->company_logo]);
                     $this->storageService->delete($user->employer->company_logo);
                 }
 
@@ -661,9 +652,6 @@ class EmployerService
                     $data['company_logo'],
                     config('filestorage.paths.company_logos')
                 );
-
-                Log::info('New logo uploaded', ['path' => $logoPath]);
-
                 $data['company_logo'] = $logoPath;
             }
 
@@ -680,11 +668,8 @@ class EmployerService
             if (isset($data['city'])) $user->city = $data['city'];
 
             $user->save();
-            Log::info('User updated', ['user_after' => $user->toArray()]);
 
             $employer = $user->employer;
-
-            Log::info('Updating employer data');
 
             if (isset($data['company_name'])) $employer->company_name = $data['company_name'];
             if (isset($data['company_email'])) $employer->company_email = $data['company_email'];
@@ -704,15 +689,7 @@ class EmployerService
             if (isset($data['company_facebook_url'])) $employer->company_facebook_url = $data['company_facebook_url'];
 
             $employer->save();
-            Log::info('Employer updated', ['employer_after' => $employer->toArray()]);
-
             $employer->refresh();
-
-            Log::info('Employer profile update complete', [
-                'user_final' => $user->toArray(),
-                'employer_final' => $employer->toArray(),
-            ]);
-
             return $employer->load([
                 'notificationTemplates',
                 'subscriptions',

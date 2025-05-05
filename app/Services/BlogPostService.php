@@ -78,11 +78,9 @@ class BlogPostService
 
             // Handle banner image
             if (isset($data['banner_image']) && $data['banner_image'] instanceof UploadedFile) {
-                $fileName = Str::slug($data['title']) . '-' . time();
                 $data['banner_image'] = $this->uploadImage(
                     $data['banner_image'],
                     config('filestorage.paths.blog_banners'),
-                    $fileName
                 );
             }
 
@@ -128,12 +126,12 @@ class BlogPostService
 
         foreach ($images as $image) {
             if ($image instanceof UploadedFile) {
-                $fileName = Str::slug($blogPost->title) . '-image-' . $order . '-' . time();
+//                $fileName = Str::slug($blogPost->title) . '-image-' . $order . '-' . time();
                 $blogPost->images()->create([
                     'image_path' => $this->uploadImage(
                         $image,
                         config('filestorage.paths.blog_images'),
-                        $fileName
+//                        $fileName
                     ),
                     'order' => $order++,
                 ]);
@@ -159,11 +157,9 @@ class BlogPostService
                     $this->storageService->delete($blogPost->banner_image);
                 }
 
-                $fileName = Str::slug($data['title'] ?? $blogPost->title) . '-' . time();
                 $data['banner_image'] = $this->uploadImage(
                     $data['banner_image'],
                     config('filestorage.paths.blog_banners'),
-                    $fileName
                 );
             }
 
