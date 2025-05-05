@@ -35,8 +35,15 @@ class UpdateProfileRequest extends BaseRequest
             'email' => [
                 'required',
                 'email',
-                Rule::unique('users')->ignore(auth()->id()),
+                Rule::unique('users')->ignore(auth()->id())->where(function ($query) {
+                    return $query->where('user_type', $this->input('user_type', 'employer'));
+                }),
             ],
+//            'email' => [
+//                'required',
+//                'email',
+//                Rule::unique('users')->ignore(auth()->id()),
+//            ],
             'phone' => 'nullable|string|max:20',
             'phone_country_code' => 'nullable|string|max:10',
             'country' => 'nullable|string|max:100',
@@ -50,7 +57,10 @@ class UpdateProfileRequest extends BaseRequest
             'company_description' => 'nullable|string',
             'company_industry' => 'nullable|string|max:255',
             'company_size' => 'nullable|string|max:255',
-            'company_founded' => 'nullable|date_format:Y',
+            'company_founded' => [
+                'nullable',
+                Rule::date()->format('Y-m-d'),
+            ],
             'company_country' => 'nullable|string|max:100',
             'company_state' => 'nullable|string|max:100',
             'company_address' => 'nullable|string|max:255',

@@ -12,6 +12,7 @@ use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
+use Throwable;
 
 /**
  * Controller for employer profile management
@@ -65,7 +66,7 @@ class EmployersController extends Controller implements HasMiddleware
      *
      * @param UpdateProfileRequest $request
      * @return JsonResponse
-     * @throws \Throwable
+     * @throws Throwable
      */
     public function updateProfile(UpdateProfileRequest $request): JsonResponse
     {
