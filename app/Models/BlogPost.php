@@ -16,6 +16,7 @@ class BlogPost extends Model
     /** @use HasFactory<BlogPostFactory> */
     use HasFactory, SoftDeletes, HasDateFilter;
 
+    protected  $with = ['category'];
     /**
      * The attributes that are mass assignable.
      *
