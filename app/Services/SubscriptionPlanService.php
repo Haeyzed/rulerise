@@ -113,9 +113,16 @@ class SubscriptionPlanService
         return [
             'price_difference' => $planB->price - $planA->price,
             'duration_difference' => $planB->duration_days - $planA->duration_days,
-            'job_posts_difference' => $planB->job_posts - $planA->job_posts,
-            'featured_jobs_difference' => $planB->featured_jobs - $planA->featured_jobs,
-            'cv_downloads_difference' => $planB->cv_downloads - $planA->cv_downloads,
+            'job_posts_difference' => $planB->job_posts_limit - $planA->job_posts_limit,
+            'featured_jobs_difference' => $planB->featured_jobs_limit - $planA->featured_jobs_limit,
+            'resume_views_difference' => $planB->resume_views_limit - $planA->resume_views_limit,
+            'job_alerts_difference' => (int)$planB->job_alerts - (int)$planA->job_alerts,
+            'candidate_search_difference' => (int)$planB->candidate_search - (int)$planA->candidate_search,
+            'resume_access_difference' => (int)$planB->resume_access - (int)$planA->resume_access,
+            'support_level_comparison' => [
+                'planA' => $planA->support_level,
+                'planB' => $planB->support_level,
+            ],
         ];
     }
 }

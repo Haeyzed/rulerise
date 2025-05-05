@@ -141,9 +141,9 @@ class SubscriptionService
             'payment_reference' => $paymentResult['payment_reference'] ?? null,
             'subscription_id' => $paymentResult['subscription_id'] ?? null,
             'receipt_path' => $receiptPath,
-            'job_posts_left' => $plan->job_posts,
-            'featured_jobs_left' => $plan->featured_jobs,
-            'cv_downloads_left' => $plan->cv_downloads,
+            'job_posts_left' => $plan->job_posts_limit,
+            'featured_jobs_left' => $plan->featured_jobs_limit,
+            'cv_downloads_left' => $plan->resume_views_limit,
             'is_active' => true,
         ]);
 
@@ -214,9 +214,9 @@ class SubscriptionService
             'payment_reference' => $paymentResult['payment_reference'] ?? $subscription->payment_reference,
             'subscription_id' => $paymentResult['subscription_id'] ?? $subscription->subscription_id,
             'receipt_path' => $receiptPath,
-            'job_posts_left' => $newPlan->job_posts,
-            'featured_jobs_left' => $newPlan->featured_jobs,
-            'cv_downloads_left' => $newPlan->cv_downloads,
+            'job_posts_left' => $newPlan->job_posts_limit,
+            'featured_jobs_left' => $newPlan->featured_jobs_limit,
+            'cv_downloads_left' => $newPlan->resume_views_limit,
             'is_active' => true,
         ]);
 

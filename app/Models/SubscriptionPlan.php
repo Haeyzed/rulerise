@@ -15,12 +15,17 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property float $price
  * @property string $currency
  * @property int $duration_days
- * @property int $job_posts
- * @property int $featured_jobs
- * @property int $cv_downloads
- * @property bool $can_view_candidates
- * @property bool $can_create_candidate_pools
+ * @property int $job_posts_limit
+ * @property int $featured_jobs_limit
+ * @property int $resume_views_limit
+ * @property bool $job_alerts
+ * @property bool $candidate_search
+ * @property bool $resume_access
+ * @property bool $company_profile
+ * @property string $support_level
  * @property bool $is_active
+ * @property bool $is_featured
+ * @property array|null $features
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  *
@@ -33,7 +38,7 @@ class SubscriptionPlan extends Model
     /**
      * The attributes that are mass assignable.
      *
-     * @var array<int, string>
+     * @var array<string>
      */
     protected $fillable = [
         'name',
@@ -41,28 +46,37 @@ class SubscriptionPlan extends Model
         'price',
         'currency',
         'duration_days',
-        'job_posts',
-        'featured_jobs',
-        'cv_downloads',
-        'can_view_candidates',
-        'can_create_candidate_pools',
+        'job_posts_limit',
+        'featured_jobs_limit',
+        'resume_views_limit',
+        'job_alerts',
+        'candidate_search',
+        'resume_access',
+        'company_profile',
+        'support_level',
         'is_active',
+        'is_featured',
+        'features',
     ];
 
     /**
      * The attributes that should be cast.
      *
-     * @var array<string, string>
+     * @var array
      */
     protected $casts = [
         'price' => 'float',
         'duration_days' => 'integer',
-        'job_posts' => 'integer',
-        'featured_jobs' => 'integer',
-        'cv_downloads' => 'integer',
-        'can_view_candidates' => 'boolean',
-        'can_create_candidate_pools' => 'boolean',
+        'job_posts_limit' => 'integer',
+        'featured_jobs_limit' => 'integer',
+        'resume_views_limit' => 'integer',
+        'job_alerts' => 'boolean',
+        'candidate_search' => 'boolean',
+        'resume_access' => 'boolean',
+        'company_profile' => 'boolean',
         'is_active' => 'boolean',
+        'is_featured' => 'boolean',
+        'features' => 'json',
     ];
 
     /**
