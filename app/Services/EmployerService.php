@@ -631,8 +631,6 @@ class EmployerService
         ];
     }
 
-    use Illuminate\Support\Facades\Log;
-
     /**
      * Update employer profile
      *
