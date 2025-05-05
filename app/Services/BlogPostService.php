@@ -58,7 +58,7 @@ class BlogPostService
                 $request->input('start_date'),
                 $request->input('end_date')
             )
-            ->with(['user', 'images'])
+            ->with(['user', 'images', 'category'])
             ->paginate($request->integer('per_page', config('app.pagination.per_page', 15)));
     }
 

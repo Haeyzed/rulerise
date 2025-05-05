@@ -129,18 +129,18 @@ class BlogPostResource extends JsonResource
                 ];
             }),
 
-//            /**
-//             * The category of the blog post.
-//             *z
-//             * @var array|null $category
-//             * @example {"id": 1, "name": "Technology", "slug": "technology"}
-//             */
-//            'category' => $this->whenLoaded('category', function () {
-//                return [
-//                    'id' => $this->category->id,
-//                    'name' => $this->category->name,
-//                ];
-//            }),
+            /**
+             * The category of the blog post.
+             *z
+             * @var array|null $category
+             * @example {"id": 1, "name": "Technology", "slug": "technology"}
+             */
+            'category' => $this->whenLoaded('category', function () {
+                return [
+                    'id' => $this->category->id,
+                    'name' => $this->category->name,
+                ];
+            }),
 
             /**
              * The images related to the blog post.
