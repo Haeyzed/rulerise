@@ -51,17 +51,17 @@ class EmployersController extends Controller implements HasMiddleware
      */
     public function index(Request $request): JsonResponse
     {
-        $query = Employer::with('user');
+        $query = Employer::with('user')->withCount('jobs');
 
         // Apply filters
         if ($request->has('search')) {
             $search = $request->input('search');
             $query->where(function($q) use ($search) {
                 $q->where('company_name', 'like', "%{$search}%")
-                  ->orWhereHas('user', function($q) use ($search) {
-                      $q->where('name', 'like', "%{$search}%")
-                        ->orWhere('email', 'like', "%{$search}%");
-                  });
+                    ->orWhereHas('user', function($q) use ($search) {
+                        $q->where('name', 'like', "%{$search}%")
+                            ->orWhere('email', 'like', "%{$search}%");
+                    });
             });
         }
 
@@ -100,7 +100,18 @@ class EmployersController extends Controller implements HasMiddleware
             'subscriptions.plan',
             'candidatePools',
             'notificationTemplates',
-        ])->findOrFail($id);
+        ])
+            ->withCount('jobs')
+            ->findOrFail($id);
+
+        // Add additional job statistics
+        $employer->active_jobs_count = $employer->jobs()->where('is_active', true)->count();
+        $employer->featured_jobs_count = $employer->jobs()->where('is_featured', true)->count();
+        $employer->draft_jobs_count = $employer->jobs()->where('is_draft', true)->count();
+        $employer->expired_jobs_count = $employer->jobs()
+            ->where('deadline', '<', now())
+            ->where('deadline', '!=', null)
+            ->count();
 
         return response()->success($employer, 'Employer retrieved successfully');
     }
