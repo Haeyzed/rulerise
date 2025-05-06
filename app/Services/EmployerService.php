@@ -13,7 +13,7 @@ use App\Models\SubscriptionPlan;
 use App\Models\User;
 use App\Services\Storage\StorageService;
 use Exception;
-use Illuminate\Database\Query\Builder;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
