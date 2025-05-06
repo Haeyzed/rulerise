@@ -178,7 +178,8 @@ class EmployersController extends Controller implements HasMiddleware
         $employers = $this->employerService->getEmployers($filters);
 
         return response()->paginatedSuccess(
-            EmployerResource::collection($employers),
+            $employers,
+//            EmployerResource::collection($employers),
             'Employers retrieved successfully'
         );
     }
@@ -195,7 +196,8 @@ class EmployersController extends Controller implements HasMiddleware
         $statistics = $this->employerService->getEmployerStatistics($id);
 
         return response()->success([
-            'employer' => new EmployerResource($employer),
+            $employer,
+//            'employer' => new EmployerResource($employer),
             'statistics' => $statistics,
         ], 'Employer profile details retrieved successfully');
     }
