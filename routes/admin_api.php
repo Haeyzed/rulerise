@@ -40,17 +40,26 @@ Route::middleware(['auth:api', 'role:admin'])->group(function () {
 
     // Candidates
     Route::prefix('candidate')->group(function () {
+        // List all candidates
         Route::get('/', [CandidatesController::class, 'index']);
+
+        // Candidate profile tabs
+        Route::get('{id}/profile', [CandidatesController::class, 'getProfileDetails']);
+        Route::get('{id}/applications', [CandidatesController::class, 'getApplications']);
+
+        // Legacy route - keep for backward compatibility
         Route::get('{id}', [CandidatesController::class, 'show']);
+
+        // Candidate actions
         Route::post('{id}/delete', [CandidatesController::class, 'delete']);
-        Route::post('{id}/moderateAccountStatus', [CandidatesController::class, 'moderateAccountStatus']);
-        Route::post('{id}/setShadowBan', [CandidatesController::class, 'setShadowBan']);
+        Route::post('{id}/moderate-account-status', [CandidatesController::class, 'moderateAccountStatus']);
+        Route::post('{id}/set-shadow-ban', [CandidatesController::class, 'setShadowBan']);
     });
 
     // Employers
     Route::prefix('employer')->group(function () {
 //        Route::get('/', [EmployersController::class, 'index']);
-        Route::get('{id}', [EmployersController::class, 'show']);
+//        Route::get('{id}', [EmployersController::class, 'show']);
         Route::post('{id}/delete', [EmployersController::class, 'delete']);
         Route::post('{id}/moderate-account-status', [EmployersController::class, 'moderateAccountStatus']);
         Route::post('{id}/set-shadow-ban', [EmployersController::class, 'setShadowBan']);

@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\Candidate;
-use App\Services\AdminService;
+use App\Http\Resources\CandidateResource;
+use App\Http\Resources\JobApplicationResource;
+use App\Http\Resources\UserResource;
+use App\Services\AdminCandidateService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
@@ -16,21 +18,21 @@ use Illuminate\Routing\Controllers\Middleware;
 class CandidatesController extends Controller implements HasMiddleware
 {
     /**
-     * Admin service instance
+     * Admin candidate service instance
      *
-     * @var AdminService
+     * @var AdminCandidateService
      */
-    protected AdminService $adminService;
+    protected AdminCandidateService $candidateService;
 
     /**
      * Create a new controller instance.
      *
-     * @param AdminService $adminService
+     * @param AdminCandidateService $candidateService
      * @return void
      */
-    public function __construct(AdminService $adminService)
+    public function __construct(AdminCandidateService $candidateService)
     {
-        $this->adminService = $adminService;
+        $this->candidateService = $candidateService;
     }
 
     /**
@@ -51,60 +53,64 @@ class CandidatesController extends Controller implements HasMiddleware
      */
     public function index(Request $request): JsonResponse
     {
-        $query = Candidate::with('user');
+        $filters = $request->all();
+        $candidates = $this->candidateService->getCandidates($filters);
 
-        // Apply filters
-        if ($request->has('search')) {
-            $search = $request->input('search');
-            $query->whereHas('user', function($q) use ($search) {
-                $q->where('first_name', 'like', "%{$search}%")
-                    ->orWhere('last_name', 'like', "%{$search}%")
-                    ->orWhere('email', 'like', "%{$search}%");
-            });
-        }
-
-        if ($request->has('is_featured')) {
-            $isFeatured = $request->input('is_featured');
-            $query->where('is_featured', $isFeatured === 'true');
-        }
-
-        if ($request->has('is_verified')) {
-            $isVerified = $request->input('is_verified');
-            $query->where('is_verified', $isVerified === 'true');
-        }
-
-        // Sort
-        $sortBy = $request->input('sort_by', 'created_at');
-        $sortOrder = $request->input('sort_order', 'desc');
-        $query->orderBy($sortBy, $sortOrder);
-
-        $perPage = $request->input('per_page', 10);
-        $candidates = $query->paginate($perPage);
-
-        return response()->paginatedSuccess($candidates, 'Candidates retrieved successfully');
+        return response()->paginatedSuccess(
+            CandidateResource::collection($candidates),
+            'Candidates retrieved successfully'
+        );
     }
 
     /**
-     * Get candidate details
+     * Get candidate profile details
+     *
+     * @param int $id
+     * @return JsonResponse
+     */
+    public function getProfileDetails(int $id): JsonResponse
+    {
+        $data = $this->candidateService->getCandidateProfile($id);
+
+        return response()->success([
+            'candidate' => new CandidateResource($data['candidate']),
+            'statistics' => $data['statistics'],
+        ], 'Candidate profile details retrieved successfully');
+    }
+
+    /**
+     * Get candidate applications
+     *
+     * @param int $id
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function getApplications(int $id, Request $request): JsonResponse
+    {
+        $filters = $request->all();
+        $applications = $this->candidateService->getCandidateApplications($id, $filters);
+
+        return response()->paginatedSuccess(
+            JobApplicationResource::collection($applications),
+            'Candidate applications retrieved successfully'
+        );
+    }
+
+    /**
+     * Show candidate details (legacy method)
      *
      * @param int $id
      * @return JsonResponse
      */
     public function show(int $id): JsonResponse
     {
-        $candidate = Candidate::with([
-            'user',
-            'qualification',
-            'workExperiences',
-            'educationHistories',
-            'languages',
-            'portfolio',
-            'credentials',
-            'resumes',
-            'jobApplications',
-        ])->findOrFail($id);
+        $data = $this->candidateService->getCandidateProfile($id);
+        $candidate = $data['candidate'];
 
-        return response()->success($candidate, 'Candidate details retrieved successfully.');
+        return response()->success(
+            new CandidateResource($candidate),
+            'Candidate retrieved successfully'
+        );
     }
 
     /**
@@ -115,13 +121,9 @@ class CandidatesController extends Controller implements HasMiddleware
      */
     public function delete(int $id): JsonResponse
     {
-        $candidate = Candidate::query()->findOrFail($id);
-        $user = $candidate->user;
+        $this->candidateService->deleteCandidate($id);
 
-        // Soft delete the user
-        $user->delete();
-
-        return response()->success($candidate, 'Candidate deleted successfully.');
+        return response()->success('Candidate deleted successfully');
     }
 
     /**
@@ -133,20 +135,18 @@ class CandidatesController extends Controller implements HasMiddleware
      */
     public function moderateAccountStatus(int $id, Request $request): JsonResponse
     {
-        $candidate = Candidate::query()->findOrFail($id);
-        $user = $candidate->user;
-
         $isActive = $request->input('is_active', true);
-
-        $user = $this->adminService->moderateAccountStatus($user, $isActive);
+        $user = $this->candidateService->moderateCandidateAccountStatus($id, $isActive);
 
         $status = $isActive ? 'activated' : 'deactivated';
-
-        return response()->success($user,"Candidate account {$status} successfully");
+        return response()->success(
+            new UserResource($user),
+            "Candidate account {$status} successfully"
+        );
     }
 
     /**
-     * Set shadow ban status
+     * Set shadow-ban status
      *
      * @param int $id
      * @param Request $request
@@ -154,15 +154,13 @@ class CandidatesController extends Controller implements HasMiddleware
      */
     public function setShadowBan(int $id, Request $request): JsonResponse
     {
-        $candidate = Candidate::query()->findOrFail($id);
-        $user = $candidate->user;
-
         $isShadowBanned = $request->input('is_shadow_banned', false);
-
-        $user = $this->adminService->setShadowBan($user, $isShadowBanned);
+        $user = $this->candidateService->setShadowBanForCandidate($id, $isShadowBanned);
 
         $status = $isShadowBanned ? 'shadow banned' : 'removed from shadow ban';
-
-        return response()->success($user,"Candidate account {$status} successfully");
+        return response()->success(
+            new UserResource($user),
+            "Candidate account {$status} successfully"
+        );
     }
 }
