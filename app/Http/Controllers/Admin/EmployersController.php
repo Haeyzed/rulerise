@@ -196,7 +196,7 @@ class EmployersController extends Controller implements HasMiddleware
         $statistics = $this->employerService->getEmployerStatistics($id);
 
         return response()->success([
-            $employer,
+            'employer' => $employer,
 //            'employer' => new EmployerResource($employer),
             'statistics' => $statistics,
         ], 'Employer profile details retrieved successfully');
