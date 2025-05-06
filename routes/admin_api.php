@@ -49,11 +49,18 @@ Route::middleware(['auth:api', 'role:admin'])->group(function () {
 
     // Employers
     Route::prefix('employer')->group(function () {
-        Route::get('/', [EmployersController::class, 'index']);
+//        Route::get('/', [EmployersController::class, 'index']);
         Route::get('{id}', [EmployersController::class, 'show']);
         Route::post('{id}/delete', [EmployersController::class, 'delete']);
-        Route::post('{id}/moderateAccountStatus', [EmployersController::class, 'moderateAccountStatus']);
-        Route::post('{id}/setShadowBan', [EmployersController::class, 'setShadowBan']);
+        Route::post('{id}/moderate-account-status', [EmployersController::class, 'moderateAccountStatus']);
+        Route::post('{id}/set-shadow-ban', [EmployersController::class, 'setShadowBan']);
+
+        //New api
+        Route::get('/', [EmployersController::class, 'getEmployers']);
+        Route::get('{id}/profile', [EmployersController::class, 'getProfileDetails']);
+        Route::get('{id}/jobs', [EmployersController::class, 'getJobListings']);
+        Route::get('{id}/hired-candidates', [EmployersController::class, 'getHiredCandidates']);
+        Route::get('{id}/transactions', [EmployersController::class, 'getTransactions']);
     });
 
     // Subscription plans

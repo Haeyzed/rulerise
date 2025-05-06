@@ -50,6 +50,394 @@ class EmployerService
         $this->jobService = $jobService;
     }
 
+
+    /**
+     * Get a paginated list of employers with filters
+     *
+     * @param array $filters
+     * @return LengthAwarePaginator
+     */
+    public function getEmployers(array $filters = []): LengthAwarePaginator
+    {
+        $query = Employer::with(['user', 'activeSubscription.plan'])
+            ->withCount('jobs');
+
+        // Apply search filter
+        if (!empty($filters['search'])) {
+            $search = $filters['search'];
+            $query->where(function($q) use ($search) {
+                $q->where('company_name', 'like', "%{$search}%")
+                    ->orWhere('company_email', 'like', "%{$search}%")
+                    ->orWhereHas('user', function($q) use ($search) {
+                        $q->where('first_name', 'like', "%{$search}%")
+                            ->orWhere('last_name', 'like', "%{$search}%")
+                            ->orWhere('email', 'like', "%{$search}%");
+                    });
+            });
+        }
+
+        // Apply status filter
+        if (isset($filters['status'])) {
+            if ($filters['status'] === 'active') {
+                $query->whereHas('user', function($q) {
+                    $q->where('is_active', true);
+                });
+            } elseif ($filters['status'] === 'inactive') {
+                $query->whereHas('user', function($q) {
+                    $q->where('is_active', false);
+                });
+            } elseif ($filters['status'] === 'blacklisted') {
+                $query->whereHas('user', function($q) {
+                    $q->where('is_shadow_banned', true);
+                });
+            }
+        }
+
+        // Apply featured filter
+        if (isset($filters['is_featured'])) {
+            $query->where('is_featured', $filters['is_featured']);
+        }
+
+        // Apply verified filter
+        if (isset($filters['is_verified'])) {
+            $query->where('is_verified', $filters['is_verified']);
+        }
+
+        // Apply date range filter
+        if (!empty($filters['date_from']) && !empty($filters['date_to'])) {
+            $query->whereBetween('created_at', [$filters['date_from'], $filters['date_to']]);
+        } elseif (!empty($filters['date_from'])) {
+            $query->where('created_at', '>=', $filters['date_from']);
+        } elseif (!empty($filters['date_to'])) {
+            $query->where('created_at', '<=', $filters['date_to']);
+        }
+
+        // Apply sorting
+        $sortBy = $filters['sort_by'] ?? 'created_at';
+        $sortOrder = $filters['sort_order'] ?? 'desc';
+        $query->orderBy($sortBy, $sortOrder);
+
+        // Paginate results
+        $perPage = $filters['per_page'] ?? config('app.pagination.per_page', 15);
+
+        return $query->paginate($perPage);
+    }
+
+    /**
+     * Get employer profile details
+     *
+     * @param int $employerId
+     * @return Employer
+     */
+    public function getEmployerProfile(int $employerId): Employer
+    {
+        return Employer::with([
+            'user',
+            'activeSubscription.plan',
+        ])->findOrFail($employerId);
+    }
+
+    /**
+     * Get employer job listings with filters
+     *
+     * @param int $employerId
+     * @param array $filters
+     * @return LengthAwarePaginator
+     */
+    public function getEmployerJobsForAdmin(int $employerId, array $filters = []): LengthAwarePaginator
+    {
+        $query = Job::where('employer_id', $employerId)
+            ->withCount('applications');
+
+        // Apply search filter
+        if (!empty($filters['search'])) {
+            $search = $filters['search'];
+            $query->where(function($q) use ($search) {
+                $q->where('title', 'like', "%{$search}%")
+                    ->orWhere('short_description', 'like', "%{$search}%")
+                    ->orWhere('location', 'like', "%{$search}%");
+            });
+        }
+
+        // Apply status filter
+        if (isset($filters['status'])) {
+            if ($filters['status'] === 'open') {
+                $query->where('is_active', true)
+                    ->where(function($q) {
+                        $q->whereNull('deadline')
+                            ->orWhere('deadline', '>=', now());
+                    });
+            } elseif ($filters['status'] === 'closed') {
+                $query->where(function($q) {
+                    $q->where('is_active', false)
+                        ->orWhere(function($sq) {
+                            $sq->whereNotNull('deadline')
+                                ->where('deadline', '<', now());
+                        });
+                });
+            } elseif ($filters['status'] === 'draft') {
+                $query->where('is_draft', true);
+            }
+        }
+
+        // Apply job type filter
+        if (!empty($filters['job_type'])) {
+            $query->where('job_type', $filters['job_type']);
+        }
+
+        // Apply location filter
+        if (!empty($filters['location'])) {
+            $query->where('location', 'like', "%{$filters['location']}%");
+        }
+
+        // Apply date range filter
+        if (!empty($filters['date_from']) && !empty($filters['date_to'])) {
+            $query->whereBetween('created_at', [$filters['date_from'], $filters['date_to']]);
+        } elseif (!empty($filters['date_from'])) {
+            $query->where('created_at', '>=', $filters['date_from']);
+        } elseif (!empty($filters['date_to'])) {
+            $query->where('created_at', '<=', $filters['date_to']);
+        }
+
+        // Apply sorting
+        $sortBy = $filters['sort_by'] ?? 'created_at';
+        $sortOrder = $filters['sort_order'] ?? 'desc';
+        $query->orderBy($sortBy, $sortOrder);
+
+        // Paginate results
+        $perPage = $filters['per_page'] ?? config('app.pagination.per_page', 15);
+
+        return $query->paginate($perPage);
+    }
+
+    /**
+     * Get hired candidates for an employer with filters
+     *
+     * @param int $employerId
+     * @param array $filters
+     * @return LengthAwarePaginator
+     */
+    public function getHiredCandidates(int $employerId, array $filters = []): LengthAwarePaginator
+    {
+        $query = JobApplication::whereHas('job', function (Builder $query) use ($employerId) {
+            $query->where('employer_id', $employerId);
+        })
+            ->where('status', 'hired')
+            ->with(['candidate.user', 'job']);
+
+        // Apply search filter
+        if (!empty($filters['search'])) {
+            $search = $filters['search'];
+            $query->where(function($q) use ($search) {
+                $q->whereHas('candidate.user', function($q) use ($search) {
+                    $q->where('first_name', 'like', "%{$search}%")
+                        ->orWhere('last_name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%");
+                })
+                    ->orWhereHas('job', function($q) use ($search) {
+                        $q->where('title', 'like', "%{$search}%");
+                    });
+            });
+        }
+
+        // Apply job filter
+        if (!empty($filters['job_id'])) {
+            $query->where('job_id', $filters['job_id']);
+        }
+
+        // Apply date range filter
+        if (!empty($filters['date_from']) && !empty($filters['date_to'])) {
+            $query->whereBetween('created_at', [$filters['date_from'], $filters['date_to']]);
+        } elseif (!empty($filters['date_from'])) {
+            $query->where('created_at', '>=', $filters['date_from']);
+        } elseif (!empty($filters['date_to'])) {
+            $query->where('created_at', '<=', $filters['date_to']);
+        }
+
+        // Apply sorting
+        $sortBy = $filters['sort_by'] ?? 'created_at';
+        $sortOrder = $filters['sort_order'] ?? 'desc';
+        $query->orderBy($sortBy, $sortOrder);
+
+        // Paginate results
+        $perPage = $filters['per_page'] ?? config('app.pagination.per_page', 15);
+
+        return $query->paginate($perPage);
+    }
+
+    /**
+     * Get employer transactions with filters
+     *
+     * @param int $employerId
+     * @param array $filters
+     * @return LengthAwarePaginator
+     */
+    public function getEmployerTransactions(int $employerId, array $filters = []): LengthAwarePaginator
+    {
+        $query = Subscription::where('employer_id', $employerId)
+            ->with('plan');
+
+        // Apply search filter
+        if (!empty($filters['search'])) {
+            $search = $filters['search'];
+            $query->where(function($q) use ($search) {
+                $q->where('transaction_id', 'like', "%{$search}%")
+                    ->orWhere('payment_reference', 'like', "%{$search}%")
+                    ->orWhereHas('plan', function($q) use ($search) {
+                        $q->where('name', 'like', "%{$search}%");
+                    });
+            });
+        }
+
+        // Apply payment method filter
+        if (!empty($filters['payment_method'])) {
+            $query->where('payment_method', $filters['payment_method']);
+        }
+
+        // Apply status filter
+        if (isset($filters['status'])) {
+            if ($filters['status'] === 'active') {
+                $query->where('is_active', true)
+                    ->where('end_date', '>=', now());
+            } elseif ($filters['status'] === 'expired') {
+                $query->where('end_date', '<', now());
+            } elseif ($filters['status'] === 'cancelled') {
+                $query->where('is_active', false);
+            }
+        }
+
+        // Apply date range filter
+        if (!empty($filters['date_from']) && !empty($filters['date_to'])) {
+            $query->whereBetween('created_at', [$filters['date_from'], $filters['date_to']]);
+        } elseif (!empty($filters['date_from'])) {
+            $query->where('created_at', '>=', $filters['date_from']);
+        } elseif (!empty($filters['date_to'])) {
+            $query->where('created_at', '<=', $filters['date_to']);
+        }
+
+        // Apply sorting
+        $sortBy = $filters['sort_by'] ?? 'created_at';
+        $sortOrder = $filters['sort_order'] ?? 'desc';
+        $query->orderBy($sortBy, $sortOrder);
+
+        // Paginate results
+        $perPage = $filters['per_page'] ?? config('app.pagination.per_page', 15);
+
+        return $query->paginate($perPage);
+    }
+
+    /**
+     * Get employer statistics
+     *
+     * @param int $employerId
+     * @return array
+     */
+    public function getEmployerStatistics(int $employerId): array
+    {
+        $employer = Employer::findOrFail($employerId);
+
+        // Job statistics
+        $totalJobs = $employer->jobs()->count();
+        $activeJobs = $employer->jobs()->where('is_active', true)->count();
+        $draftJobs = $employer->jobs()->where('is_draft', true)->count();
+        $expiredJobs = $employer->jobs()
+            ->where('deadline', '<', now())
+            ->where('deadline', '!=', null)
+            ->count();
+
+        // Application statistics
+        $totalApplications = $employer->applications()->count();
+
+        // Application status counts
+        $applicationStatusCounts = $employer->applications()
+            ->selectRaw('status, COUNT(*) as count')
+            ->groupBy('status')
+            ->pluck('count', 'status')
+            ->toArray();
+
+        // Hired candidates count
+        $hiredCandidatesCount = $employer->applications()
+            ->where('status', 'hired')
+            ->count();
+
+        // Subscription status
+        $hasActiveSubscription = $employer->hasActiveSubscription();
+        $activeSubscription = $employer->activeSubscription()->with('plan')->first();
+
+        return [
+            'total_jobs' => $totalJobs,
+            'active_jobs' => $activeJobs,
+            'draft_jobs' => $draftJobs,
+            'expired_jobs' => $expiredJobs,
+            'total_applications' => $totalApplications,
+            'application_status_counts' => $applicationStatusCounts,
+            'hired_candidates_count' => $hiredCandidatesCount,
+            'has_active_subscription' => $hasActiveSubscription,
+            'active_subscription' => $activeSubscription,
+        ];
+    }
+
+    /**
+     * Delete an employer
+     *
+     * @param int $employerId
+     * @return bool
+     */
+    public function deleteEmployer(int $employerId): bool
+    {
+        $employer = Employer::findOrFail($employerId);
+        $user = $employer->user;
+
+        // Begin transaction to ensure both employer and user are deleted
+        return \DB::transaction(function() use ($employer, $user) {
+            // Delete the employer
+            $employer->delete();
+
+            // Soft delete the user
+            $user->delete();
+
+            return true;
+        });
+    }
+
+    /**
+     * Moderate employer account status (activate/deactivate)
+     *
+     * @param int $employerId
+     * @param bool $isActive
+     * @return User
+     */
+    public function moderateEmployerAccountStatus(int $employerId, bool $isActive): User
+    {
+        $employer = Employer::findOrFail($employerId);
+        $user = $employer->user;
+
+        // Update user active status
+        $user->is_active = $isActive;
+        $user->save();
+
+        return $user;
+    }
+
+    /**
+     * Set shadow-ban status for an employer
+     *
+     * @param int $employerId
+     * @param bool $isShadowBanned
+     * @return User
+     */
+    public function setShadowBanForEmployer(int $employerId, bool $isShadowBanned): User
+    {
+        $employer = Employer::findOrFail($employerId);
+        $user = $employer->user;
+
+        // Update user shadow-ban status
+        $user->is_shadow_banned = $isShadowBanned;
+        $user->save();
+
+        return $user;
+    }
+
     /**
      * Get candidates who applied to employer's jobs with optional filtering and sorting
      *

@@ -24,6 +24,7 @@ class JobApplicationResource extends JsonResource
             'created_at' => $this->created_at->format('Y-m-d H:i:s'),
             'updated_at' => $this->updated_at->format('Y-m-d H:i:s'),
             'applied_at_human' => $this->created_at->diffForHumans(),
+            'hired_date' => $this->when($this->status === 'hired', $this->updated_at),
 
             // Related resources
             'job' => new JobResource($this->whenLoaded('job')),

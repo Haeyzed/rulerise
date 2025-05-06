@@ -68,6 +68,17 @@ class JobResource extends JsonResource
                 ];
             }),
 
+            // Status text for display
+            'status' => $this->getStatusText(),
+
+            // Counts
+//            'applications_count' => $this->when(isset($this->applications_count), $this->applications_count),
+
+            // Related data
+//            'employer' => new EmployerResource($this->whenLoaded('employer')),
+//            'category' => new JobCategoryResource($this->whenLoaded('category')),
+//            'applications' => JobApplicationResource::collection($this->whenLoaded('applications')),
+
             // Meta information
             'applications_count' => $this->whenCounted('applications'),
             'views_count' => $this->when($this->relationLoaded('viewCounts'), $this->viewCounts->count()),
@@ -139,5 +150,27 @@ class JobResource extends JsonResource
             'updated_at' => $this->updated_at->format('Y-m-d H:i:s'),
             'posted_at_human' => $this->created_at->diffForHumans(),
         ];
+    }
+
+    /**
+     * Get status text for display
+     *
+     * @return string
+     */
+    private function getStatusText(): string
+    {
+        if ($this->is_draft) {
+            return 'Draft';
+        }
+
+        if (!$this->is_active) {
+            return 'Closed';
+        }
+
+        if ($this->deadline && $this->deadline < now()) {
+            return 'Expired';
+        }
+
+        return 'Open';
     }
 }

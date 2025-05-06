@@ -4,8 +4,12 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\EmployerResource;
+use App\Http\Resources\JobApplicationResource;
+use App\Http\Resources\JobResource;
+use App\Http\Resources\SubscriptionResource;
 use App\Models\Employer;
 use App\Services\AdminService;
+use App\Services\EmployerService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
@@ -24,14 +28,23 @@ class EmployersController extends Controller implements HasMiddleware
     protected AdminService $adminService;
 
     /**
+     * Employer service instance
+     *
+     * @var EmployerService
+     */
+    protected EmployerService $employerService;
+
+    /**
      * Create a new controller instance.
      *
      * @param AdminService $adminService
+     * @param EmployerService $employerService
      * @return void
      */
-    public function __construct(AdminService $adminService)
+    public function __construct(AdminService $adminService, EmployerService $employerService)
     {
         $this->adminService = $adminService;
+        $this->employerService = $employerService;
     }
 
     /**
@@ -154,6 +167,94 @@ class EmployersController extends Controller implements HasMiddleware
     }
 
     /**
+     * Get employers list
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function getEmployers(Request $request): JsonResponse
+    {
+        $filters = $request->all();
+        $employers = $this->employerService->getEmployers($filters);
+
+        return response()->paginatedSuccess(
+            EmployerResource::collection($employers),
+            'Employers retrieved successfully'
+        );
+    }
+
+    /**
+     * Get employer profile details
+     *
+     * @param int $id
+     * @return JsonResponse
+     */
+    public function getProfileDetails(int $id): JsonResponse
+    {
+        $employer = $this->employerService->getEmployerProfile($id);
+        $statistics = $this->employerService->getEmployerStatistics($id);
+
+        return response()->success([
+            'employer' => new EmployerResource($employer),
+            'statistics' => $statistics,
+        ], 'Employer profile details retrieved successfully');
+    }
+
+    /**
+     * Get employer job listings
+     *
+     * @param int $id
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function getJobListings(int $id, Request $request): JsonResponse
+    {
+        $filters = $request->all();
+        $jobs = $this->employerService->getEmployerJobsForAdmin($id, $filters);
+
+        return response()->paginatedSuccess(
+            JobResource::collection($jobs),
+            'Employer job listings retrieved successfully'
+        );
+    }
+
+    /**
+     * Get hired candidates for an employer
+     *
+     * @param int $id
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function getHiredCandidates(int $id, Request $request): JsonResponse
+    {
+        $filters = $request->all();
+        $hiredCandidates = $this->employerService->getHiredCandidates($id, $filters);
+
+        return response()->paginatedSuccess(
+            JobApplicationResource::collection($hiredCandidates),
+            'Hired candidates retrieved successfully'
+        );
+    }
+
+    /**
+     * Get employer transactions
+     *
+     * @param int $id
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function getTransactions(int $id, Request $request): JsonResponse
+    {
+        $filters = $request->all();
+        $transactions = $this->employerService->getEmployerTransactions($id, $filters);
+
+        return response()->paginatedSuccess(
+            SubscriptionResource::collection($transactions),
+            'Employer transactions retrieved successfully'
+        );
+    }
+
+    /**
      * Delete employer
      *
      * @param int $id
@@ -161,11 +262,7 @@ class EmployersController extends Controller implements HasMiddleware
      */
     public function delete(int $id): JsonResponse
     {
-        $employer = Employer::query()->findOrFail($id);
-        $user = $employer->user;
-
-        // Soft delete the user
-        $user->delete();
+        $this->employerService->deleteEmployer($id);
 
         return response()->success('Employer deleted successfully');
     }
@@ -179,16 +276,11 @@ class EmployersController extends Controller implements HasMiddleware
      */
     public function moderateAccountStatus(int $id, Request $request): JsonResponse
     {
-        $employer = Employer::query()->findOrFail($id);
-        $user = $employer->user;
-
         $isActive = $request->input('is_active', true);
-
-        $user = $this->adminService->moderateAccountStatus($user, $isActive);
+        $user = $this->employerService->moderateEmployerAccountStatus($id, $isActive);
 
         $status = $isActive ? 'activated' : 'deactivated';
-
-        return response()->success($user,"Employer account {$status} successfully");
+        return response()->success($user, "Employer account {$status} successfully");
     }
 
     /**
@@ -200,15 +292,10 @@ class EmployersController extends Controller implements HasMiddleware
      */
     public function setShadowBan(int $id, Request $request): JsonResponse
     {
-        $employer = Employer::query()->findOrFail($id);
-        $user = $employer->user;
-
         $isShadowBanned = $request->input('is_shadow_banned', false);
-
-        $user = $this->adminService->setShadowBan($user, $isShadowBanned);
+        $user = $this->employerService->setShadowBanForEmployer($id, $isShadowBanned);
 
         $status = $isShadowBanned ? 'shadow banned' : 'removed from shadow ban';
-
-        return response()->success($user,"Employer account {$status} successfully");
+        return response()->success($user, "Employer account {$status} successfully");
     }
 }
