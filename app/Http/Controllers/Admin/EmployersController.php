@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\EmployerResource;
 use App\Models\Employer;
 use App\Services\AdminService;
 use Illuminate\Http\JsonResponse;
@@ -51,7 +52,8 @@ class EmployersController extends Controller implements HasMiddleware
      */
     public function index(Request $request): JsonResponse
     {
-        $query = Employer::with('user')->withCount('jobs');
+        $query = Employer::with(['user', 'activeSubscription.plan'])
+            ->withCount('jobs');
 
         // Apply filters
         if ($request->has('search')) {
@@ -84,7 +86,10 @@ class EmployersController extends Controller implements HasMiddleware
         $perPage = $request->input('per_page', config('app.pagination.per_page'));
         $employers = $query->paginate($perPage);
 
-        return response()->paginatedSuccess($employers, 'Employers retrieved successfully');
+        return response()->paginatedSuccess(
+            EmployerResource::collection($employers),
+            'Employers retrieved successfully'
+        );
     }
 
     /**
@@ -97,11 +102,20 @@ class EmployersController extends Controller implements HasMiddleware
     {
         $employer = Employer::with([
             'user',
-            'jobs',
-            'jobs.applications.candidate',
+            'jobs' => function($query) {
+                $query->withCount('applications');
+            },
+            'jobs.applications' => function($query) {
+                $query->with(['candidate.user']);
+            },
+            'activeSubscription.plan',
             'subscriptions.plan',
             'candidatePools',
             'notificationTemplates',
+            // Get all applications across all jobs with candidate information
+            'applications' => function($query) {
+                $query->with(['candidate.user', 'job']);
+            },
         ])
             ->withCount('jobs')
             ->findOrFail($id);
@@ -115,7 +129,28 @@ class EmployersController extends Controller implements HasMiddleware
             ->where('deadline', '!=', null)
             ->count();
 
-        return response()->success($employer, 'Employer retrieved successfully');
+        // Get application statistics
+        $employer->total_applications_count = $employer->applications()->count();
+
+        // Get application status counts
+        $applicationStatusCounts = $employer->applications()
+            ->selectRaw('status, COUNT(*) as count')
+            ->groupBy('status')
+            ->pluck('count', 'status')
+            ->toArray();
+
+        $employer->application_status_counts = $applicationStatusCounts;
+
+        // Get hired candidates (applications with status 'hired')
+        $employer->hired_candidates = $employer->applications()
+            ->where('status', 'hired')
+            ->with(['candidate.user', 'job'])
+            ->get();
+
+        return response()->success(
+            new EmployerResource($employer),
+            'Employer retrieved successfully'
+        );
     }
 
     /**

@@ -37,18 +37,33 @@ class EmployerResource extends JsonResource
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
             'company_benefits' => $this->company_benefits,
-//            'benefits' => CompanyBenefitResource::collection($this->whenLoaded('benefits')),
-            'notification_templates' => JobNotificationTemplateResource::collection($this->whenLoaded('notificationTemplates')),
-            'pools' => CandidatePoolResource::collection($this->whenLoaded('pools')),
 
             // Job counts
             'jobs_count' => $this->when(isset($this->jobs_count), $this->jobs_count),
-            'total_jobs_count' => $this->when(isset($this->total_jobs_count), $this->total_jobs_count),
             'active_jobs_count' => $this->when(isset($this->active_jobs_count), $this->active_jobs_count),
+            'featured_jobs_count' => $this->when(isset($this->featured_jobs_count), $this->featured_jobs_count),
             'draft_jobs_count' => $this->when(isset($this->draft_jobs_count), $this->draft_jobs_count),
+            'expired_jobs_count' => $this->when(isset($this->expired_jobs_count), $this->expired_jobs_count),
+
+            // Application statistics
+            'total_applications_count' => $this->when(isset($this->total_applications_count), $this->total_applications_count),
+            'application_status_counts' => $this->when(isset($this->application_status_counts), $this->application_status_counts),
+
+            // Active subscription
+            'active_subscription' => new SubscriptionResource($this->whenLoaded('activeSubscription')),
 
             // Related data
             'user' => new UserResource($this->whenLoaded('user')),
+            'jobs' => JobResource::collection($this->whenLoaded('jobs')),
+            'subscriptions' => SubscriptionResource::collection($this->whenLoaded('subscriptions')),
+            'notification_templates' => JobNotificationTemplateResource::collection($this->whenLoaded('notificationTemplates')),
+            'candidate_pools' => CandidatePoolResource::collection($this->whenLoaded('candidatePools')),
+
+            // Applications and hired candidates
+            'applications' => JobApplicationResource::collection($this->whenLoaded('applications')),
+            'hired_candidates' => $this->when(isset($this->hired_candidates),
+                JobApplicationResource::collection($this->hired_candidates)
+            ),
         ];
     }
 }
