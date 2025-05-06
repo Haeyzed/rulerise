@@ -43,12 +43,8 @@ class EmployersController extends Controller implements HasMiddleware
         ];
     }
 
-    /**
-     * Get employers list
-     *
-     * @param Request $request
-     * @return JsonResponse
-     */
+    use Illuminate\Support\Facades\DB;
+
     public function index(Request $request): JsonResponse
     {
         $query = Employer::with('user')->withCount('jobs');
@@ -57,10 +53,11 @@ class EmployersController extends Controller implements HasMiddleware
         if ($request->has('search')) {
             $search = $request->input('search');
             $query->where(function($q) use ($search) {
-                $q->where('company_name', 'like', "%{$search}%")
+                $q->whereLike('company_name', "%{$search}%")
                     ->orWhereHas('user', function($q) use ($search) {
-                        $q->where('name', 'like', "%{$search}%")
-                            ->orWhere('email', 'like', "%{$search}%");
+                        $q->whereLike('first_name', "%{$search}%")
+                            ->orWhereLike('last_name', "%{$search}%")
+                            ->orWhereLike('email', "%{$search}%");
                     });
             });
         }
@@ -80,7 +77,7 @@ class EmployersController extends Controller implements HasMiddleware
         $sortOrder = $request->input('sort_order', 'desc');
         $query->orderBy($sortBy, $sortOrder);
 
-        $perPage = $request->input('per_page', 10);
+        $perPage = $request->input('per_page', config('app.pagination.per_page'));
         $employers = $query->paginate($perPage);
 
         return response()->paginatedSuccess($employers, 'Employers retrieved successfully');
