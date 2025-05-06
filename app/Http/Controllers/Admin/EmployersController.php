@@ -43,8 +43,12 @@ class EmployersController extends Controller implements HasMiddleware
         ];
     }
 
-    use Illuminate\Support\Facades\DB;
-
+    /**
+     * Get employers list
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
     public function index(Request $request): JsonResponse
     {
         $query = Employer::with('user')->withCount('jobs');
