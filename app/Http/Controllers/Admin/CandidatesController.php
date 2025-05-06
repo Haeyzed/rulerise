@@ -57,7 +57,8 @@ class CandidatesController extends Controller implements HasMiddleware
         $candidates = $this->candidateService->getCandidates($filters);
 
         return response()->paginatedSuccess(
-            CandidateResource::collection($candidates),
+            $candidates,
+//            CandidateResource::collection($candidates),
             'Candidates retrieved successfully'
         );
     }
@@ -73,7 +74,7 @@ class CandidatesController extends Controller implements HasMiddleware
         $data = $this->candidateService->getCandidateProfile($id);
 
         return response()->success([
-            'candidate' => new CandidateResource($data['candidate']),
+            'candidate' => $data['candidate'],
             'statistics' => $data['statistics'],
         ], 'Candidate profile details retrieved successfully');
     }
