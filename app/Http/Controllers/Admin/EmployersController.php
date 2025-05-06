@@ -100,8 +100,7 @@ class EmployersController extends Controller implements HasMiddleware
         $employers = $query->paginate($perPage);
 
         return response()->paginatedSuccess(
-//            EmployerResource::collection($employers),
-            $employers,
+            EmployerResource::collection($employers),
             'Employers retrieved successfully'
         );
     }
