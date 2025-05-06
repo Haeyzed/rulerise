@@ -98,6 +98,7 @@ class EmployersController extends Controller implements HasMiddleware
         $employer = Employer::with([
             'user',
             'jobs',
+            'jobs.applications.candidate.user',
             'subscriptions.plan',
             'candidatePools',
             'notificationTemplates',
