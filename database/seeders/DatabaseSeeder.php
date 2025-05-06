@@ -19,6 +19,7 @@ class DatabaseSeeder extends Seeder
             AdminSeeder::class,
             JobCategorySeeder::class,
             SubscriptionPlanSeeder::class,
+            SubscriptionSeeder::class,
         ]);
     }
 }
