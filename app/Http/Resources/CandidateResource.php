@@ -43,6 +43,8 @@ class CandidateResource extends JsonResource
             'updated_at' => optional($this->updated_at)->format('Y-m-d H:i:s'),
             'skills' => $this->skills,
 
+            'job_applications_count' => $this->when(isset($this->job_applications_count), $this->job_applications_count),
+
             // Include relationships
             'qualification' => $this->whenLoaded('qualification'),
             'work_experiences' => $this->whenLoaded('workExperiences'),
