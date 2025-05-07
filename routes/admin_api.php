@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\BlogPostCategoryController;
 use App\Http\Controllers\Admin\BlogPostController;
 use App\Http\Controllers\Admin\FaqController;
+use App\Http\Controllers\Admin\WebsiteController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Admin\DashboardController;
@@ -100,13 +101,13 @@ Route::middleware(['auth:api', 'role:admin'])->group(function () {
         Route::post('uploadImage', [WebsiteCustomizationsController::class, 'uploadImage']);
     });
 
-    // General settings
+// General settings
     Route::prefix('general-setting')->group(function () {
         Route::get('/', [GeneralSettingsController::class, 'index']);
         Route::post('/', [GeneralSettingsController::class, 'store']);
     });
 
-    // User management - Roles
+// User management - Roles
     Route::prefix('user-management/role')->group(function () {
         Route::get('/', [RolesController::class, 'index']);
         Route::get('{roleName}', [RolesController::class, 'show']);
@@ -115,7 +116,7 @@ Route::middleware(['auth:api', 'role:admin'])->group(function () {
         Route::post('{roleName}/delete', [RolesController::class, 'delete']);
     });
 
-    // User management - Users
+// User management - Users
     Route::prefix('user-management/user')->group(function () {
         Route::get('/', [UsersController::class, 'index']);
         Route::get('{id}', [UsersController::class, 'show']);
@@ -124,10 +125,10 @@ Route::middleware(['auth:api', 'role:admin'])->group(function () {
         Route::post('{id}/delete', [UsersController::class, 'delete']);
     });
 
-    // User management - Permissions
+// User management - Permissions
     Route::get('user-management/permissions', [PermissionController::class, 'index']);
 
-    // Blog Posts
+// Blog Posts
     Route::apiResource('blog-posts', BlogPostController::class);
     Route::prefix('blog-posts')->name('blog-posts.')->group(function () {
         // Soft delete management
@@ -139,7 +140,7 @@ Route::middleware(['auth:api', 'role:admin'])->group(function () {
             ->withTrashed();
     });
 
-    // Blog Post Categories
+// Blog Post Categories
     Route::apiResource('blog-post-categories', BlogPostCategoryController::class);
     Route::prefix('blog-post-categories')->name('blog-post-categories.')->group(function () {
         // Soft delete management
@@ -152,6 +153,39 @@ Route::middleware(['auth:api', 'role:admin'])->group(function () {
         // Reordering
         Route::post('/reorder', [BlogPostCategoryController::class, 'reorder'])
             ->name('reorder');
+    });
+
+// Website Content Management
+    Route::prefix('website')->group(function () {
+        // Hero Section
+        Route::get('/hero-section', [WebsiteController::class, 'getHeroSection']);
+        Route::get('/hero-sections', [WebsiteController::class, 'getAllHeroSections']);
+        Route::post('/hero-section', [WebsiteController::class, 'createOrUpdateHeroSection']);
+        Route::post('/hero-section/{id}', [WebsiteController::class, 'createOrUpdateHeroSection']);
+        Route::delete('/hero-section/{id}', [WebsiteController::class, 'deleteHeroSection']);
+        Route::delete('/hero-section/{heroSectionId}/image/{imageId}', [WebsiteController::class, 'deleteHeroSectionImage']);
+
+        // About Us
+        Route::get('/about-us', [WebsiteController::class, 'getAboutUs']);
+        Route::post('/about-us', [WebsiteController::class, 'createOrUpdateAboutUs']);
+        Route::post('/about-us/{id}', [WebsiteController::class, 'createOrUpdateAboutUs']);
+        Route::delete('/about-us/{id}', [WebsiteController::class, 'deleteAboutUs']);
+        Route::delete('/about-us/{aboutUsId}/image/{imageId}', [WebsiteController::class, 'deleteAboutUsImage']);
+
+        // Contact
+        Route::get('/contacts', [WebsiteController::class, 'getAllContacts']);
+        Route::get('/contact/{id}', [WebsiteController::class, 'getContact']);
+        Route::post('/contact', [WebsiteController::class, 'createOrUpdateContact']);
+        Route::post('/contact/{id}', [WebsiteController::class, 'createOrUpdateContact']);
+        Route::delete('/contact/{id}', [WebsiteController::class, 'deleteContact']);
+
+        // Ad Banner
+        Route::get('/ad-banners', [WebsiteController::class, 'getAllAdBanners']);
+        Route::get('/ad-banner/{id}', [WebsiteController::class, 'getAdBanner']);
+        Route::post('/ad-banner', [WebsiteController::class, 'createOrUpdateAdBanner']);
+        Route::post('/ad-banner/{id}', [WebsiteController::class, 'createOrUpdateAdBanner']);
+        Route::delete('/ad-banner/{id}', [WebsiteController::class, 'deleteAdBanner']);
+        Route::delete('/ad-banner/{adBannerId}/image/{imageId}', [WebsiteController::class, 'deleteAdBannerImage']);
     });
 
     Route::prefix('admin/faqs')->group(function () {
