@@ -43,17 +43,30 @@ class CandidateResource extends JsonResource
             'updated_at' => optional($this->updated_at)->format('Y-m-d H:i:s'),
             'skills' => $this->skills,
 
-            'job_applications_count' => $this->when(isset($this->job_applications_count), $this->job_applications_count),
+            // Application counts
+            'job_applications_count' => $this->whenCounted('jobApplications'),
 
             // Include relationships
             'qualification' => $this->whenLoaded('qualification'),
-            'work_experiences' => $this->whenLoaded('workExperiences'),
-            'education_histories' => $this->whenLoaded('educationHistories'),
-            'languages' => $this->whenLoaded('languages'),
+//            'work_experiences' => $this->whenLoaded('workExperiences'),
+//            'education_histories' => $this->whenLoaded('educationHistories'),
+//            'languages' => $this->whenLoaded('languages'),
             'portfolio' => $this->whenLoaded('portfolio'),
-            'credentials' => $this->whenLoaded('credentials'),
+//            'credentials' => $this->whenLoaded('credentials'),
             'resumes' => $this->whenLoaded('resumes'),
-            'user' => $this->whenLoaded('user'),
+//            'user' => $this->whenLoaded('user'),
+
+
+            // Related data
+            'user' => new UserResource($this->whenLoaded('user')),
+//            'qualification' => new QualificationResource($this->whenLoaded('qualification')),
+            'work_experiences' => WorkExperienceResource::collection($this->whenLoaded('workExperiences')),
+            'education_histories' => EducationHistoryResource::collection($this->whenLoaded('educationHistories')),
+            'languages' => LanguageResource::collection($this->whenLoaded('languages')),
+//            'portfolio' => new PortfolioResource($this->whenLoaded('portfolio')),
+            'credentials' => CredentialResource::collection($this->whenLoaded('credentials')),
+            'job_applications' => JobApplicationResource::collection($this->whenLoaded('jobApplications')),
+            'primary_resume' => new ResumeResource($this->whenLoaded('primaryResume')),
         ];
     }
 }

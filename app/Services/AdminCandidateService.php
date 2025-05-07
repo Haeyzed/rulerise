@@ -36,12 +36,12 @@ class AdminCandidateService
             if ($filters['status'] === 'active') {
                 $query->whereHas('user', function($q) {
                     $q->where('is_active', true)
-                      ->where('is_shadow_banned', false);
+                        ->where('is_shadow_banned', false);
                 });
             } elseif ($filters['status'] === 'inactive') {
                 $query->whereHas('user', function($q) {
                     $q->where('is_active', false)
-                      ->where('is_shadow_banned', false);
+                        ->where('is_shadow_banned', false);
                 });
             } elseif ($filters['status'] === 'blacklisted') {
                 $query->whereHas('user', function($q) {
@@ -74,7 +74,7 @@ class AdminCandidateService
         // Apply sorting
         $sortBy = $filters['sort_by'] ?? 'created_at';
         $sortOrder = $filters['sort_order'] ?? 'desc';
-        
+
         if ($sortBy === 'name') {
             $query->join('users', 'candidates.user_id', '=', 'users.id')
                 ->orderBy('users.first_name', $sortOrder)
@@ -96,7 +96,7 @@ class AdminCandidateService
 
         // Paginate results
         $perPage = $filters['per_page'] ?? config('app.pagination.per_page', 15);
-        
+
         return $query->paginate($perPage);
     }
 
@@ -127,11 +127,13 @@ class AdminCandidateService
 
         // Get application statistics
         $totalApplications = $candidate->jobApplications()->count();
-        
+        $hiredCount = $candidate->jobApplications()->where('status', 'hired')->count();
+
         return [
             'candidate' => $candidate,
             'statistics' => [
                 'total_applications' => $totalApplications,
+                'hired_count' => $hiredCount,
                 'profile_views' => $candidate->profileViewCounts()->count(),
                 'saved_jobs' => $candidate->savedJobs()->count(),
                 'reported_jobs' => $candidate->reportedJobs()->count(),
@@ -185,7 +187,7 @@ class AdminCandidateService
         // Apply sorting
         $sortBy = $filters['sort_by'] ?? 'created_at';
         $sortOrder = $filters['sort_order'] ?? 'desc';
-        
+
         if ($sortBy === 'job_title') {
             $query->join('job_listings', 'job_applications.job_id', '=', 'job_listings.id')
                 ->orderBy('job_listings.title', $sortOrder)
@@ -201,7 +203,7 @@ class AdminCandidateService
 
         // Paginate results
         $perPage = $filters['per_page'] ?? config('app.pagination.per_page', 15);
-        
+
         return $query->paginate($perPage);
     }
 
@@ -220,10 +222,10 @@ class AdminCandidateService
         return \DB::transaction(function() use ($candidate, $user) {
             // Delete the candidate
             $candidate->delete();
-            
+
             // Soft delete the user
             $user->delete();
-            
+
             return true;
         });
     }
@@ -239,11 +241,11 @@ class AdminCandidateService
     {
         $candidate = Candidate::findOrFail($candidateId);
         $user = $candidate->user;
-        
+
         // Update user active status
         $user->is_active = $isActive;
         $user->save();
-        
+
         return $user;
     }
 
@@ -258,11 +260,11 @@ class AdminCandidateService
     {
         $candidate = Candidate::findOrFail($candidateId);
         $user = $candidate->user;
-        
+
         // Update user shadow ban status
         $user->is_shadow_banned = $isShadowBanned;
         $user->save();
-        
+
         return $user;
     }
 }
