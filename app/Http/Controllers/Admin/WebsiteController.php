@@ -57,67 +57,52 @@ class WebsiteController extends Controller implements HasMiddleware
     {
         $heroSection = $this->websiteService->getHeroSection();
 
-        return response()->success(
-            $heroSection ? new HeroSectionResource($heroSection) : null,
+        return response()->success(new HeroSectionResource($heroSection),
             'Hero section retrieved successfully'
         );
     }
 
-    /**
-     * Get all hero sections.
-     *
-     * @return JsonResponse
-     */
-    public function getAllHeroSections(): JsonResponse
-    {
-        $heroSections = $this->websiteService->getAllHeroSections();
+//    /**
+//     * Get all hero sections.
+//     * Kept for backward compatibility.
+//     *
+//     * @return JsonResponse
+//     */
+//    public function getAllHeroSections(): JsonResponse
+//    {
+//        $heroSections = $this->websiteService->getAllHeroSections();
+//
+//        return response()->paginatedSuccess(
+//            HeroSectionResource::collection($heroSections),
+//            'Hero sections retrieved successfully'
+//        );
+//    }
 
-        return response()->success(
-            HeroSectionResource::collection($heroSections),
-            'Hero sections retrieved successfully'
-        );
-    }
-
     /**
-     * Create or update a hero section.
+     * Create or update the hero section.
      *
      * @param HeroSectionRequest $request
-     * @param int|null $id
      * @return JsonResponse
      */
-    public function createOrUpdateHeroSection(HeroSectionRequest $request, ?int $id = null): JsonResponse
+    public function createOrUpdateHeroSection(HeroSectionRequest $request): JsonResponse
     {
-        $heroSection = $this->websiteService->createOrUpdateHeroSection($request->validated(), $id);
+        $heroSection = $this->websiteService->createOrUpdateHeroSection($request->validated());
 
         return response()->success(
             new HeroSectionResource($heroSection),
-            $id ? 'Hero section updated successfully' : 'Hero section created successfully'
+            'Hero section updated successfully'
         );
-    }
-
-    /**
-     * Delete a hero section.
-     *
-     * @param int $id
-     * @return JsonResponse
-     */
-    public function deleteHeroSection(int $id): JsonResponse
-    {
-        $this->websiteService->deleteHeroSection($id);
-
-        return response()->success(null, 'Hero section deleted successfully');
     }
 
     /**
      * Delete a hero section image.
      *
-     * @param int $heroSectionId
      * @param int $imageId
      * @return JsonResponse
      */
-    public function deleteHeroSectionImage(int $heroSectionId, int $imageId): JsonResponse
+    public function deleteHeroSectionImage(int $imageId): JsonResponse
     {
-        $this->websiteService->deleteHeroSectionImage($heroSectionId, $imageId);
+        $this->websiteService->deleteHeroSectionImage($imageId);
 
         return response()->success(null, 'Hero section image deleted successfully');
     }
@@ -132,7 +117,7 @@ class WebsiteController extends Controller implements HasMiddleware
         $aboutUs = $this->websiteService->getAboutUs();
 
         return response()->success(
-            $aboutUs ? new AboutUsResource($aboutUs) : null,
+            new AboutUsResource($aboutUs),
             'About us section retrieved successfully'
         );
     }
@@ -141,48 +126,49 @@ class WebsiteController extends Controller implements HasMiddleware
      * Create or update the about us section.
      *
      * @param AboutUsRequest $request
-     * @param int|null $id
      * @return JsonResponse
      */
-    public function createOrUpdateAboutUs(AboutUsRequest $request, ?int $id = null): JsonResponse
+    public function createOrUpdateAboutUs(AboutUsRequest $request): JsonResponse
     {
-        $aboutUs = $this->websiteService->createOrUpdateAboutUs($request->validated(), $id);
+        $aboutUs = $this->websiteService->createOrUpdateAboutUs($request->validated());
 
         return response()->success(
             new AboutUsResource($aboutUs),
-            $id ? 'About us section updated successfully' : 'About us section created successfully'
+            'About us section updated successfully'
         );
-    }
-
-    /**
-     * Delete the about us section.
-     *
-     * @param int $id
-     * @return JsonResponse
-     */
-    public function deleteAboutUs(int $id): JsonResponse
-    {
-        $this->websiteService->deleteAboutUs($id);
-
-        return response()->success(null, 'About us section deleted successfully');
     }
 
     /**
      * Delete an about us image.
      *
-     * @param int $aboutUsId
      * @param int $imageId
      * @return JsonResponse
      */
-    public function deleteAboutUsImage(int $aboutUsId, int $imageId): JsonResponse
+    public function deleteAboutUsImage(int $imageId): JsonResponse
     {
-        $this->websiteService->deleteAboutUsImage($aboutUsId, $imageId);
+        $this->websiteService->deleteAboutUsImage($imageId);
 
         return response()->success(null, 'About us image deleted successfully');
     }
 
     /**
+     * Get the contact.
+     *
+     * @return JsonResponse
+     */
+    public function getContact(): JsonResponse
+    {
+        $contact = $this->websiteService->getContact();
+
+        return response()->success(
+            new ContactResource($contact),
+            'Contact retrieved successfully'
+        );
+    }
+
+    /**
      * Get all contacts.
+     * Kept for backward compatibility.
      *
      * @return JsonResponse
      */
@@ -197,49 +183,19 @@ class WebsiteController extends Controller implements HasMiddleware
     }
 
     /**
-     * Get a contact.
-     *
-     * @param int $id
-     * @return JsonResponse
-     */
-    public function getContact(int $id): JsonResponse
-    {
-        $contact = $this->websiteService->getContact($id);
-
-        return response()->success(
-            new ContactResource($contact),
-            'Contact retrieved successfully'
-        );
-    }
-
-    /**
-     * Create or update a contact.
+     * Create or update the contact.
      *
      * @param ContactRequest $request
-     * @param int|null $id
      * @return JsonResponse
      */
-    public function createOrUpdateContact(ContactRequest $request, ?int $id = null): JsonResponse
+    public function createOrUpdateContact(ContactRequest $request): JsonResponse
     {
-        $contact = $this->websiteService->createOrUpdateContact($request->validated(), $id);
+        $contact = $this->websiteService->createOrUpdateContact($request->validated());
 
         return response()->success(
             new ContactResource($contact),
-            $id ? 'Contact updated successfully' : 'Contact created successfully'
+            'Contact updated successfully'
         );
-    }
-
-    /**
-     * Delete a contact.
-     *
-     * @param int $id
-     * @return JsonResponse
-     */
-    public function deleteContact(int $id): JsonResponse
-    {
-        $this->websiteService->deleteContact($id);
-
-        return response()->success(null, 'Contact deleted successfully');
     }
 
     /**

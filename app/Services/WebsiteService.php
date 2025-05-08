@@ -30,39 +30,27 @@ class WebsiteService
     }
 
     /**
-     * Get the first hero section or null if none exists.
+     * Get the hero section or create a new one if none exists.
      *
-     * @return HeroSection|null
+     * @return HeroSection
      */
-    public function getHeroSection(): ?HeroSection
+    public function getHeroSection(): HeroSection
     {
         return HeroSection::with(['images'])
-            ->orderBy('order', 'asc')
-            ->first();
+            ->first() ?? new HeroSection();
     }
 
     /**
-     * Get all hero sections.
-     *
-     * @return Collection
-     */
-    public function getAllHeroSections(): Collection
-    {
-        return HeroSection::with(['images'])
-            ->orderBy('order', 'asc')
-            ->get();
-    }
-
-    /**
-     * Create or update a hero section.
+     * Create or update the hero section.
+     * Only one record will be maintained.
      *
      * @param array $data The validated data for creating/updating a hero section.
-     * @param int|null $id The ID of the hero section to update, or null to create a new one.
      * @return HeroSection The created or updated hero section.
+     * @throws \Throwable
      */
-    public function createOrUpdateHeroSection(array $data, ?int $id = null): HeroSection
+    public function createOrUpdateHeroSection(array $data): HeroSection
     {
-        return DB::transaction(function () use ($data, $id) {
+        return DB::transaction(function () use ($data) {
             // Handle main image
             if (isset($data['image']) && $data['image'] instanceof UploadedFile) {
                 $data['image_path'] = $this->uploadImage(
@@ -72,13 +60,15 @@ class WebsiteService
                 unset($data['image']);
             }
 
-            // Create or update hero section
-            $heroSection = $id
-                ? HeroSection::findOrFail($id)
-                : new HeroSection();
+            // Get existing hero section or create new one
+            $heroSection = HeroSection::first();
+            $isNew = false;
 
-            // If updating and there's a new image, delete the old one
-            if ($id && isset($data['image_path']) && $heroSection->image_path) {
+            if (!$heroSection) {
+                $heroSection = new HeroSection();
+                $isNew = true;
+            } elseif (isset($data['image_path']) && $heroSection->image_path) {
+                // If updating and there's a new image, delete the old one
                 $this->storageService->delete($heroSection->image_path);
             }
 
@@ -95,42 +85,15 @@ class WebsiteService
     }
 
     /**
-     * Delete a hero section.
-     *
-     * @param int $id The ID of the hero section to delete.
-     * @return bool Whether the deletion was successful.
-     */
-    public function deleteHeroSection(int $id): bool
-    {
-        return DB::transaction(function () use ($id) {
-            $heroSection = HeroSection::findOrFail($id);
-
-            // Delete main image
-            if ($heroSection->image_path) {
-                $this->storageService->delete($heroSection->image_path);
-            }
-
-            // Delete related images
-            foreach ($heroSection->images as $image) {
-                $this->storageService->delete($image->image_path);
-                $image->delete();
-            }
-
-            return $heroSection->delete();
-        });
-    }
-
-    /**
      * Delete a hero section image.
      *
-     * @param int $heroSectionId The ID of the hero section.
      * @param int $imageId The ID of the image to delete.
      * @return bool Whether the deletion was successful.
      */
-    public function deleteHeroSectionImage(int $heroSectionId, int $imageId): bool
+    public function deleteHeroSectionImage(int $imageId): bool
     {
-        return DB::transaction(function () use ($heroSectionId, $imageId) {
-            $heroSection = HeroSection::findOrFail($heroSectionId);
+        return DB::transaction(function () use ($imageId) {
+            $heroSection = $this->getHeroSection();
             $image = $heroSection->images()->findOrFail($imageId);
 
             // Delete the image file
@@ -166,29 +129,31 @@ class WebsiteService
     }
 
     /**
-     * Get the about us section or null if none exists.
+     * Get the about us section or create a new one if none exists.
      *
-     * @return AboutUs|null
+     * @return AboutUs
      */
-    public function getAboutUs(): ?AboutUs
+    public function getAboutUs(): AboutUs
     {
-        return AboutUs::with(['images'])->first();
+        return AboutUs::with(['images'])->first() ?? new AboutUs();
     }
 
     /**
      * Create or update the about us section.
+     * Only one record will be maintained.
      *
      * @param array $data The validated data for creating/updating the about us section.
-     * @param int|null $id The ID of the about us section to update, or null to create a new one.
      * @return AboutUs The created or updated about us section.
      */
-    public function createOrUpdateAboutUs(array $data, ?int $id = null): AboutUs
+    public function createOrUpdateAboutUs(array $data): AboutUs
     {
-        return DB::transaction(function () use ($data, $id) {
-            // Create or update about us section
-            $aboutUs = $id
-                ? AboutUs::findOrFail($id)
-                : new AboutUs();
+        return DB::transaction(function () use ($data) {
+            // Get existing about us or create new one
+            $aboutUs = AboutUs::first();
+
+            if (!$aboutUs) {
+                $aboutUs = new AboutUs();
+            }
 
             $aboutUs->fill($data);
             $aboutUs->save();
@@ -203,37 +168,15 @@ class WebsiteService
     }
 
     /**
-     * Delete the about us section.
-     *
-     * @param int $id The ID of the about us section to delete.
-     * @return bool Whether the deletion was successful.
-     */
-    public function deleteAboutUs(int $id): bool
-    {
-        return DB::transaction(function () use ($id) {
-            $aboutUs = AboutUs::findOrFail($id);
-
-            // Delete related images
-            foreach ($aboutUs->images as $image) {
-                $this->storageService->delete($image->image_path);
-                $image->delete();
-            }
-
-            return $aboutUs->delete();
-        });
-    }
-
-    /**
      * Delete an about us image.
      *
-     * @param int $aboutUsId The ID of the about us section.
      * @param int $imageId The ID of the image to delete.
      * @return bool Whether the deletion was successful.
      */
-    public function deleteAboutUsImage(int $aboutUsId, int $imageId): bool
+    public function deleteAboutUsImage(int $imageId): bool
     {
-        return DB::transaction(function () use ($aboutUsId, $imageId) {
-            $aboutUs = AboutUs::findOrFail($aboutUsId);
+        return DB::transaction(function () use ($imageId) {
+            $aboutUs = $this->getAboutUs();
             $image = $aboutUs->images()->findOrFail($imageId);
 
             // Delete the image file
@@ -269,7 +212,18 @@ class WebsiteService
     }
 
     /**
+     * Get the contact or create a new one if none exists.
+     *
+     * @return Contact
+     */
+    public function getContact(): Contact
+    {
+        return Contact::first() ?? new Contact();
+    }
+
+    /**
      * Get all contacts.
+     * Kept for backward compatibility.
      *
      * @return Collection
      */
@@ -279,49 +233,26 @@ class WebsiteService
     }
 
     /**
-     * Get a contact by ID.
-     *
-     * @param int $id The ID of the contact.
-     * @return Contact
-     */
-    public function getContact(int $id): Contact
-    {
-        return Contact::findOrFail($id);
-    }
-
-    /**
-     * Create or update a contact.
+     * Create or update the contact.
+     * Only one record will be maintained.
      *
      * @param array $data The validated data for creating/updating a contact.
-     * @param int|null $id The ID of the contact to update, or null to create a new one.
      * @return Contact The created or updated contact.
      */
-    public function createOrUpdateContact(array $data, ?int $id = null): Contact
+    public function createOrUpdateContact(array $data): Contact
     {
-        return DB::transaction(function () use ($data, $id) {
-            // Create or update contact
-            $contact = $id
-                ? Contact::findOrFail($id)
-                : new Contact();
+        return DB::transaction(function () use ($data) {
+            // Get existing contact or create new one
+            $contact = Contact::first();
+
+            if (!$contact) {
+                $contact = new Contact();
+            }
 
             $contact->fill($data);
             $contact->save();
 
             return $contact;
-        });
-    }
-
-    /**
-     * Delete a contact.
-     *
-     * @param int $id The ID of the contact to delete.
-     * @return bool Whether the deletion was successful.
-     */
-    public function deleteContact(int $id): bool
-    {
-        return DB::transaction(function () use ($id) {
-            $contact = Contact::findOrFail($id);
-            return $contact->delete();
         });
     }
 
