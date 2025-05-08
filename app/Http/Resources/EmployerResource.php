@@ -61,9 +61,12 @@ class EmployerResource extends JsonResource
 
             // Applications and hired candidates
             'applications' => JobApplicationResource::collection($this->whenLoaded('applications')),
-            'hired_candidates' => $this->when(isset($this->hired_candidates),
-                JobApplicationResource::collection($this->hired_candidates), null
-            ),
+//            'hired_candidates' => $this->when(isset($this->hired_candidates),
+//                JobApplicationResource::collection($this->hired_candidates)
+//            ),
+            'hired_candidates' => isset($this->hired_candidates)
+                ? JobApplicationResource::collection($this->hired_candidates)
+                : null,
         ];
     }
 }
