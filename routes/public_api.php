@@ -5,6 +5,7 @@ use App\Http\Controllers\Public\CandidatesController;
 use App\Http\Controllers\Public\FaqController;
 use App\Http\Controllers\Public\JobCategoriesController;
 use App\Http\Controllers\Public\JobsController;
+use App\Http\Controllers\Public\WebsiteController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Public\FrontPagesController;
 use App\Http\Controllers\Public\MetaInformationController;
@@ -23,6 +24,14 @@ use App\Http\Controllers\Public\EmployersController;
 
 // Front page
 //Route::get('front-page', [FrontPagesController::class, 'index']);
+
+// Website Sections
+Route::prefix('website')->group(function () {
+    Route::get('/', [WebsiteController::class, 'getAllSections']);
+    Route::get('/hero-section', [WebsiteController::class, 'getHeroSection']);
+    Route::get('/about-us', [WebsiteController::class, 'getAboutUs']);
+    Route::get('/contact', [WebsiteController::class, 'getContact']);
+});
 
 // Jobs
 Route::get('search-jobs', [JobsController::class, 'searchJobs']);
