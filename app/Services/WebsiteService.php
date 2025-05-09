@@ -84,25 +84,25 @@ class WebsiteService
         });
     }
 
-//    /**
-//     * Delete a hero section image.
-//     *
-//     * @param int $imageId The ID of the image to delete.
-//     * @return bool Whether the deletion was successful.
-//     */
-//    public function deleteHeroSectionImage(int $imageId): bool
-//    {
-//        return DB::transaction(function () use ($imageId) {
-//            $heroSection = $this->getHeroSection();
-//            $image = $heroSection->images()->findOrFail($imageId);
-//
-//            // Delete the image file
-//            $this->storageService->delete($image->image_path);
-//
-//            // Delete the image record
-//            return $image->delete();
-//        });
-//    }
+    /**
+     * Delete a hero section image.
+     *
+     * @param int $imageId The ID of the image to delete.
+     * @return bool Whether the deletion was successful.
+     */
+    public function deleteHeroSectionImage(int $imageId): bool
+    {
+        return DB::transaction(function () use ($imageId) {
+            $heroSection = $this->getHeroSection();
+            $image = $heroSection->images()->findOrFail($imageId);
+
+            // Delete the image file
+            $this->storageService->delete($image->image_path);
+
+            // Delete the image record
+            return $image->delete();
+        });
+    }
 
     /**
      * Handle related images for a hero section.
@@ -167,25 +167,25 @@ class WebsiteService
         });
     }
 
-//    /**
-//     * Delete an about us image.
-//     *
-//     * @param int $imageId The ID of the image to delete.
-//     * @return bool Whether the deletion was successful.
-//     */
-//    public function deleteAboutUsImage(int $imageId): bool
-//    {
-//        return DB::transaction(function () use ($imageId) {
-//            $aboutUs = $this->getAboutUs();
-//            $image = $aboutUs->images()->findOrFail($imageId);
-//
-//            // Delete the image file
-//            $this->storageService->delete($image->image_path);
-//
-//            // Delete the image record
-//            return $image->delete();
-//        });
-//    }
+    /**
+     * Delete an about us image.
+     *
+     * @param int $imageId The ID of the image to delete.
+     * @return bool Whether the deletion was successful.
+     */
+    public function deleteAboutUsImage(int $imageId): bool
+    {
+        return DB::transaction(function () use ($imageId) {
+            $aboutUs = $this->getAboutUs();
+            $image = $aboutUs->images()->findOrFail($imageId);
+
+            // Delete the image file
+            $this->storageService->delete($image->image_path);
+
+            // Delete the image record
+            return $image->delete();
+        });
+    }
 
     /**
      * Handle related images for an about us section.
@@ -320,52 +320,52 @@ class WebsiteService
         });
     }
 
-//    /**
-//     * Delete an ad banner.
-//     *
-//     * @param int $id The ID of the ad banner to delete.
-//     * @return bool Whether the deletion was successful.
-//     */
-//    public function deleteAdBanner(int $id): bool
-//    {
-//        return DB::transaction(function () use ($id) {
-//            $adBanner = AdBanner::findOrFail($id);
-//
-//            // Delete main image
-//            if ($adBanner->image_path) {
-//                $this->storageService->delete($adBanner->image_path);
-//            }
-//
-//            // Delete related images
-//            foreach ($adBanner->images as $image) {
-//                $this->storageService->delete($image->image_path);
-//                $image->delete();
-//            }
-//
-//            return $adBanner->delete();
-//        });
-//    }
-//
-//    /**
-//     * Delete an ad banner image.
-//     *
-//     * @param int $adBannerId The ID of the ad banner.
-//     * @param int $imageId The ID of the image to delete.
-//     * @return bool Whether the deletion was successful.
-//     */
-//    public function deleteAdBannerImage(int $adBannerId, int $imageId): bool
-//    {
-//        return DB::transaction(function () use ($adBannerId, $imageId) {
-//            $adBanner = AdBanner::findOrFail($adBannerId);
-//            $image = $adBanner->images()->findOrFail($imageId);
-//
-//            // Delete the image file
-//            $this->storageService->delete($image->image_path);
-//
-//            // Delete the image record
-//            return $image->delete();
-//        });
-//    }
+    /**
+     * Delete an ad banner.
+     *
+     * @param int $id The ID of the ad banner to delete.
+     * @return bool Whether the deletion was successful.
+     */
+    public function deleteAdBanner(int $id): bool
+    {
+        return DB::transaction(function () use ($id) {
+            $adBanner = AdBanner::findOrFail($id);
+
+            // Delete main image
+            if ($adBanner->image_path) {
+                $this->storageService->delete($adBanner->image_path);
+            }
+
+            // Delete related images
+            foreach ($adBanner->images as $image) {
+                $this->storageService->delete($image->image_path);
+                $image->delete();
+            }
+
+            return $adBanner->delete();
+        });
+    }
+
+    /**
+     * Delete an ad banner image.
+     *
+     * @param int $adBannerId The ID of the ad banner.
+     * @param int $imageId The ID of the image to delete.
+     * @return bool Whether the deletion was successful.
+     */
+    public function deleteAdBannerImage(int $adBannerId, int $imageId): bool
+    {
+        return DB::transaction(function () use ($adBannerId, $imageId) {
+            $adBanner = AdBanner::findOrFail($adBannerId);
+            $image = $adBanner->images()->findOrFail($imageId);
+
+            // Delete the image file
+            $this->storageService->delete($image->image_path);
+
+            // Delete the image record
+            return $image->delete();
+        });
+    }
 
     /**
      * Handle related images for an ad banner.
@@ -406,163 +406,5 @@ class WebsiteService
         $fileName = time() . '-' . Str::slug(pathinfo($image->getClientOriginalName(), PATHINFO_FILENAME)) . '.' . $image->getClientOriginalExtension();
 
         return $this->storageService->upload($image, $path, $fileName, $options);
-    }
-
-    /**
-     * Delete a hero section image.
-     *
-     * @param int $imageId The ID of the image to delete.
-     * @return bool Whether the deletion was successful.
-     */
-    public function deleteHeroSectionImage(int $imageId): bool
-    {
-        return DB::transaction(function () use ($imageId) {
-            try {
-                $heroSection = $this->getHeroSection();
-                $image = $heroSection->images()->findOrFail($imageId);
-
-                // Try to delete the image file, but continue even if it fails
-                try {
-                    if (!empty($image->image_path)) {
-                        $this->storageService->delete($image->image_path);
-                    }
-                } catch (\Exception $e) {
-                    \Log::error('Failed to delete hero section image file: ' . $e->getMessage(), [
-                        'image_id' => $imageId,
-                        'path' => $image->image_path ?? 'unknown'
-                    ]);
-                    // Continue with record deletion even if file deletion failed
-                }
-
-                // Delete the image record
-                return $image->delete();
-            } catch (\Exception $e) {
-                \Log::error('Failed to delete hero section image record: ' . $e->getMessage(), [
-                    'image_id' => $imageId
-                ]);
-                throw $e;
-            }
-        });
-    }
-
-    /**
-     * Delete an about us image.
-     *
-     * @param int $imageId The ID of the image to delete.
-     * @return bool Whether the deletion was successful.
-     */
-    public function deleteAboutUsImage(int $imageId): bool
-    {
-        return DB::transaction(function () use ($imageId) {
-            try {
-                $aboutUs = $this->getAboutUs();
-                $image = $aboutUs->images()->findOrFail($imageId);
-
-                // Try to delete the image file, but continue even if it fails
-                try {
-                    if (!empty($image->image_path)) {
-                        $this->storageService->delete($image->image_path);
-                    }
-                } catch (\Exception $e) {
-                    \Log::error('Failed to delete about us image file: ' . $e->getMessage(), [
-                        'image_id' => $imageId,
-                        'path' => $image->image_path ?? 'unknown'
-                    ]);
-                    // Continue with record deletion even if file deletion failed
-                }
-
-                // Delete the image record
-                return $image->delete();
-            } catch (\Exception $e) {
-                \Log::error('Failed to delete about us image record: ' . $e->getMessage(), [
-                    'image_id' => $imageId
-                ]);
-                throw $e;
-            }
-        });
-    }
-
-    /**
-     * Delete an ad banner image.
-     *
-     * @param int $adBannerId The ID of the ad banner.
-     * @param int $imageId The ID of the image to delete.
-     * @return bool Whether the deletion was successful.
-     */
-    public function deleteAdBannerImage(int $adBannerId, int $imageId): bool
-    {
-        return DB::transaction(function () use ($adBannerId, $imageId) {
-            try {
-                $adBanner = AdBanner::findOrFail($adBannerId);
-                $image = $adBanner->images()->findOrFail($imageId);
-
-                // Try to delete the image file, but continue even if it fails
-                try {
-                    if (!empty($image->image_path)) {
-                        $this->storageService->delete($image->image_path);
-                    }
-                } catch (\Exception $e) {
-                    \Log::error('Failed to delete ad banner image file: ' . $e->getMessage(), [
-                        'ad_banner_id' => $adBannerId,
-                        'image_id' => $imageId,
-                        'path' => $image->image_path ?? 'unknown'
-                    ]);
-                    // Continue with record deletion even if file deletion failed
-                }
-
-                // Delete the image record
-                return $image->delete();
-            } catch (\Exception $e) {
-                \Log::error('Failed to delete ad banner image record: ' . $e->getMessage(), [
-                    'ad_banner_id' => $adBannerId,
-                    'image_id' => $imageId
-                ]);
-                throw $e;
-            }
-        });
-    }
-
-    /**
-     * Delete an ad banner.
-     *
-     * @param int $id The ID of the ad banner to delete.
-     * @return bool Whether the deletion was successful.
-     */
-    public function deleteAdBanner(int $id): bool
-    {
-        return DB::transaction(function () use ($id) {
-            $adBanner = AdBanner::findOrFail($id);
-
-            // Delete main image
-            if (!empty($adBanner->image_path)) {
-                try {
-                    $this->storageService->delete($adBanner->image_path);
-                } catch (\Exception $e) {
-                    \Log::error('Failed to delete ad banner main image: ' . $e->getMessage(), [
-                        'ad_banner_id' => $id,
-                        'path' => $adBanner->image_path
-                    ]);
-                    // Continue with deletion even if file deletion failed
-                }
-            }
-
-            // Delete related images
-            foreach ($adBanner->images as $image) {
-                try {
-                    if (!empty($image->image_path)) {
-                        $this->storageService->delete($image->image_path);
-                    }
-                } catch (\Exception $e) {
-                    \Log::error('Failed to delete ad banner related image: ' . $e->getMessage(), [
-                        'ad_banner_id' => $id,
-                        'image_id' => $image->id,
-                        'path' => $image->image_path ?? 'unknown'
-                    ]);
-                }
-                $image->delete();
-            }
-
-            return $adBanner->delete();
-        });
     }
 }
