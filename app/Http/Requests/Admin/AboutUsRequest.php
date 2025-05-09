@@ -60,7 +60,7 @@ class AboutUsRequest extends BaseRequest
              * @var array|null $images
              * @example ["image1.jpg", "image2.png"]
              */
-            'images' => ['nullable', 'array', 'max:5'],
+            'images' => ['nullable', 'array'],
 
             /**
              * Each related image must be a valid image file.
@@ -68,7 +68,7 @@ class AboutUsRequest extends BaseRequest
              * @var string|null $images.*
              * @example "image1.jpg"
              */
-            'images.*' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif', 'max:2048'],
+            'images.*' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif'],
         ];
     }
 
