@@ -15,6 +15,17 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Maximum File Size
+    |--------------------------------------------------------------------------
+    |
+    | This value determines the maximum file size in kilobytes that can be
+    | uploaded through the system.
+    |
+    */
+    'max_file_size' => env('FILESTORAGE_MAX_FILE_SIZE', 10240), // 10MB
+
+    /*
+    |--------------------------------------------------------------------------
     | Storage Disks
     |--------------------------------------------------------------------------
     |
@@ -52,6 +63,7 @@ return [
     |
     */
     'paths' => [
+        'uploads' => config('app.name') . '/' . env('FILESTORAGE_UPLOADS_PATH', config('app.name') . '/uploads'),
         'profile_images' => config('app.name') . '/' . env('FILESTORAGE_PROFILE_IMAGES_PATH', config('app.name') . '/profile/images'),
         'company_logos' => config('app.name') . '/' . env('FILESTORAGE_COMPANY_LOGOS_PATH', config('app.name') . '/company/logos'),
         'resumes' => config('app.name') . '/' . env('FILESTORAGE_RESUMES_PATH', config('app.name') . '/company/resumes'),
