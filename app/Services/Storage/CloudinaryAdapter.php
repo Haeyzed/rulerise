@@ -2,64 +2,44 @@
 
 namespace App\Services\Storage;
 
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 
-class CloudinaryAdapter implements StorageAdapterInterface
+class CloudinaryAdapter
 {
-    /**
-     * @var string
-     */
     protected string $disk;
 
-    /**
-     * CloudinaryAdapter constructor.
-     *
-     * @param string|null $disk
-     */
-    public function __construct(?string $disk = null)
+    public function __construct(string $disk = 'cloudinary')
     {
-        $this->disk = $disk ?? config('filestorage.disks.cloudinary.disk', 'cloudinary');
+        $this->disk = $disk;
     }
 
     /**
-     * Store a file in storage with a specific name.
+     * Store a file in storage.
      *
-     * @param UploadedFile $file
      * @param string $path
+     * @param $file
+     * @return string|null
+     */
+    public function store(string $path, $file): ?string
+    {
+        return Storage::disk($this->disk)->putFile($path, $file);
+    }
+
+    /**
+     * Store a file in storage with original name.
+     *
+     * @param string $path
+     * @param $file
      * @param string $name
-     * @param array $options
-     * @return string
+     * @return string|null
      */
-    public function upload(UploadedFile $file, string $path, string $name, array $options = []): string
+    public function storeAs(string $path, $file, string $name): ?string
     {
-        // Ensure the filename has an extension
-        $extension = $file->getClientOriginalExtension();
-        // If the name doesn't already have the extension, add it
-//        if (!empty($extension) && !Str::endsWith($name, '.' . $extension)) {
-//            $name = $name . '.' . $extension;
-//        }// Store the file with the specified name
-//        return Storage::disk($this->disk)->putFileAs('', $file, $name, $cloudinaryOptions);
-        return $file->storeAs($path, $name . '.' . $extension, [
-            'disk' => $this->disk,
-            ...$options
-        ]);
+        return Storage::disk($this->disk)->putFileAs($path, $file, $name);
     }
 
     /**
-     * Delete a file from storage.
-     *
-     * @param string $path
-     * @return bool
-     */
-    public function delete(string $path): bool
-    {
-        return Storage::disk($this->disk)->delete($path);
-    }
-
-    /**
-     * Get the URL for a file.
+     * Get the URL for a file in storage.
      *
      * @param string $path
      * @return string
@@ -70,13 +50,28 @@ class CloudinaryAdapter implements StorageAdapterInterface
     }
 
     /**
-     * Check if a file exists.
+     * Delete a file from storage.
      *
      * @param string $path
      * @return bool
      */
-    public function exists(string $path): bool
+    public function delete(string $path): bool
     {
-        return Storage::disk($this->disk)->exists($path);
+        try {
+            // Check if the path is empty or null
+            if (empty($path)) {
+                \Log::warning('Attempted to delete an empty path from Cloudinary');
+                return true; // Return true to allow record deletion to proceed
+            }
+
+            return Storage::disk($this->disk)->delete($path);
+        } catch (\Exception $e) {
+            // Log the error but return true to allow record deletion to proceed
+            \Log::error('Failed to delete file from Cloudinary: ' . $e->getMessage(), [
+                'path' => $path,
+                'exception' => $e
+            ]);
+            return true;
+        }
     }
 }
