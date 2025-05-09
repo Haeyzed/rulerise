@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\BlogPostCategoryController;
 use App\Http\Controllers\Admin\BlogPostController;
 use App\Http\Controllers\Admin\FaqController;
+use App\Http\Controllers\Admin\UploadController;
 use App\Http\Controllers\Admin\WebsiteController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Auth\AuthController;
@@ -163,14 +164,14 @@ Route::middleware(['auth:api', 'role:admin'])->group(function () {
         Route::post('/hero-section', [WebsiteController::class, 'createOrUpdateHeroSection']);
         Route::post('/hero-section/{id}', [WebsiteController::class, 'createOrUpdateHeroSection']);
         Route::delete('/hero-section/{id}', [WebsiteController::class, 'deleteHeroSection']);
-        Route::delete('/hero-section/{heroSectionId}/image/{imageId}', [WebsiteController::class, 'deleteHeroSectionImage']);
+        Route::delete('/hero-section/image/{imageId}', [WebsiteController::class, 'deleteHeroSectionImage']);
 
         // About Us
         Route::get('/about-us', [WebsiteController::class, 'getAboutUs']);
         Route::post('/about-us', [WebsiteController::class, 'createOrUpdateAboutUs']);
         Route::post('/about-us/{id}', [WebsiteController::class, 'createOrUpdateAboutUs']);
         Route::delete('/about-us/{id}', [WebsiteController::class, 'deleteAboutUs']);
-        Route::delete('/about-us/{aboutUsId}/image/{imageId}', [WebsiteController::class, 'deleteAboutUsImage']);
+        Route::delete('/about-us/image/{imageId}', [WebsiteController::class, 'deleteAboutUsImage']);
 
         // Contact
         Route::get('/contacts', [WebsiteController::class, 'getAllContacts']);
@@ -205,4 +206,13 @@ Route::middleware(['auth:api', 'role:admin'])->group(function () {
         Route::delete('/{id}', [FaqController::class, 'deleteFaq']);
         Route::post('/reorder', [FaqController::class, 'reorderFaqs']);
     });
+
+
+// Upload routes
+    Route::post('uploads', [UploadController::class, 'upload'])->name('uploads.upload');
+    Route::post('uploads/multiple', [UploadController::class, 'uploadMultiple'])->name('uploads.upload-multiple');
+    Route::get('uploads', [UploadController::class, 'index'])->name('uploads.index');
+    Route::get('uploads/{upload}', [UploadController::class, 'show'])->name('uploads.show');
+    Route::delete('uploads/{upload}', [UploadController::class, 'destroy'])->name('uploads.destroy');
+    Route::get('uploads/collection/{collection}', [UploadController::class, 'getByCollection'])->name('uploads.collection');
 });

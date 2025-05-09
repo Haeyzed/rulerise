@@ -31,6 +31,7 @@ Route::prefix('website')->group(function () {
     Route::get('/hero-section', [WebsiteController::class, 'getHeroSection']);
     Route::get('/about-us', [WebsiteController::class, 'getAboutUs']);
     Route::get('/contact', [WebsiteController::class, 'getContact']);
+    Route::get('/contacts', [WebsiteController::class, 'getAllContacts']);
 });
 
 // Jobs

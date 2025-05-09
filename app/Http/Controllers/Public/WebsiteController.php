@@ -60,22 +60,39 @@ class WebsiteController extends Controller
     }
 
     /**
-     * Get the contact information.
+     * Get all contacts.
      *
      * @return JsonResponse
      */
-    public function getContact(): JsonResponse
+    public function getAllContacts(): JsonResponse
     {
-        $contact = $this->websiteService->getContact();
+        $contacts = $this->websiteService->getAllContacts();
 
         return response()->success(
-            new ContactResource($contact),
-            'Contact information retrieved successfully'
+            ContactResource::collection($contacts),
+            'Contacts retrieved successfully'
         );
     }
 
     /**
-     * Get all website sections (hero, about us, contact) in a single request.
+     * Get a specific contact by ID.
+     *
+     * @param int $id
+     * @return JsonResponse
+     */
+    public function getContact(int $id): JsonResponse
+    {
+        $contact = $this->websiteService->getContact($id);
+
+        return response()->success(
+            new ContactResource($contact),
+            'Contact retrieved successfully'
+        );
+    }
+
+    /**
+     * Get all website sections (hero, about us) in a single request.
+     * Contacts are excluded as they are multiple records.
      *
      * @return JsonResponse
      */
@@ -83,12 +100,12 @@ class WebsiteController extends Controller
     {
         $heroSection = $this->websiteService->getHeroSection();
         $aboutUs = $this->websiteService->getAboutUs();
-        $contact = $this->websiteService->getContact();
+        $contacts = $this->websiteService->getAllContacts();
 
         return response()->success([
             'hero_section' => new HeroSectionResource($heroSection),
             'about_us' => new AboutUsResource($aboutUs),
-            'contact' => new ContactResource($contact),
+            'contacts' => ContactResource::collection($contacts),
         ], 'Website sections retrieved successfully');
     }
 }

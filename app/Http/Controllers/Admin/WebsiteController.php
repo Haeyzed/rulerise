@@ -62,27 +62,12 @@ class WebsiteController extends Controller implements HasMiddleware
         );
     }
 
-//    /**
-//     * Get all hero sections.
-//     * Kept for backward compatibility.
-//     *
-//     * @return JsonResponse
-//     */
-//    public function getAllHeroSections(): JsonResponse
-//    {
-//        $heroSections = $this->websiteService->getAllHeroSections();
-//
-//        return response()->paginatedSuccess(
-//            HeroSectionResource::collection($heroSections),
-//            'Hero sections retrieved successfully'
-//        );
-//    }
-
     /**
      * Create or update the hero section.
      *
      * @param HeroSectionRequest $request
      * @return JsonResponse
+     * @throws \Throwable
      */
     public function createOrUpdateHeroSection(HeroSectionRequest $request): JsonResponse
     {
@@ -152,13 +137,14 @@ class WebsiteController extends Controller implements HasMiddleware
     }
 
     /**
-     * Get the contact.
+     * Get a contact by ID.
      *
+     * @param int $id
      * @return JsonResponse
      */
-    public function getContact(): JsonResponse
+    public function getContact(int $id): JsonResponse
     {
-        $contact = $this->websiteService->getContact();
+        $contact = $this->websiteService->getContact($id);
 
         return response()->success(
             new ContactResource($contact),
@@ -168,7 +154,6 @@ class WebsiteController extends Controller implements HasMiddleware
 
     /**
      * Get all contacts.
-     * Kept for backward compatibility.
      *
      * @return JsonResponse
      */
@@ -183,19 +168,34 @@ class WebsiteController extends Controller implements HasMiddleware
     }
 
     /**
-     * Create or update the contact.
+     * Create or update a contact.
      *
      * @param ContactRequest $request
+     * @param int|null $id
      * @return JsonResponse
+     * @throws \Throwable
      */
-    public function createOrUpdateContact(ContactRequest $request): JsonResponse
+    public function createOrUpdateContact(ContactRequest $request, ?int $id = null): JsonResponse
     {
-        $contact = $this->websiteService->createOrUpdateContact($request->validated());
+        $contact = $this->websiteService->createOrUpdateContact($request->validated(), $id);
 
         return response()->success(
             new ContactResource($contact),
-            'Contact updated successfully'
+            $id ? 'Contact updated successfully' : 'Contact created successfully'
         );
+    }
+
+    /**
+     * Delete a contact.
+     *
+     * @param int $id
+     * @return JsonResponse
+     */
+    public function deleteContact(int $id): JsonResponse
+    {
+        $this->websiteService->deleteContact($id);
+
+        return response()->success(null, 'Contact deleted successfully');
     }
 
     /**

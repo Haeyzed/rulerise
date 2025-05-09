@@ -212,18 +212,18 @@ class WebsiteService
     }
 
     /**
-     * Get the contact or create a new one if none exists.
+     * Get a contact by ID.
      *
+     * @param int $id The ID of the contact.
      * @return Contact
      */
-    public function getContact(): Contact
+    public function getContact(int $id): Contact
     {
-        return Contact::first() ?? new Contact();
+        return Contact::findOrFail($id);
     }
 
     /**
      * Get all contacts.
-     * Kept for backward compatibility.
      *
      * @return Collection
      */
@@ -233,26 +233,39 @@ class WebsiteService
     }
 
     /**
-     * Create or update the contact.
-     * Only one record will be maintained.
+     * Create or update a contact.
      *
      * @param array $data The validated data for creating/updating a contact.
+     * @param int|null $id The ID of the contact to update, or null to create a new one.
      * @return Contact The created or updated contact.
+     * @throws \Throwable
      */
-    public function createOrUpdateContact(array $data): Contact
+    public function createOrUpdateContact(array $data, ?int $id = null): Contact
     {
-        return DB::transaction(function () use ($data) {
-            // Get existing contact or create new one
-            $contact = Contact::first();
-
-            if (!$contact) {
-                $contact = new Contact();
-            }
+        return DB::transaction(function () use ($data, $id) {
+            // Create or update contact
+            $contact = $id
+                ? Contact::findOrFail($id)
+                : new Contact();
 
             $contact->fill($data);
             $contact->save();
 
             return $contact;
+        });
+    }
+
+    /**
+     * Delete a contact.
+     *
+     * @param int $id The ID of the contact to delete.
+     * @return bool Whether the deletion was successful.
+     */
+    public function deleteContact(int $id): bool
+    {
+        return DB::transaction(function () use ($id) {
+            $contact = Contact::findOrFail($id);
+            return $contact->delete();
         });
     }
 
