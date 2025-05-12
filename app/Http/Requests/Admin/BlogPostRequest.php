@@ -101,7 +101,7 @@ class BlogPostRequest extends BaseRequest
              * @var array|null $related_images
              * @example ["image1.jpg", "image2.png"]
              */
-            'related_images' => ['nullable', 'array', 'max:5'],
+            'related_images' => ['nullable', 'array'],
 
             /**
              * Each related image must be a valid image file.
@@ -109,7 +109,7 @@ class BlogPostRequest extends BaseRequest
              * @var string|null $related_images .*
              * @example "image1.jpg"
              */
-            'related_images.*' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif', 'max:2048'],
+            'related_images.*' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif'],
         ];
     }
 
