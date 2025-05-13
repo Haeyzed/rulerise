@@ -28,19 +28,24 @@ class AwsS3Provider implements StorageProviderInterface
     public function upload($file, string $path, ?string $filename = null, array $options = []): string
     {
         $filename = $filename ?? $this->generateFilename($file);
-        $fullPath = trim($path, '/') . 'AwsS3Provider.php/' . $filename;
+        $fullPath = trim($path, '/') . '/' . $filename;
 
         if ($file instanceof UploadedFile) {
-            $stream = fopen($file->getRealPath(), 'r');
-            Storage::disk($this->disk)->put($fullPath, $stream, $options);
-            if (is_resource($stream)) {
-                fclose($stream);
-            }
+            // Use storeAs() instead of put() for UploadedFile instances
+            return $file->storeAs(
+                trim($path, '/'),
+                $filename,
+                [
+                    'disk' => $this->disk,
+                    'visibility' => $options['visibility'] ?? 'public'
+                ]
+            );
         } else {
-            Storage::disk($this->disk)->put($fullPath, file_get_contents($file), $options);
+            // For non-UploadedFile instances (like file paths or URLs)
+            $content = file_get_contents($file);
+            Storage::disk($this->disk)->put($fullPath, $content, $options);
+            return $fullPath;
         }
-
-        return $fullPath;
     }
 
     /**
@@ -155,9 +160,9 @@ class AwsS3Provider implements StorageProviderInterface
     protected function generateFilename($file): string
     {
         if ($file instanceof UploadedFile) {
-            return Str::random(40) . 'Storage' . $file->getClientOriginalExtension();
+            return Str::random(40) . '.' . $file->getClientOriginalExtension();
         }
 
-        return Str::random(40) . 'Storage' . pathinfo($file, PATHINFO_EXTENSION);
+        return Str::random(40) . '.' . pathinfo($file, PATHINFO_EXTENSION);
     }
 }
