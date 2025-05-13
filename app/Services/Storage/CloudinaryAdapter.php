@@ -39,16 +39,16 @@ class CloudinaryAdapter implements StorageAdapterInterface
 
         // Determine the resource type based on MIME type
         $resourceType = 'raw'; // Default
-        if (strpos($mimeType, 'image/') === 0) {
+        if (str_starts_with($mimeType, 'image/')) {
             $resourceType = 'image';
-        } elseif (strpos($mimeType, 'video/') === 0) {
+        } elseif (str_starts_with($mimeType, 'video/')) {
             $resourceType = 'video';
         }
 
         // Ensure the name has the extension
-//        if (!empty($extension) && !str_ends_with($name, '.' . $extension)) {
-//            $name = $name . '.' . $extension;
-//        }
+        if (!empty($extension) && !str_ends_with($name, '.' . $extension)) {
+            $name = $name . '.' . $extension;
+        }
 
         // Prepare Cloudinary-specific options
         $cloudinaryOptions = [
@@ -58,16 +58,18 @@ class CloudinaryAdapter implements StorageAdapterInterface
             'unique_filename' => true,
         ];
 
-        // If path is provided, use it as a folder
-        if (!empty($path)) {
-            $cloudinaryOptions['folder'] = $path;
-        }
-
-        // Merge with user-provided options (user options take precedence)
+//        // If path is provided, use it as a folder
+//        if (!empty($path)) {
+//            $cloudinaryOptions['folder'] = $path;
+//        }
+//
+//        // Merge with user-provided options (user options take precedence)
         $cloudinaryOptions = array_merge($cloudinaryOptions, $options);
 
-        // Use putFileAs instead of storeAs for more control
-        return Storage::disk($this->disk)->putFileAs('', $file, $name, $cloudinaryOptions);
+        return $file->storeAs($path, $name, [
+            'disk' => $this->disk,
+            ...$cloudinaryOptions
+        ]);
     }
 
     /**
