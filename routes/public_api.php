@@ -51,14 +51,12 @@ Route::get('job-categories/featured', [JobCategoriesController::class, 'featured
 Route::get('job-categories/popular', [JobCategoriesController::class, 'popular']);
 Route::get('job-categories/{id}', [JobCategoriesController::class, 'show']);
 
-
 // Employers
 Route::get('employers', [EmployersController::class, 'index']);
 Route::get('employers/{id}', [EmployersController::class, 'show']);
 
 // Candidates
 Route::get('candidate-profile/{id}', [CandidatesController::class, 'show']);
-
 
 Route::prefix('faqs')->group(function () {
     Route::get('/', [FaqController::class, 'getAllFaqs']);
