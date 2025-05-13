@@ -35,40 +35,15 @@ class CloudinaryAdapter implements StorageAdapterInterface
     public function upload(UploadedFile $file, string $path, string $name, array $options = []): string
     {
         $extension = $file->getClientOriginalExtension();
-        $mimeType = $file->getMimeType();
 
-        // Determine the resource type based on MIME type
-        $resourceType = 'raw'; // Default
-        if (str_starts_with($mimeType, 'image/')) {
-            $resourceType = 'image';
-        } elseif (str_starts_with($mimeType, 'video/')) {
-            $resourceType = 'video';
+        // Ensure extension is appended if not already in the name
+        if (!Str::endsWith($name, ".$extension")) {
+            $name .= ".$extension";
         }
-
-        // Ensure the name has the extension
-        if (!empty($extension) && !str_ends_with($name, '.' . $extension)) {
-            $name = $name . '.' . $extension;
-        }
-
-        // Prepare Cloudinary-specific options
-        $cloudinaryOptions = [
-            'disk' => $this->disk,
-            'resource_type' => $resourceType,
-            'use_filename' => true,
-            'unique_filename' => true,
-        ];
-
-//        // If path is provided, use it as a folder
-//        if (!empty($path)) {
-//            $cloudinaryOptions['folder'] = $path;
-//        }
-//
-//        // Merge with user-provided options (user options take precedence)
-        $cloudinaryOptions = array_merge($cloudinaryOptions, $options);
 
         return $file->storeAs($path, $name, [
             'disk' => $this->disk,
-            $cloudinaryOptions
+            ...$options
         ]);
     }
 
