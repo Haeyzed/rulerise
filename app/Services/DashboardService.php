@@ -45,6 +45,10 @@ class DashboardService
         // Get recent job updates
         $recentJobUpdates = $this->getRecentJobUpdates($employer);
 
+        // Format date range for display
+        $formattedStartDate = $startDate->format('M j, Y');
+        $formattedEndDate = $endDate->format('M j, Y');
+
         return [
             'active_jobs_count' => $activeJobsCount,
             'new_messages_count' => $newMessagesCount,
@@ -52,6 +56,13 @@ class DashboardService
             'job_views_data' => $jobViewsData,
             'job_applications_data' => $jobApplicationsData,
             'recent_job_updates' => $recentJobUpdates,
+            'date_range' => [
+                'start_date' => $startDate->format('Y-m-d'),
+                'end_date' => $endDate->format('Y-m-d'),
+                'formatted_start_date' => $formattedStartDate,
+                'formatted_end_date' => $formattedEndDate,
+                'display' => "$formattedStartDate - $formattedEndDate"
+            ]
         ];
     }
 
@@ -164,9 +175,9 @@ class DashboardService
         $formattedData = [];
 
         if ($period === 'week') {
-            // Weekly view - show days of week (Monday, Tuesday, etc.)
+            // Weekly view - show shortened days of week (Mon, Tue, Wed, etc.)
             $daysOfWeek = [
-                'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'
+                'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'
             ];
 
             // Initialize all days with zero counts
@@ -177,7 +188,7 @@ class DashboardService
             // Fill in actual data
             foreach ($viewsData as $item) {
                 $date = Carbon::parse($item->date_group);
-                $dayName = $date->format('l'); // Full day name (Monday, Tuesday, etc.)
+                $dayName = $date->format('D'); // Short day name (Mon, Tue, etc.)
                 $formattedData[$dayName] = $item->count;
             }
         } else if ($period === 'month') {
@@ -191,7 +202,7 @@ class DashboardService
             // Initialize all weeks with zero counts
             $currentWeek = clone $startWeek;
             while ($currentWeek <= $endWeek) {
-                $weekStart = (clone $currentWeek)->format('M j');
+                $weekStart = (clone $currentWeek)->format('M j'); // Abbreviated month (Jan, Feb, etc.)
                 $weekEnd = (clone $currentWeek)->endOfWeek()->format('M j');
                 $weekLabel = "Week $weekNumber ($weekStart-$weekEnd)";
                 $formattedData[$weekLabel] = 0;
@@ -207,7 +218,7 @@ class DashboardService
 
                 // Create a date for this year/week
                 $weekDate = Carbon::now()->setISODate($year, $week);
-                $weekStart = (clone $weekDate)->startOfWeek()->format('M j');
+                $weekStart = (clone $weekDate)->startOfWeek()->format('M j'); // Abbreviated month
                 $weekEnd = (clone $weekDate)->endOfWeek()->format('M j');
 
                 // Find the week number relative to the start date
@@ -220,10 +231,10 @@ class DashboardService
                 }
             }
         } else {
-            // Yearly view - show months (January, February, etc.)
+            // Yearly view - show abbreviated months (Jan, Feb, etc.)
             $months = [
-                'January', 'February', 'March', 'April', 'May', 'June',
-                'July', 'August', 'September', 'October', 'November', 'December'
+                'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
             ];
 
             // Initialize all months with zero counts
@@ -239,11 +250,22 @@ class DashboardService
             }
         }
 
+        // Format date range for display
+        $formattedStartDate = $startDate->format('M j, Y');
+        $formattedEndDate = $endDate->format('M j, Y');
+
         return [
             'total' => $totalViews,
             'percentage_change' => round($percentageChange, 1),
             'daily_data' => $formattedData,
-            'period' => $period
+            'period' => $period,
+            'date_range' => [
+                'start_date' => $startDate->format('Y-m-d'),
+                'end_date' => $endDate->format('Y-m-d'),
+                'formatted_start_date' => $formattedStartDate,
+                'formatted_end_date' => $formattedEndDate,
+                'display' => "$formattedStartDate - $formattedEndDate"
+            ]
         ];
     }
 
@@ -309,9 +331,9 @@ class DashboardService
         $formattedData = [];
 
         if ($period === 'week') {
-            // Weekly view - show days of week (Monday, Tuesday, etc.)
+            // Weekly view - show shortened days of week (Mon, Tue, Wed, etc.)
             $daysOfWeek = [
-                'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'
+                'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'
             ];
 
             // Initialize all days with zero counts
@@ -322,7 +344,7 @@ class DashboardService
             // Fill in actual data
             foreach ($applicationsData as $item) {
                 $date = Carbon::parse($item->date_group);
-                $dayName = $date->format('l'); // Full day name (Monday, Tuesday, etc.)
+                $dayName = $date->format('D'); // Short day name (Mon, Tue, etc.)
                 $formattedData[$dayName] = $item->count;
             }
         } else if ($period === 'month') {
@@ -336,7 +358,7 @@ class DashboardService
             // Initialize all weeks with zero counts
             $currentWeek = clone $startWeek;
             while ($currentWeek <= $endWeek) {
-                $weekStart = (clone $currentWeek)->format('M j');
+                $weekStart = (clone $currentWeek)->format('M j'); // Abbreviated month (Jan, Feb, etc.)
                 $weekEnd = (clone $currentWeek)->endOfWeek()->format('M j');
                 $weekLabel = "Week $weekNumber ($weekStart-$weekEnd)";
                 $formattedData[$weekLabel] = 0;
@@ -352,7 +374,7 @@ class DashboardService
 
                 // Create a date for this year/week
                 $weekDate = Carbon::now()->setISODate($year, $week);
-                $weekStart = (clone $weekDate)->startOfWeek()->format('M j');
+                $weekStart = (clone $weekDate)->startOfWeek()->format('M j'); // Abbreviated month
                 $weekEnd = (clone $weekDate)->endOfWeek()->format('M j');
 
                 // Find the week number relative to the start date
@@ -365,10 +387,10 @@ class DashboardService
                 }
             }
         } else {
-            // Yearly view - show months (January, February, etc.)
+            // Yearly view - show abbreviated months (Jan, Feb, etc.)
             $months = [
-                'January', 'February', 'March', 'April', 'May', 'June',
-                'July', 'August', 'September', 'October', 'November', 'December'
+                'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
             ];
 
             // Initialize all months with zero counts
@@ -395,12 +417,23 @@ class DashboardService
                 return [$item->status => $item->count];
             });
 
+        // Format date range for display
+        $formattedStartDate = $startDate->format('M j, Y');
+        $formattedEndDate = $endDate->format('M j, Y');
+
         return [
             'total' => $totalApplications,
             'percentage_change' => round($percentageChange, 1),
             'daily_data' => $formattedData,
             'status_counts' => $statusCounts,
-            'period' => $period
+            'period' => $period,
+            'date_range' => [
+                'start_date' => $startDate->format('Y-m-d'),
+                'end_date' => $endDate->format('Y-m-d'),
+                'formatted_start_date' => $formattedStartDate,
+                'formatted_end_date' => $formattedEndDate,
+                'display' => "$formattedStartDate - $formattedEndDate"
+            ]
         ];
     }
 

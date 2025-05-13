@@ -112,8 +112,8 @@ class DashboardsController extends Controller implements HasMiddleware
         }
 
         // Format date range for display
-        $formattedStartDate = $startDate->format('M j');
-        $formattedEndDate = $endDate->format('M j');
+        $formattedStartDate = $startDate->format('M j, Y');
+        $formattedEndDate = $endDate->format('M j, Y');
         $dateRangeDisplay = "$formattedStartDate - $formattedEndDate";
 
         // Get dashboard metrics
@@ -131,6 +131,8 @@ class DashboardsController extends Controller implements HasMiddleware
             'date_range' => [
                 'start_date' => $startDate->format('Y-m-d'),
                 'end_date' => $endDate->format('Y-m-d'),
+                'formatted_start_date' => $formattedStartDate,
+                'formatted_end_date' => $formattedEndDate,
                 'period' => $period,
                 'display' => $dateRangeDisplay
             ],
