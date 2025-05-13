@@ -242,7 +242,7 @@ class DashboardService
         return [
             'total' => $totalViews,
             'percentage_change' => round($percentageChange, 1),
-            'daily_data' => $formattedData,
+            'data' => $formattedData,
             'period' => $period
         ];
     }
@@ -398,7 +398,7 @@ class DashboardService
         return [
             'total' => $totalApplications,
             'percentage_change' => round($percentageChange, 1),
-            'daily_data' => $formattedData,
+            'data' => $formattedData,
             'status_counts' => $statusCounts,
             'period' => $period
         ];
