@@ -44,6 +44,8 @@ class Employer extends Model
 {
     use HasFactory;
 
+    protected $appends = ['company_logo_url'];
+
     /**
      * The attributes that are mass assignable.
      *
