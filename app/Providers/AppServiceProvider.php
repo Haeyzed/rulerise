@@ -32,7 +32,7 @@ class AppServiceProvider extends ServiceProvider
         $this->customizeVerificationUrl();
         $this->configureScramble();
         RateLimiter::for('api', function (Request $request) {
-            return Limit::none(); // REMOVE THIS TO DISABLE
+            return Limit::none();
         });
     }
 
