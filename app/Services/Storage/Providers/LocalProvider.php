@@ -28,19 +28,26 @@ class LocalProvider implements StorageProviderInterface
     public function upload($file, string $path, ?string $filename = null, array $options = []): string
     {
         $filename = $filename ?? $this->generateFilename($file);
-        $fullPath = trim($path, '/') . 'LocalProvider.php/' . $filename;
+        $path = trim($path, '/');
 
         if ($file instanceof UploadedFile) {
-            $stream = fopen($file->getRealPath(), 'r');
-            Storage::disk($this->disk)->put($fullPath, $stream, $options);
-            if (is_resource($stream)) {
-                fclose($stream);
-            }
-        } else {
-            Storage::disk($this->disk)->put($fullPath, file_get_contents($file), $options);
-        }
+            // Use storeAs() for UploadedFile instances
+            $storedPath = $file->storeAs(
+                $path,
+                $filename,
+                [
+                    'disk' => $this->disk,
+                    'visibility' => $options['visibility'] ?? 'public'
+                ]
+            );
 
-        return $fullPath;
+            return $storedPath;
+        } else {
+            // For strings (file paths or URLs)
+            $fullPath = $path . '/' . $filename;
+            Storage::disk($this->disk)->put($fullPath, file_get_contents($file), $options);
+            return $fullPath;
+        }
     }
 
     /**
@@ -77,77 +84,6 @@ class LocalProvider implements StorageProviderInterface
     }
 
     /**
-     * Get the size of a file.
-     *
-     * @param string $path
-     * @return int|null
-     */
-    public function size(string $path): ?int
-    {
-        return Storage::disk($this->disk)->size($path);
-    }
-
-    /**
-     * Get the mime type of a file.
-     *
-     * @param string $path
-     * @return string|null
-     */
-    public function mimeType(string $path): ?string
-    {
-        return Storage::disk($this->disk)->mimeType($path);
-    }
-
-    /**
-     * Get the last modified time of a file.
-     *
-     * @param string $path
-     * @return int|null
-     */
-    public function lastModified(string $path): ?int
-    {
-        return Storage::disk($this->disk)->lastModified($path);
-    }
-
-    /**
-     * Get a temporary URL for a file.
-     *
-     * @param string $path
-     * @param \DateTimeInterface $expiration
-     * @param array $options
-     * @return string
-     */
-    public function temporaryUrl(string $path, \DateTimeInterface $expiration, array $options = []): string
-    {
-        // Local storage doesn't support temporary URLs
-        return $this->url($path);
-    }
-
-    /**
-     * Copy a file to a new location.
-     *
-     * @param string $from
-     * @param string $to
-     * @return bool
-     */
-    public function copy(string $from, string $to): bool
-    {
-        return Storage::disk($this->disk)->copy($from, $to);
-    }
-
-    /**
-     * Move a file to a new location.
-     *
-     * @param string $from
-     * @param string $to
-     * @return bool
-     */
-    public function move(string $from, string $to): bool
-    {
-        return Storage::disk($this->disk)->move($from, $to);
-    }
-
-    /**
      * Generate a unique filename for the file.
      *
      * @param UploadedFile|string $file
@@ -156,9 +92,9 @@ class LocalProvider implements StorageProviderInterface
     protected function generateFilename($file): string
     {
         if ($file instanceof UploadedFile) {
-            return Str::random(40) . 'Storage' . $file->getClientOriginalExtension();
+            return Str::random(40) . '.' . $file->getClientOriginalExtension();
         }
 
-        return Str::random(40) . 'Storage' . pathinfo($file, PATHINFO_EXTENSION);
+        return Str::random(40) . '.' . pathinfo($file, PATHINFO_EXTENSION);
     }
 }

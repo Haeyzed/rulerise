@@ -28,22 +28,24 @@ class AwsS3Provider implements StorageProviderInterface
     public function upload($file, string $path, ?string $filename = null, array $options = []): string
     {
         $filename = $filename ?? $this->generateFilename($file);
-        $fullPath = trim($path, '/') . '/' . $filename;
+        $path = trim($path, '/');
 
         if ($file instanceof UploadedFile) {
-            // Use storeAs() instead of put() for UploadedFile instances
-            return $file->storeAs(
-                trim($path, '/'),
+            // Use storeAs() for UploadedFile instances
+            $storedPath = $file->storeAs(
+                $path,
                 $filename,
                 [
                     'disk' => $this->disk,
                     'visibility' => $options['visibility'] ?? 'public'
                 ]
             );
+
+            return $storedPath;
         } else {
-            // For non-UploadedFile instances (like file paths or URLs)
-            $content = file_get_contents($file);
-            Storage::disk($this->disk)->put($fullPath, $content, $options);
+            // For strings (file paths or URLs)
+            $fullPath = $path . '/' . $filename;
+            Storage::disk($this->disk)->put($fullPath, file_get_contents($file), $options);
             return $fullPath;
         }
     }
@@ -79,76 +81,6 @@ class AwsS3Provider implements StorageProviderInterface
     public function exists(string $path): bool
     {
         return Storage::disk($this->disk)->exists($path);
-    }
-
-    /**
-     * Get the size of a file.
-     *
-     * @param string $path
-     * @return int|null
-     */
-    public function size(string $path): ?int
-    {
-        return Storage::disk($this->disk)->size($path);
-    }
-
-    /**
-     * Get the mime type of a file.
-     *
-     * @param string $path
-     * @return string|null
-     */
-    public function mimeType(string $path): ?string
-    {
-        return Storage::disk($this->disk)->mimeType($path);
-    }
-
-    /**
-     * Get the last modified time of a file.
-     *
-     * @param string $path
-     * @return int|null
-     */
-    public function lastModified(string $path): ?int
-    {
-        return Storage::disk($this->disk)->lastModified($path);
-    }
-
-    /**
-     * Get a temporary URL for a file.
-     *
-     * @param string $path
-     * @param \DateTimeInterface $expiration
-     * @param array $options
-     * @return string
-     */
-    public function temporaryUrl(string $path, \DateTimeInterface $expiration, array $options = []): string
-    {
-        return Storage::disk($this->disk)->temporaryUrl($path, $expiration, $options);
-    }
-
-    /**
-     * Copy a file to a new location.
-     *
-     * @param string $from
-     * @param string $to
-     * @return bool
-     */
-    public function copy(string $from, string $to): bool
-    {
-        return Storage::disk($this->disk)->copy($from, $to);
-    }
-
-    /**
-     * Move a file to a new location.
-     *
-     * @param string $from
-     * @param string $to
-     * @return bool
-     */
-    public function move(string $from, string $to): bool
-    {
-        return Storage::disk($this->disk)->move($from, $to);
     }
 
     /**

@@ -9,6 +9,7 @@ use App\Services\Storage\Providers\GoogleDriveProvider;
 use App\Services\Storage\Providers\LocalProvider;
 use Illuminate\Http\UploadedFile;
 use InvalidArgumentException;
+use Illuminate\Support\Facades\Log;
 
 class StorageService
 {
@@ -22,12 +23,11 @@ class StorageService
     /**
      * Create a new storage service instance.
      *
-     * @param string|null $provider
      * @return void
      */
-    public function __construct(?string $provider = null)
+    public function __construct()
     {
-        $provider = $provider ?? config('filestorage.default');
+        $provider = env('STORAGE_PROVIDER', 'local');
         $this->setProvider($provider);
     }
 
@@ -39,26 +39,39 @@ class StorageService
      */
     public function setProvider(string $provider): self
     {
-        $this->provider = match ($provider) {
-            'aws' => new AwsS3Provider(),
-            'cloudinary' => new CloudinaryProvider(),
-            'dropbox' => new DropboxProvider(),
-            'google' => new GoogleDriveProvider(),
-            'local' => new LocalProvider(),
-            default => throw new InvalidArgumentException("Unsupported storage provider: {$provider}"),
-        };
+        try {
+            $this->provider = match ($provider) {
+                'aws', 's3' => new AwsS3Provider(),
+                'cloudinary' => new CloudinaryProvider(),
+                'dropbox' => new DropboxProvider(),
+                'google' => new GoogleDriveProvider(),
+                'local' => new LocalProvider(),
+                default => throw new InvalidArgumentException("Unsupported storage provider: {$provider}"),
+            };
+        } catch (\Exception $e) {
+            Log::error("Failed to initialize storage provider '{$provider}': " . $e->getMessage());
+            // Fallback to local provider if the requested one fails
+            $this->provider = new LocalProvider();
+        }
 
         return $this;
     }
 
     /**
-     * Get the current provider instance.
+     * Get the current provider name.
      *
-     * @return StorageProviderInterface
+     * @return string
      */
-    public function getProvider(): StorageProviderInterface
+    public function getProviderName(): string
     {
-        return $this->provider;
+        return match (true) {
+            $this->provider instanceof AwsS3Provider => 'aws',
+            $this->provider instanceof CloudinaryProvider => 'cloudinary',
+            $this->provider instanceof DropboxProvider => 'dropbox',
+            $this->provider instanceof GoogleDriveProvider => 'google',
+            $this->provider instanceof LocalProvider => 'local',
+            default => 'unknown',
+        };
     }
 
     /**
@@ -72,7 +85,12 @@ class StorageService
      */
     public function upload($file, string $path, ?string $filename = null, array $options = []): string
     {
-        return $this->provider->upload($file, $path, $filename, $options);
+        try {
+            return $this->provider->upload($file, $path, $filename, $options);
+        } catch (\Exception $e) {
+            Log::error("File upload error: " . $e->getMessage());
+            throw $e;
+        }
     }
 
     /**
@@ -83,7 +101,12 @@ class StorageService
      */
     public function delete(string $path): bool
     {
-        return $this->provider->delete($path);
+        try {
+            return $this->provider->delete($path);
+        } catch (\Exception $e) {
+            Log::error("File deletion error: " . $e->getMessage());
+            return false;
+        }
     }
 
     /**
@@ -94,7 +117,12 @@ class StorageService
      */
     public function url(string $path): string
     {
-        return $this->provider->url($path);
+        try {
+            return $this->provider->url($path);
+        } catch (\Exception $e) {
+            Log::error("Error getting file URL: " . $e->getMessage());
+            return '';
+        }
     }
 
     /**
@@ -105,76 +133,11 @@ class StorageService
      */
     public function exists(string $path): bool
     {
-        return $this->provider->exists($path);
-    }
-
-    /**
-     * Get the size of a file.
-     *
-     * @param string $path
-     * @return int|null
-     */
-    public function size(string $path): ?int
-    {
-        return $this->provider->size($path);
-    }
-
-    /**
-     * Get the mime type of a file.
-     *
-     * @param string $path
-     * @return string|null
-     */
-    public function mimeType(string $path): ?string
-    {
-        return $this->provider->mimeType($path);
-    }
-
-    /**
-     * Get the last modified time of a file.
-     *
-     * @param string $path
-     * @return int|null
-     */
-    public function lastModified(string $path): ?int
-    {
-        return $this->provider->lastModified($path);
-    }
-
-    /**
-     * Get a temporary URL for a file.
-     *
-     * @param string $path
-     * @param \DateTimeInterface $expiration
-     * @param array $options
-     * @return string
-     */
-    public function temporaryUrl(string $path, \DateTimeInterface $expiration, array $options = []): string
-    {
-        return $this->provider->temporaryUrl($path, $expiration, $options);
-    }
-
-    /**
-     * Copy a file to a new location.
-     *
-     * @param string $from
-     * @param string $to
-     * @return bool
-     */
-    public function copy(string $from, string $to): bool
-    {
-        return $this->provider->copy($from, $to);
-    }
-
-    /**
-     * Move a file to a new location.
-     *
-     * @param string $from
-     * @param string $to
-     * @return bool
-     */
-    public function move(string $from, string $to): bool
-    {
-        return $this->provider->move($from, $to);
+        try {
+            return $this->provider->exists($path);
+        } catch (\Exception $e) {
+            Log::error("Error checking if file exists: " . $e->getMessage());
+            return false;
+        }
     }
 }

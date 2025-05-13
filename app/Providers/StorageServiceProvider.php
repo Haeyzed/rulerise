@@ -15,7 +15,7 @@ class StorageServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(StorageService::class, function ($app) {
-            return new StorageService(config('filestorage.default'));
+            return new StorageService();
         });
     }
 

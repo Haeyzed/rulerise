@@ -447,6 +447,8 @@ class AuthService
         }
     }
 
+
+
     /**
      * Upload an image to storage.
      *
@@ -458,6 +460,17 @@ class AuthService
      */
     private function uploadImage(UploadedFile $image, string $path, string $fileName, array $options = []): string
     {
-        return $this->storageService->upload($image, $path, $fileName, $options);
+        try {
+            // Set default options for uploads
+            $options = array_merge([
+                'visibility' => 'public',
+            ], $options);
+
+            // Use our storage service to upload the file
+            return $this->storageService->upload($image, $path, $fileName, $options);
+        } catch (\Exception $e) {
+            Log::error('File upload error: ' . $e->getMessage());
+            throw $e;
+        }
     }
 }
