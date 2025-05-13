@@ -46,9 +46,9 @@ class CloudinaryAdapter implements StorageAdapterInterface
         }
 
         // Ensure the name has the extension
-        if (!empty($extension) && !str_ends_with($name, '.' . $extension)) {
-            $name = $name . '.' . $extension;
-        }
+//        if (!empty($extension) && !str_ends_with($name, '.' . $extension)) {
+//            $name = $name . '.' . $extension;
+//        }
 
         // Prepare Cloudinary-specific options
         $cloudinaryOptions = [
@@ -67,9 +67,7 @@ class CloudinaryAdapter implements StorageAdapterInterface
         $cloudinaryOptions = array_merge($cloudinaryOptions, $options);
 
         // Use putFileAs instead of storeAs for more control
-        $result = Storage::disk($this->disk)->putFileAs('', $file, $name, $cloudinaryOptions);
-
-        return $result;
+        return Storage::disk($this->disk)->putFileAs('', $file, $name, $cloudinaryOptions);
     }
 
     /**
