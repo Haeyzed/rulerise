@@ -68,7 +68,7 @@ class CloudinaryAdapter implements StorageAdapterInterface
 
         return $file->storeAs($path, $name, [
             'disk' => $this->disk,
-            ...$cloudinaryOptions
+            $cloudinaryOptions
         ]);
     }
 
