@@ -119,7 +119,7 @@ class AuthController extends Controller implements HasMiddleware
         );
 
         if (!$result) {
-            return response()->unauthorized('Invalid credentials or account is inactive');
+            return response()->unauthorized('Invalid credentials');
         }
 
         $user = $result['user'];
