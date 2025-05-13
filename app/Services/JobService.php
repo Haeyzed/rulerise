@@ -855,7 +855,10 @@ class JobService
      */
     public function getSimilarJobs(Job $job, int $perPage = 5): Collection
     {
-        return Job::query()->where('job_category_id', $job->job_category_id)
+        return Job::with([
+            'employer:id,company_name,company_email,company_logo'
+        ])
+            ->where('job_category_id', $job->job_category_id)
             ->where('id', '!=', $job->id)
             ->where('is_draft', false)
             ->where('is_active', true)

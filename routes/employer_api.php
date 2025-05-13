@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Employer\CandidatesController;
+use App\Http\Controllers\Employer\PaymentController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Employer\DashboardsController;
@@ -90,6 +91,18 @@ Route::middleware(['auth:api', 'role:employer,employer_staff'])->group(function 
         Route::post('upload-profile-picture', [UserAccountSettingsController::class, 'uploadProfilePicture']);
     });
 
+    // Payment routes
+    Route::prefix('payments')->group(function () {
+        Route::get('/providers', [PaymentController::class, 'getProviders']);
+        Route::post('/create-intent', [PaymentController::class, 'createPaymentIntent']);
+        Route::post('/process', [PaymentController::class, 'processPayment']);
+        Route::delete('/subscriptions/{subscription}', [PaymentController::class, 'cancelSubscription']);
+
+        // PayPal specific routes
+        Route::get('/paypal/success', [PaymentController::class, 'handlePayPalSuccess'])->name('api.payments.paypal.success');
+        Route::get('/paypal/cancel', [PaymentController::class, 'handlePayPalCancel'])->name('api.payments.paypal.cancel');
+    });
+
     // Subscriptions
     Route::prefix('cv-packages')->group(function () {
         Route::get('/', [SubscriptionPaymentController::class, 'subscriptionList']);
@@ -145,3 +158,8 @@ Route::middleware(['auth:api', 'role:employer'])->group(function () {
         Route::post('/cv-download', [SubscriptionsController::class, 'updateCVDownloadUsage']);
     });
 });
+
+
+// Webhook routes (no auth required)
+Route::post('/webhooks/stripe', [PaymentController::class, 'handleStripeWebhook']);
+Route::post('/webhooks/paypal', [PaymentController::class, 'handlePayPalWebhook']);
