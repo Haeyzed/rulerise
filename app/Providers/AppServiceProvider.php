@@ -32,10 +32,10 @@ class AppServiceProvider extends ServiceProvider
         $this->customizeVerificationUrl();
         $this->configureScramble();
         RateLimiter::for('global', function ($request) {
-            return Limit::perMinute(1000)->by($request->ip());
+            return Limit::none()->by($request->ip());
         });
         RateLimiter::for('api', function ($request) {
-            return Limit::perMinute(60)->by($request->user()->id)->response(function () {
+            return Limit::none()->by($request->user()->id)->response(function () {
                 return response('Too Many Requests', 429);
             });
         });
