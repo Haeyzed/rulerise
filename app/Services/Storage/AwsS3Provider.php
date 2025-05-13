@@ -1,65 +1,20 @@
 <?php
 
-namespace App\Services\Storage;
+namespace App\Services\Storage\Providers;
 
-use App\Services\Storage\Providers\AwsS3Provider;
-use App\Services\Storage\Providers\CloudinaryProvider;
-use App\Services\Storage\Providers\DropboxProvider;
-use App\Services\Storage\Providers\GoogleDriveProvider;
-use App\Services\Storage\Providers\LocalProvider;
+use App\Services\Storage\StorageProviderInterface;
 use Illuminate\Http\UploadedFile;
-use InvalidArgumentException;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
-class StorageService
+class AwsS3Provider implements StorageProviderInterface
 {
     /**
-     * The storage provider instance.
+     * The disk name.
      *
-     * @var StorageProviderInterface
+     * @var string
      */
-    protected StorageProviderInterface $provider;
-
-    /**
-     * Create a new storage service instance.
-     *
-     * @param string|null $provider
-     * @return void
-     */
-    public function __construct(?string $provider = null)
-    {
-        $provider = $provider ?? config('filestorage.default');
-        $this->setProvider($provider);
-    }
-
-    /**
-     * Set the storage provider.
-     *
-     * @param string $provider
-     * @return $this
-     */
-    public function setProvider(string $provider): self
-    {
-        $this->provider = match ($provider) {
-            'aws' => new AwsS3Provider(),
-            'cloudinary' => new CloudinaryProvider(),
-            'dropbox' => new DropboxProvider(),
-            'google' => new GoogleDriveProvider(),
-            'local' => new LocalProvider(),
-            default => throw new InvalidArgumentException("Unsupported storage provider: {$provider}"),
-        };
-
-        return $this;
-    }
-
-    /**
-     * Get the current provider instance.
-     *
-     * @return StorageProviderInterface
-     */
-    public function getProvider(): StorageProviderInterface
-    {
-        return $this->provider;
-    }
+    protected string $disk = 's3';
 
     /**
      * Upload a file to storage.
@@ -72,7 +27,20 @@ class StorageService
      */
     public function upload($file, string $path, ?string $filename = null, array $options = []): string
     {
-        return $this->provider->upload($file, $path, $filename, $options);
+        $filename = $filename ?? $this->generateFilename($file);
+        $fullPath = trim($path, '/') . '/' . $filename;
+
+        if ($file instanceof UploadedFile) {
+            $stream = fopen($file->getRealPath(), 'r');
+            Storage::disk($this->disk)->put($fullPath, $stream, $options);
+            if (is_resource($stream)) {
+                fclose($stream);
+            }
+        } else {
+            Storage::disk($this->disk)->put($fullPath, file_get_contents($file), $options);
+        }
+
+        return $fullPath;
     }
 
     /**
@@ -83,7 +51,7 @@ class StorageService
      */
     public function delete(string $path): bool
     {
-        return $this->provider->delete($path);
+        return Storage::disk($this->disk)->delete($path);
     }
 
     /**
@@ -94,7 +62,7 @@ class StorageService
      */
     public function url(string $path): string
     {
-        return $this->provider->url($path);
+        return Storage::disk($this->disk)->url($path);
     }
 
     /**
@@ -105,7 +73,7 @@ class StorageService
      */
     public function exists(string $path): bool
     {
-        return $this->provider->exists($path);
+        return Storage::disk($this->disk)->exists($path);
     }
 
     /**
@@ -116,7 +84,7 @@ class StorageService
      */
     public function size(string $path): ?int
     {
-        return $this->provider->size($path);
+        return Storage::disk($this->disk)->size($path);
     }
 
     /**
@@ -127,7 +95,7 @@ class StorageService
      */
     public function mimeType(string $path): ?string
     {
-        return $this->provider->mimeType($path);
+        return Storage::disk($this->disk)->mimeType($path);
     }
 
     /**
@@ -138,7 +106,7 @@ class StorageService
      */
     public function lastModified(string $path): ?int
     {
-        return $this->provider->lastModified($path);
+        return Storage::disk($this->disk)->lastModified($path);
     }
 
     /**
@@ -151,7 +119,7 @@ class StorageService
      */
     public function temporaryUrl(string $path, \DateTimeInterface $expiration, array $options = []): string
     {
-        return $this->provider->temporaryUrl($path, $expiration, $options);
+        return Storage::disk($this->disk)->temporaryUrl($path, $expiration, $options);
     }
 
     /**
@@ -163,7 +131,7 @@ class StorageService
      */
     public function copy(string $from, string $to): bool
     {
-        return $this->provider->copy($from, $to);
+        return Storage::disk($this->disk)->copy($from, $to);
     }
 
     /**
@@ -175,6 +143,21 @@ class StorageService
      */
     public function move(string $from, string $to): bool
     {
-        return $this->provider->move($from, $to);
+        return Storage::disk($this->disk)->move($from, $to);
+    }
+
+    /**
+     * Generate a unique filename for the file.
+     *
+     * @param UploadedFile|string $file
+     * @return string
+     */
+    protected function generateFilename($file): string
+    {
+        if ($file instanceof UploadedFile) {
+            return Str::random(40) . '.' . $file->getClientOriginalExtension();
+        }
+
+        return Str::random(40) . '.' . pathinfo($file, PATHINFO_EXTENSION);
     }
 }

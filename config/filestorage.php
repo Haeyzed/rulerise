@@ -11,7 +11,7 @@ return [
     | drivers are: "local", "aws", "cloudinary", "dropbox", "google"
     |
     */
-    'default' => env('FILESTORAGE_DRIVER', 'local'),
+    'default' => env('FILESTORAGE_DRIVER', 'aws'),
 
     /*
     |--------------------------------------------------------------------------
