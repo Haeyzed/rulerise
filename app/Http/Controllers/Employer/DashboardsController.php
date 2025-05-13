@@ -74,7 +74,21 @@ class DashboardsController extends Controller implements HasMiddleware
         $endDate = Carbon::now();
         $startDate = Carbon::now()->subDays(6); // Last 7 days including today
 
-        if ($request->has('start_date') && $request->has('end_date')) {
+        if ($request->has('period')) {
+            $period = $request->input('period');
+
+            switch ($period) {
+                case 'month':
+                    $startDate = Carbon::now()->subDays(29); // Last 30 days including today
+                    break;
+                case 'year':
+                    $startDate = Carbon::now()->subDays(364); // Last 365 days including today
+                    break;
+                default:
+                    $startDate = Carbon::now()->subDays(6); // Default to 7 days
+                    break;
+            }
+        } elseif ($request->has('start_date') && $request->has('end_date')) {
             $startDate = Carbon::parse($request->input('start_date'));
             $endDate = Carbon::parse($request->input('end_date'));
         }

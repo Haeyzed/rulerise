@@ -95,8 +95,8 @@ class DashboardService
     private function getNewCandidatesCount(Employer $employer, Carbon $startDate, Carbon $endDate): int
     {
         return JobApplication::query()->whereHas('job', function ($query) use ($employer) {
-                $query->where('employer_id', $employer->id);
-            })
+            $query->where('employer_id', $employer->id);
+        })
             ->whereBetween('created_at', [$startDate, $endDate])
             ->distinct('candidate_id')
             ->count('candidate_id');
@@ -114,8 +114,8 @@ class DashboardService
     {
         // Get total job views for the date range
         $totalViews = JobViewCount::query()->whereHas('job', function ($query) use ($employer) {
-                $query->where('employer_id', $employer->id);
-            })
+            $query->where('employer_id', $employer->id);
+        })
             ->whereBetween('created_at', [$startDate, $endDate])
             ->count();
 
@@ -125,8 +125,8 @@ class DashboardService
         $previousEndDate = (clone $startDate)->subDay();
 
         $previousTotalViews = JobViewCount::whereHas('job', function ($query) use ($employer) {
-                $query->where('employer_id', $employer->id);
-            })
+            $query->where('employer_id', $employer->id);
+        })
             ->whereBetween('created_at', [$previousStartDate, $previousEndDate])
             ->count();
 
@@ -136,32 +136,66 @@ class DashboardService
             $percentageChange = (($totalViews - $previousTotalViews) / $previousTotalViews) * 100;
         }
 
-        // Get daily views for chart
-        $dailyViews = JobViewCount::query()->whereHas('job', function ($query) use ($employer) {
-                $query->where('employer_id', $employer->id);
-            })
-            ->whereBetween('created_at', [$startDate, $endDate])
-            ->select(DB::raw('DATE(created_at) as date'), DB::raw('COUNT(*) as count'))
-            ->groupBy('date')
-            ->orderBy('date')
-            ->get()
-            ->mapWithKeys(function ($item) {
-                return [$item->date => $item->count];
-            });
+        // Get daily/weekly/monthly views for chart based on date range
+        $groupBy = 'DATE(created_at)'; // Default daily grouping
+        $dateFormat = 'Y-m-d';
 
-        // Fill in missing dates with zero counts
-        $currentDate = clone $startDate;
-        $result = [];
-        while ($currentDate <= $endDate) {
-            $dateString = $currentDate->format('Y-m-d');
-            $result[$dateString] = $dailyViews[$dateString] ?? 0;
-            $currentDate->addDay();
+        // If date range is more than 90 days, group by week
+        if ($daysDiff > 90) {
+            $groupBy = 'YEARWEEK(created_at)';
+            $dateFormat = 'Y-W';
+        }
+        // If date range is more than 30 days, group by week
+        else if ($daysDiff > 30) {
+            $groupBy = 'YEARWEEK(created_at)';
+            $dateFormat = 'Y-W';
+        }
+
+        $viewsData = JobViewCount::query()->whereHas('job', function ($query) use ($employer) {
+            $query->where('employer_id', $employer->id);
+        })
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->select(DB::raw($groupBy . ' as date_group'), DB::raw('COUNT(*) as count'))
+            ->groupBy('date_group')
+            ->orderBy('date_group')
+            ->get();
+
+        // Format the results based on grouping
+        $formattedData = [];
+        if ($daysDiff <= 30) {
+            // Daily format
+            $currentDate = clone $startDate;
+            while ($currentDate <= $endDate) {
+                $dateString = $currentDate->format('Y-m-d');
+                $formattedData[$dateString] = 0;
+                $currentDate->addDay();
+            }
+
+            foreach ($viewsData as $item) {
+                $date = Carbon::parse($item->date_group)->format('Y-m-d');
+                $formattedData[$date] = $item->count;
+            }
+        } else {
+            // Weekly or monthly format
+            foreach ($viewsData as $item) {
+                if ($daysDiff > 90) {
+                    // For yearly view, convert YEARWEEK to a readable format
+                    $year = substr($item->date_group, 0, 4);
+                    $week = substr($item->date_group, 4);
+                    $formattedData["Week $week, $year"] = $item->count;
+                } else {
+                    // For monthly view
+                    $year = substr($item->date_group, 0, 4);
+                    $week = substr($item->date_group, 4);
+                    $formattedData["Week $week, $year"] = $item->count;
+                }
+            }
         }
 
         return [
             'total' => $totalViews,
             'percentage_change' => round($percentageChange, 1),
-            'daily_data' => $result,
+            'daily_data' => $formattedData,
         ];
     }
 
@@ -177,8 +211,8 @@ class DashboardService
     {
         // Get total job applications for the date range
         $totalApplications = JobApplication::query()->whereHas('job', function ($query) use ($employer) {
-                $query->where('employer_id', $employer->id);
-            })
+            $query->where('employer_id', $employer->id);
+        })
             ->whereBetween('created_at', [$startDate, $endDate])
             ->count();
 
@@ -188,8 +222,8 @@ class DashboardService
         $previousEndDate = (clone $startDate)->subDay();
 
         $previousTotalApplications = JobApplication::query()->whereHas('job', function ($query) use ($employer) {
-                $query->where('employer_id', $employer->id);
-            })
+            $query->where('employer_id', $employer->id);
+        })
             ->whereBetween('created_at', [$previousStartDate, $previousEndDate])
             ->count();
 
@@ -199,32 +233,66 @@ class DashboardService
             $percentageChange = (($totalApplications - $previousTotalApplications) / $previousTotalApplications) * 100;
         }
 
-        // Get daily applications for chart
-        $dailyApplications = JobApplication::query()->whereHas('job', function ($query) use ($employer) {
-                $query->where('employer_id', $employer->id);
-            })
-            ->whereBetween('created_at', [$startDate, $endDate])
-            ->select(DB::raw('DATE(created_at) as date'), DB::raw('COUNT(*) as count'))
-            ->groupBy('date')
-            ->orderBy('date')
-            ->get()
-            ->mapWithKeys(function ($item) {
-                return [$item->date => $item->count];
-            });
+        // Get daily/weekly/monthly applications for chart based on date range
+        $groupBy = 'DATE(created_at)'; // Default daily grouping
+        $dateFormat = 'Y-m-d';
 
-        // Fill in missing dates with zero counts
-        $currentDate = clone $startDate;
-        $result = [];
-        while ($currentDate <= $endDate) {
-            $dateString = $currentDate->format('Y-m-d');
-            $result[$dateString] = $dailyApplications[$dateString] ?? 0;
-            $currentDate->addDay();
+        // If date range is more than 90 days, group by week
+        if ($daysDiff > 90) {
+            $groupBy = 'YEARWEEK(created_at)';
+            $dateFormat = 'Y-W';
+        }
+        // If date range is more than 30 days, group by week
+        else if ($daysDiff > 30) {
+            $groupBy = 'YEARWEEK(created_at)';
+            $dateFormat = 'Y-W';
+        }
+
+        $applicationsData = JobApplication::query()->whereHas('job', function ($query) use ($employer) {
+            $query->where('employer_id', $employer->id);
+        })
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->select(DB::raw($groupBy . ' as date_group'), DB::raw('COUNT(*) as count'))
+            ->groupBy('date_group')
+            ->orderBy('date_group')
+            ->get();
+
+        // Format the results based on grouping
+        $formattedData = [];
+        if ($daysDiff <= 30) {
+            // Daily format
+            $currentDate = clone $startDate;
+            while ($currentDate <= $endDate) {
+                $dateString = $currentDate->format('Y-m-d');
+                $formattedData[$dateString] = 0;
+                $currentDate->addDay();
+            }
+
+            foreach ($applicationsData as $item) {
+                $date = Carbon::parse($item->date_group)->format('Y-m-d');
+                $formattedData[$date] = $item->count;
+            }
+        } else {
+            // Weekly or monthly format
+            foreach ($applicationsData as $item) {
+                if ($daysDiff > 90) {
+                    // For yearly view, convert YEARWEEK to a readable format
+                    $year = substr($item->date_group, 0, 4);
+                    $week = substr($item->date_group, 4);
+                    $formattedData["Week $week, $year"] = $item->count;
+                } else {
+                    // For monthly view
+                    $year = substr($item->date_group, 0, 4);
+                    $week = substr($item->date_group, 4);
+                    $formattedData["Week $week, $year"] = $item->count;
+                }
+            }
         }
 
         // Get application status counts
         $statusCounts = JobApplication::query()->whereHas('job', function ($query) use ($employer) {
-                $query->where('employer_id', $employer->id);
-            })
+            $query->where('employer_id', $employer->id);
+        })
             ->select('status', DB::raw('COUNT(*) as count'))
             ->groupBy('status')
             ->get()
@@ -235,7 +303,7 @@ class DashboardService
         return [
             'total' => $totalApplications,
             'percentage_change' => round($percentageChange, 1),
-            'daily_data' => $result,
+            'daily_data' => $formattedData,
             'status_counts' => $statusCounts,
         ];
     }
