@@ -51,7 +51,7 @@ class CloudinaryProvider implements StorageProviderInterface
     {
         $filename = $filename ?? $this->generateFilename($file);
         $folder = trim($path, '/');
-        
+
         $uploadOptions = array_merge([
             'folder' => $folder,
             'public_id' => pathinfo($filename, PATHINFO_FILENAME),
@@ -175,7 +175,7 @@ class CloudinaryProvider implements StorageProviderInterface
     {
         $timestamp = $expiration->getTimestamp();
         $signature = sha1(
-            "public_id={$path}&timestamp={$timestamp}" . 
+            "public_id={$path}&timestamp={$timestamp}" .
             config('filestorage.providers.cloudinary.api_secret')
         );
 
@@ -220,9 +220,9 @@ class CloudinaryProvider implements StorageProviderInterface
     protected function generateFilename($file): string
     {
         if ($file instanceof UploadedFile) {
-            return Str::random(40) . '.' . $file->getClientOriginalExtension();
+            return Str::random(40) . 'Storage' . $file->getClientOriginalExtension();
         }
 
-        return Str::random(40) . '.' . pathinfo($file, PATHINFO_EXTENSION);
+        return Str::random(40) . 'Storage' . pathinfo($file, PATHINFO_EXTENSION);
     }
 }

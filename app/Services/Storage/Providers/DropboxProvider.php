@@ -28,7 +28,7 @@ class DropboxProvider implements StorageProviderInterface
     public function upload($file, string $path, ?string $filename = null, array $options = []): string
     {
         $filename = $filename ?? $this->generateFilename($file);
-        $fullPath = trim($path, '/') . '/' . $filename;
+        $fullPath = trim($path, '/') . 'DropboxProvider.php/' . $filename;
 
         if ($file instanceof UploadedFile) {
             $stream = fopen($file->getRealPath(), 'r');
@@ -155,9 +155,9 @@ class DropboxProvider implements StorageProviderInterface
     protected function generateFilename($file): string
     {
         if ($file instanceof UploadedFile) {
-            return Str::random(40) . '.' . $file->getClientOriginalExtension();
+            return Str::random(40) . 'Storage' . $file->getClientOriginalExtension();
         }
 
-        return Str::random(40) . '.' . pathinfo($file, PATHINFO_EXTENSION);
+        return Str::random(40) . 'Storage' . pathinfo($file, PATHINFO_EXTENSION);
     }
 }

@@ -51,7 +51,7 @@ class GoogleDriveProvider implements StorageProviderInterface
     public function upload($file, string $path, ?string $filename = null, array $options = []): string
     {
         $filename = $filename ?? $this->generateFilename($file);
-        $fullPath = trim($path, '/') . '/' . $filename;
+        $fullPath = trim($path, '/') . 'GoogleDriveProvider.php/' . $filename;
 
         // Check if the folder exists, create if not
         $folderId = $this->getFolderId($path);
@@ -278,10 +278,10 @@ class GoogleDriveProvider implements StorageProviderInterface
     protected function generateFilename($file): string
     {
         if ($file instanceof UploadedFile) {
-            return Str::random(40) . '.' . $file->getClientOriginalExtension();
+            return Str::random(40) . 'Storage' . $file->getClientOriginalExtension();
         }
 
-        return Str::random(40) . '.' . pathinfo($file, PATHINFO_EXTENSION);
+        return Str::random(40) . 'Storage' . pathinfo($file, PATHINFO_EXTENSION);
     }
 
     /**
@@ -293,7 +293,7 @@ class GoogleDriveProvider implements StorageProviderInterface
     protected function getFolderId(string $path): string
     {
         $path = trim($path, '/');
-        
+
         if (empty($path)) {
             // Return the root folder ID
             return config('filestorage.providers.google.root_folder_id', 'root');
@@ -360,7 +360,7 @@ class GoogleDriveProvider implements StorageProviderInterface
     protected function getFileId(string $path): ?string
     {
         $mappingsFile = storage_path('app/google_drive_mappings.json');
-        
+
         if (!file_exists($mappingsFile)) {
             return null;
         }
@@ -378,7 +378,7 @@ class GoogleDriveProvider implements StorageProviderInterface
     protected function removeFileIdMapping(string $path): void
     {
         $mappingsFile = storage_path('app/google_drive_mappings.json');
-        
+
         if (!file_exists($mappingsFile)) {
             return;
         }

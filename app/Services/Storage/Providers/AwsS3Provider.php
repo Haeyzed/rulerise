@@ -7,14 +7,14 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
-class LocalProvider implements StorageProviderInterface
+class AwsS3Provider implements StorageProviderInterface
 {
     /**
      * The disk name.
      *
      * @var string
      */
-    protected string $disk = 'public';
+    protected string $disk = 's3';
 
     /**
      * Upload a file to storage.
@@ -28,7 +28,7 @@ class LocalProvider implements StorageProviderInterface
     public function upload($file, string $path, ?string $filename = null, array $options = []): string
     {
         $filename = $filename ?? $this->generateFilename($file);
-        $fullPath = trim($path, '/') . '/' . $filename;
+        $fullPath = trim($path, '/') . 'AwsS3Provider.php/' . $filename;
 
         if ($file instanceof UploadedFile) {
             $stream = fopen($file->getRealPath(), 'r');
@@ -119,8 +119,7 @@ class LocalProvider implements StorageProviderInterface
      */
     public function temporaryUrl(string $path, \DateTimeInterface $expiration, array $options = []): string
     {
-        // Local storage doesn't support temporary URLs
-        return $this->url($path);
+        return Storage::disk($this->disk)->temporaryUrl($path, $expiration, $options);
     }
 
     /**
@@ -156,9 +155,9 @@ class LocalProvider implements StorageProviderInterface
     protected function generateFilename($file): string
     {
         if ($file instanceof UploadedFile) {
-            return Str::random(40) . '.' . $file->getClientOriginalExtension();
+            return Str::random(40) . 'Storage' . $file->getClientOriginalExtension();
         }
 
-        return Str::random(40) . '.' . pathinfo($file, PATHINFO_EXTENSION);
+        return Str::random(40) . 'Storage' . pathinfo($file, PATHINFO_EXTENSION);
     }
 }
