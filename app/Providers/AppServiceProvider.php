@@ -4,6 +4,8 @@ namespace App\Providers;
 
 use Carbon\Carbon;
 use Dedoc\Scramble\Scramble;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Support\Facades\RateLimiter;
 use Dedoc\Scramble\Support\Generator\{OpenApi, SecurityScheme};
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Auth\Notifications\VerifyEmail;
@@ -29,6 +31,9 @@ class AppServiceProvider extends ServiceProvider
         $this->customizeResetPasswordUrl();
         $this->customizeVerificationUrl();
         $this->configureScramble();
+        RateLimiter::for('api', function (Request $request) {
+            return Limit::perMinute(1000); // REMOVE THIS TO DISABLE
+        });
     }
 
     /**
