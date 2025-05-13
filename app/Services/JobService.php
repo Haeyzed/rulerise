@@ -856,7 +856,7 @@ class JobService
     public function getSimilarJobs(Job $job, int $perPage = 5): Collection
     {
         return Job::with([
-            'employer:id,company_name,company_email,company_logo'
+            'employer:id,company_name,company_email'
         ])
             ->where('job_category_id', $job->job_category_id)
             ->where('id', '!=', $job->id)
@@ -865,7 +865,11 @@ class JobService
             ->notExpired()
             ->latest()
             ->limit($perPage)
-            ->get();
+            ->get()
+            ->each(function ($job) {
+                // Ensure company_logo_url is appended manually
+                $job->employer->append('company_logo_url');
+            });
     }
 
     /**
