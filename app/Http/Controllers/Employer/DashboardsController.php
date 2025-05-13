@@ -74,25 +74,9 @@ class DashboardsController extends Controller implements HasMiddleware
         $endDate = Carbon::now();
         $startDate = Carbon::now()->subDays(6); // Last 7 days including today
         $period = 'week'; // Default to week view
-        $isCustomDateRange = false;
 
-        if ($request->has('start_date') && $request->has('end_date')) {
-            $startDate = Carbon::parse($request->input('start_date'));
-            $endDate = Carbon::parse($request->input('end_date'));
-            $isCustomDateRange = true;
-
-            // Determine period based on date range (for UI display purposes only)
-            $daysDiff = $startDate->diffInDays($endDate);
-            if ($daysDiff >= 364) {
-                $period = 'year';
-            } elseif ($daysDiff >= 28 && $daysDiff <= 31) {
-                $period = 'month';
-            } else {
-                $period = 'week';
-            }
-        } elseif ($request->has('period')) {
+        if ($request->has('period')) {
             $periodParam = $request->input('period');
-            $isCustomDateRange = false;
 
             switch ($periodParam) {
                 case 'week':
@@ -112,6 +96,19 @@ class DashboardsController extends Controller implements HasMiddleware
                     $period = 'week';
                     break;
             }
+        } elseif ($request->has('start_date') && $request->has('end_date')) {
+            $startDate = Carbon::parse($request->input('start_date'));
+            $endDate = Carbon::parse($request->input('end_date'));
+
+            // Determine period based on date range
+            $daysDiff = $startDate->diffInDays($endDate);
+            if ($daysDiff >= 364) {
+                $period = 'year';
+            } elseif ($daysDiff >= 28 && $daysDiff <= 31) {
+                $period = 'month';
+            } else {
+                $period = 'week';
+            }
         }
 
         // Format date range for display
@@ -123,7 +120,6 @@ class DashboardsController extends Controller implements HasMiddleware
         $metrics = $this->dashboardService->getEmployerDashboardMetrics($employer, [
             'start_date' => $startDate,
             'end_date' => $endDate,
-            'is_custom_date_range' => $isCustomDateRange
         ]);
 
         // Get recent messages
@@ -138,8 +134,7 @@ class DashboardsController extends Controller implements HasMiddleware
                 'formatted_start_date' => $formattedStartDate,
                 'formatted_end_date' => $formattedEndDate,
                 'period' => $period,
-                'display' => $dateRangeDisplay,
-                'is_custom_date_range' => $isCustomDateRange
+                'display' => $dateRangeDisplay
             ],
         ], 'Dashboard data retrieved successfully');
     }

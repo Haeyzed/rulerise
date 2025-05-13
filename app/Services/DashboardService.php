@@ -26,7 +26,6 @@ class DashboardService
     {
         $startDate = Carbon::parse($dateRange['start_date']);
         $endDate = Carbon::parse($dateRange['end_date']);
-        $isCustomDateRange = $dateRange['is_custom_date_range'] ?? false;
 
         // Get active jobs count
         $activeJobsCount = $this->getActiveJobsCount($employer);
@@ -38,10 +37,10 @@ class DashboardService
         $newCandidatesCount = $this->getNewCandidatesCount($employer, $startDate, $endDate);
 
         // Get job views data
-        $jobViewsData = $this->getJobViewsData($employer, $startDate, $endDate, $isCustomDateRange);
+        $jobViewsData = $this->getJobViewsData($employer, $startDate, $endDate);
 
         // Get job applications data
-        $jobApplicationsData = $this->getJobApplicationsData($employer, $startDate, $endDate, $isCustomDateRange);
+        $jobApplicationsData = $this->getJobApplicationsData($employer, $startDate, $endDate);
 
         // Get recent job updates
         $recentJobUpdates = $this->getRecentJobUpdates($employer);
@@ -62,8 +61,7 @@ class DashboardService
                 'end_date' => $endDate->format('Y-m-d'),
                 'formatted_start_date' => $formattedStartDate,
                 'formatted_end_date' => $formattedEndDate,
-                'display' => "$formattedStartDate - $formattedEndDate",
-                'is_custom_date_range' => $isCustomDateRange
+                'display' => "$formattedStartDate - $formattedEndDate"
             ]
         ];
     }
@@ -121,10 +119,9 @@ class DashboardService
      * @param Employer $employer
      * @param Carbon $startDate
      * @param Carbon $endDate
-     * @param bool $isCustomDateRange
      * @return array
      */
-    private function getJobViewsData(Employer $employer, Carbon $startDate, Carbon $endDate, bool $isCustomDateRange = false): array
+    private function getJobViewsData(Employer $employer, Carbon $startDate, Carbon $endDate): array
     {
         // Get total job views for the date range
         $totalViews = JobViewCount::query()->whereHas('job', function ($query) use ($employer) {
@@ -150,25 +147,19 @@ class DashboardService
             $percentageChange = (($totalViews - $previousTotalViews) / $previousTotalViews) * 100;
         }
 
-        // For custom date range, always group by day with YYYY-MM-DD format
-        if ($isCustomDateRange) {
-            $groupBy = 'DATE(created_at)';
-            $period = 'custom';
-        } else {
-            // Get daily/weekly/monthly views for chart based on date range
-            $period = $daysDiff <= 7 ? 'week' : ($daysDiff <= 31 ? 'month' : 'year');
+        // Get daily/weekly/monthly views for chart based on date range
+        $period = $daysDiff <= 7 ? 'week' : ($daysDiff <= 31 ? 'month' : 'year');
 
-            // Adjust grouping based on period
-            if ($period === 'week') {
-                // For weekly view, group by day
-                $groupBy = 'DATE(created_at)';
-            } else if ($period === 'month') {
-                // For monthly view, group by week
-                $groupBy = 'YEARWEEK(created_at)';
-            } else {
-                // For yearly view, group by month
-                $groupBy = 'MONTH(created_at)';
-            }
+        // Adjust grouping based on period
+        if ($period === 'week') {
+            // For weekly view, group by day
+            $groupBy = 'DATE(created_at)';
+        } else if ($period === 'month') {
+            // For monthly view, group by week
+            $groupBy = 'YEARWEEK(created_at)';
+        } else {
+            // For yearly view, group by month
+            $groupBy = 'MONTH(created_at)';
         }
 
         $viewsData = JobViewCount::query()->whereHas('job', function ($query) use ($employer) {
@@ -183,20 +174,7 @@ class DashboardService
         // Format the results based on grouping
         $formattedData = [];
 
-        if ($isCustomDateRange) {
-            // Custom date range - use exact dates in YYYY-MM-DD format
-            $currentDate = clone $startDate;
-            while ($currentDate <= $endDate) {
-                $dateString = $currentDate->format('Y-m-d');
-                $formattedData[$dateString] = 0;
-                $currentDate->addDay();
-            }
-
-            foreach ($viewsData as $item) {
-                $dateString = $item->date_group;
-                $formattedData[$dateString] = $item->count;
-            }
-        } else if ($period === 'week') {
+        if ($period === 'week') {
             // Weekly view - show shortened days of week (Mon, Tue, Wed, etc.)
             $daysOfWeek = [
                 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'
@@ -286,8 +264,7 @@ class DashboardService
                 'end_date' => $endDate->format('Y-m-d'),
                 'formatted_start_date' => $formattedStartDate,
                 'formatted_end_date' => $formattedEndDate,
-                'display' => "$formattedStartDate - $formattedEndDate",
-                'is_custom_date_range' => $isCustomDateRange
+                'display' => "$formattedStartDate - $formattedEndDate"
             ]
         ];
     }
@@ -298,10 +275,9 @@ class DashboardService
      * @param Employer $employer
      * @param Carbon $startDate
      * @param Carbon $endDate
-     * @param bool $isCustomDateRange
      * @return array
      */
-    private function getJobApplicationsData(Employer $employer, Carbon $startDate, Carbon $endDate, bool $isCustomDateRange = false): array
+    private function getJobApplicationsData(Employer $employer, Carbon $startDate, Carbon $endDate): array
     {
         // Get total job applications for the date range
         $totalApplications = JobApplication::query()->whereHas('job', function ($query) use ($employer) {
@@ -327,25 +303,19 @@ class DashboardService
             $percentageChange = (($totalApplications - $previousTotalApplications) / $previousTotalApplications) * 100;
         }
 
-        // For custom date range, always group by day with YYYY-MM-DD format
-        if ($isCustomDateRange) {
-            $groupBy = 'DATE(created_at)';
-            $period = 'custom';
-        } else {
-            // Get daily/weekly/monthly applications for chart based on date range
-            $period = $daysDiff <= 7 ? 'week' : ($daysDiff <= 31 ? 'month' : 'year');
+        // Get daily/weekly/monthly applications for chart based on date range
+        $period = $daysDiff <= 7 ? 'week' : ($daysDiff <= 31 ? 'month' : 'year');
 
-            // Adjust grouping based on period
-            if ($period === 'week') {
-                // For weekly view, group by day
-                $groupBy = 'DATE(created_at)';
-            } else if ($period === 'month') {
-                // For monthly view, group by week
-                $groupBy = 'YEARWEEK(created_at)';
-            } else {
-                // For yearly view, group by month
-                $groupBy = 'MONTH(created_at)';
-            }
+        // Adjust grouping based on period
+        if ($period === 'week') {
+            // For weekly view, group by day
+            $groupBy = 'DATE(created_at)';
+        } else if ($period === 'month') {
+            // For monthly view, group by week
+            $groupBy = 'YEARWEEK(created_at)';
+        } else {
+            // For yearly view, group by month
+            $groupBy = 'MONTH(created_at)';
         }
 
         $applicationsData = JobApplication::query()->whereHas('job', function ($query) use ($employer) {
@@ -360,20 +330,7 @@ class DashboardService
         // Format the results based on grouping
         $formattedData = [];
 
-        if ($isCustomDateRange) {
-            // Custom date range - use exact dates in YYYY-MM-DD format
-            $currentDate = clone $startDate;
-            while ($currentDate <= $endDate) {
-                $dateString = $currentDate->format('Y-m-d');
-                $formattedData[$dateString] = 0;
-                $currentDate->addDay();
-            }
-
-            foreach ($applicationsData as $item) {
-                $dateString = $item->date_group;
-                $formattedData[$dateString] = $item->count;
-            }
-        } else if ($period === 'week') {
+        if ($period === 'week') {
             // Weekly view - show shortened days of week (Mon, Tue, Wed, etc.)
             $daysOfWeek = [
                 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'
@@ -475,8 +432,7 @@ class DashboardService
                 'end_date' => $endDate->format('Y-m-d'),
                 'formatted_start_date' => $formattedStartDate,
                 'formatted_end_date' => $formattedEndDate,
-                'display' => "$formattedStartDate - $formattedEndDate",
-                'is_custom_date_range' => $isCustomDateRange
+                'display' => "$formattedStartDate - $formattedEndDate"
             ]
         ];
     }
