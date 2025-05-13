@@ -31,8 +31,13 @@ class AppServiceProvider extends ServiceProvider
         $this->customizeResetPasswordUrl();
         $this->customizeVerificationUrl();
         $this->configureScramble();
-        RateLimiter::for('api', function (Request $request) {
-            return Limit::none();
+        RateLimiter::for('global', function ($request) {
+            return Limit::perMinute(1000)->by($request->ip());
+        });
+        RateLimiter::for('api', function ($request) {
+            return Limit::perMinute(60)->by($request->user()->id)->response(function () {
+                return response('Too Many Requests', 429);
+            });
         });
     }
 
