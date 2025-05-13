@@ -210,19 +210,9 @@ class DashboardService
             }
 
             foreach ($viewsData as $item) {
-                // For MySQL DATE_FORMAT result
-                if (strpos($item->date_group, '-') !== false) {
-                    $date = Carbon::createFromFormat('Y-m', $item->date_group);
-                    $monthLabel = $date->format('F Y');
-                    $formattedData[$monthLabel] = $item->count;
-                } else {
-                    // Fallback for other database systems
-                    $year = substr($item->date_group, 0, 4);
-                    $month = substr($item->date_group, 4, 2);
-                    $date = Carbon::createFromDate($year, $month, 1);
-                    $monthLabel = $date->format('F Y');
-                    $formattedData[$monthLabel] = $item->count;
-                }
+                $date = Carbon::parse($item->date_group . '-01');
+                $monthLabel = $date->format('F Y');
+                $formattedData[$monthLabel] = $item->count;
             }
         }
 
@@ -341,19 +331,9 @@ class DashboardService
             }
 
             foreach ($applicationsData as $item) {
-                // For MySQL DATE_FORMAT result
-                if (strpos($item->date_group, '-') !== false) {
-                    $date = Carbon::createFromFormat('Y-m', $item->date_group);
-                    $monthLabel = $date->format('F Y');
-                    $formattedData[$monthLabel] = $item->count;
-                } else {
-                    // Fallback for other database systems
-                    $year = substr($item->date_group, 0, 4);
-                    $month = substr($item->date_group, 4, 2);
-                    $date = Carbon::createFromDate($year, $month, 1);
-                    $monthLabel = $date->format('F Y');
-                    $formattedData[$monthLabel] = $item->count;
-                }
+                $date = Carbon::parse($item->date_group . '-01');
+                $monthLabel = $date->format('F Y');
+                $formattedData[$monthLabel] = $item->count;
             }
         }
 
