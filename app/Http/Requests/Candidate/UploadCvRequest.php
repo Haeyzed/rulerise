@@ -32,7 +32,7 @@ class UploadCvRequest extends BaseRequest
              * @var string|null $document
              * @example "document.pdf"
              */
-            'document' => ['required','file','mimes:pdf,doc,docx|max:5120'], // 5MB max
+            'document' => ['required','file','mimes:pdf,doc,docx','max:5120'], // 5MB max
 
             /**
              * Whether to set as primary resume.

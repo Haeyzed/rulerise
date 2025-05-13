@@ -34,14 +34,14 @@ class CloudinaryAdapter implements StorageAdapterInterface
      */
     public function upload(UploadedFile $file, string $path, string $name, array $options = []): string
     {
+        // Ensure the filename has an extension
         $extension = $file->getClientOriginalExtension();
-
-        // Ensure extension is appended if not already in the name
-        if (!Str::endsWith($name, ".$extension")) {
-            $name .= ".$extension";
-        }
-
-        return $file->storeAs($path, $name, [
+        // If the name doesn't already have the extension, add it
+//        if (!empty($extension) && !Str::endsWith($name, '.' . $extension)) {
+//            $name = $name . '.' . $extension;
+//        }// Store the file with the specified name
+//        return Storage::disk($this->disk)->putFileAs('', $file, $name, $cloudinaryOptions);
+        return $file->storeAs($path, $name . '.' . $extension, [
             'disk' => $this->disk,
             ...$options
         ]);
