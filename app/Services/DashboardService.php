@@ -138,20 +138,15 @@ class DashboardService
 
         // Get daily/weekly/monthly views for chart based on date range
         $groupBy = 'DATE(created_at)'; // Default daily grouping
-        $dateFormat = 'Y-m-d';
-        $period = 'daily';
+        $period = $daysDiff <= 7 ? 'week' : ($daysDiff <= 31 ? 'month' : 'year');
 
-        // If date range is around 30 days (month), group by week
-        if ($daysDiff >= 28 && $daysDiff <= 31) {
-            $groupBy = 'YEARWEEK(created_at)';
-            $dateFormat = 'Y-W';
-            $period = 'weekly';
-        }
-        // If date range is around 365 days (year), group by month
-        else if ($daysDiff >= 364) {
-            $groupBy = 'DATE_FORMAT(created_at, "%Y-%m")';
-            $dateFormat = 'Y-m';
-            $period = 'monthly';
+        // Adjust grouping based on period
+        if ($period === 'month') {
+            // For monthly view (30 days), group by day but format as "May" (month name)
+            $groupBy = 'DATE(created_at)';
+        } else if ($period === 'year') {
+            // For yearly view (365 days), group by day but format as "May 7" (month + day)
+            $groupBy = 'DATE(created_at)';
         }
 
         $viewsData = JobViewCount::query()->whereHas('job', function ($query) use ($employer) {
@@ -166,53 +161,49 @@ class DashboardService
         // Format the results based on grouping
         $formattedData = [];
 
-        if ($period === 'daily') {
-            // Daily format - fill in all days
+        if ($period === 'week') {
+            // Weekly view - show days of week (Wed, Thu, Fri, etc.)
             $currentDate = clone $startDate;
             while ($currentDate <= $endDate) {
-                $dateString = $currentDate->format('Y-m-d');
+                $dateString = $currentDate->format('D'); // Day name (Wed, Thu, etc.)
                 $formattedData[$dateString] = 0;
                 $currentDate->addDay();
             }
 
             foreach ($viewsData as $item) {
-                $date = Carbon::parse($item->date_group)->format('Y-m-d');
-                $formattedData[$date] = $item->count;
+                $date = Carbon::parse($item->date_group);
+                $dateString = $date->format('D');
+                $formattedData[$dateString] = $item->count;
             }
-        } else if ($period === 'weekly') {
-            // Weekly format - for monthly view
-            // Initialize all weeks in the period with zero counts
-            $currentDate = clone $startDate->startOfWeek();
+        } else if ($period === 'month') {
+            // Monthly view - show month names (May, May, etc.)
+            $currentDate = clone $startDate;
             while ($currentDate <= $endDate) {
-                $yearWeek = $currentDate->format('Y') . $currentDate->format('W');
-                $weekLabel = 'Week ' . $currentDate->format('W') . ' (' . $currentDate->format('M d') . ' - ' .
-                    (clone $currentDate)->endOfWeek()->format('M d') . ')';
-                $formattedData[$weekLabel] = 0;
-                $currentDate->addWeek();
+                $dateString = $currentDate->format('M'); // Month name (May, Jun, etc.)
+                $formattedData[$dateString] = 0;
+                $currentDate->addDay();
             }
 
             foreach ($viewsData as $item) {
-                $year = substr($item->date_group, 0, 4);
-                $week = substr($item->date_group, 4);
-                $weekDate = Carbon::now()->setISODate($year, $week);
-                $weekLabel = 'Week ' . $week . ' (' . $weekDate->format('M d') . ' - ' .
-                    (clone $weekDate)->endOfWeek()->format('M d') . ')';
-                $formattedData[$weekLabel] = $item->count;
+                $date = Carbon::parse($item->date_group);
+                $dateString = $date->format('M');
+                if (isset($formattedData[$dateString])) {
+                    $formattedData[$dateString] += $item->count;
+                }
             }
         } else {
-            // Monthly format - for yearly view
-            // Initialize all months in the period with zero counts
-            $currentDate = clone $startDate->startOfMonth();
+            // Yearly view - show specific dates (May 7, May 8, etc.)
+            $currentDate = clone $startDate;
             while ($currentDate <= $endDate) {
-                $monthLabel = $currentDate->format('F Y');
-                $formattedData[$monthLabel] = 0;
-                $currentDate->addMonth();
+                $dateString = $currentDate->format('M j'); // May 7, May 8, etc.
+                $formattedData[$dateString] = 0;
+                $currentDate->addDay();
             }
 
             foreach ($viewsData as $item) {
-                $date = Carbon::parse($item->date_group . '-01');
-                $monthLabel = $date->format('F Y');
-                $formattedData[$monthLabel] = $item->count;
+                $date = Carbon::parse($item->date_group);
+                $dateString = $date->format('M j');
+                $formattedData[$dateString] = $item->count;
             }
         }
 
@@ -220,6 +211,7 @@ class DashboardService
             'total' => $totalViews,
             'percentage_change' => round($percentageChange, 1),
             'daily_data' => $formattedData,
+            'period' => $period
         ];
     }
 
@@ -259,20 +251,15 @@ class DashboardService
 
         // Get daily/weekly/monthly applications for chart based on date range
         $groupBy = 'DATE(created_at)'; // Default daily grouping
-        $dateFormat = 'Y-m-d';
-        $period = 'daily';
+        $period = $daysDiff <= 7 ? 'week' : ($daysDiff <= 31 ? 'month' : 'year');
 
-        // If date range is around 30 days (month), group by week
-        if ($daysDiff >= 28 && $daysDiff <= 31) {
-            $groupBy = 'YEARWEEK(created_at)';
-            $dateFormat = 'Y-W';
-            $period = 'weekly';
-        }
-        // If date range is around 365 days (year), group by month
-        else if ($daysDiff >= 364) {
-            $groupBy = 'DATE_FORMAT(created_at, "%Y-%m")';
-            $dateFormat = 'Y-m';
-            $period = 'monthly';
+        // Adjust grouping based on period
+        if ($period === 'month') {
+            // For monthly view (30 days), group by day but format as "May" (month name)
+            $groupBy = 'DATE(created_at)';
+        } else if ($period === 'year') {
+            // For yearly view (365 days), group by day but format as "May 7" (month + day)
+            $groupBy = 'DATE(created_at)';
         }
 
         $applicationsData = JobApplication::query()->whereHas('job', function ($query) use ($employer) {
@@ -287,53 +274,49 @@ class DashboardService
         // Format the results based on grouping
         $formattedData = [];
 
-        if ($period === 'daily') {
-            // Daily format - fill in all days
+        if ($period === 'week') {
+            // Weekly view - show days of week (Wed, Thu, Fri, etc.)
             $currentDate = clone $startDate;
             while ($currentDate <= $endDate) {
-                $dateString = $currentDate->format('Y-m-d');
+                $dateString = $currentDate->format('D'); // Day name (Wed, Thu, etc.)
                 $formattedData[$dateString] = 0;
                 $currentDate->addDay();
             }
 
             foreach ($applicationsData as $item) {
-                $date = Carbon::parse($item->date_group)->format('Y-m-d');
-                $formattedData[$date] = $item->count;
+                $date = Carbon::parse($item->date_group);
+                $dateString = $date->format('D');
+                $formattedData[$dateString] = $item->count;
             }
-        } else if ($period === 'weekly') {
-            // Weekly format - for monthly view
-            // Initialize all weeks in the period with zero counts
-            $currentDate = clone $startDate->startOfWeek();
+        } else if ($period === 'month') {
+            // Monthly view - show month names (May, May, etc.)
+            $currentDate = clone $startDate;
             while ($currentDate <= $endDate) {
-                $yearWeek = $currentDate->format('Y') . $currentDate->format('W');
-                $weekLabel = 'Week ' . $currentDate->format('W') . ' (' . $currentDate->format('M d') . ' - ' .
-                    (clone $currentDate)->endOfWeek()->format('M d') . ')';
-                $formattedData[$weekLabel] = 0;
-                $currentDate->addWeek();
+                $dateString = $currentDate->format('M'); // Month name (May, Jun, etc.)
+                $formattedData[$dateString] = 0;
+                $currentDate->addDay();
             }
 
             foreach ($applicationsData as $item) {
-                $year = substr($item->date_group, 0, 4);
-                $week = substr($item->date_group, 4);
-                $weekDate = Carbon::now()->setISODate($year, $week);
-                $weekLabel = 'Week ' . $week . ' (' . $weekDate->format('M d') . ' - ' .
-                    (clone $weekDate)->endOfWeek()->format('M d') . ')';
-                $formattedData[$weekLabel] = $item->count;
+                $date = Carbon::parse($item->date_group);
+                $dateString = $date->format('M');
+                if (isset($formattedData[$dateString])) {
+                    $formattedData[$dateString] += $item->count;
+                }
             }
         } else {
-            // Monthly format - for yearly view
-            // Initialize all months in the period with zero counts
-            $currentDate = clone $startDate->startOfMonth();
+            // Yearly view - show specific dates (May 7, May 8, etc.)
+            $currentDate = clone $startDate;
             while ($currentDate <= $endDate) {
-                $monthLabel = $currentDate->format('F Y');
-                $formattedData[$monthLabel] = 0;
-                $currentDate->addMonth();
+                $dateString = $currentDate->format('M j'); // May 7, May 8, etc.
+                $formattedData[$dateString] = 0;
+                $currentDate->addDay();
             }
 
             foreach ($applicationsData as $item) {
-                $date = Carbon::parse($item->date_group . '-01');
-                $monthLabel = $date->format('F Y');
-                $formattedData[$monthLabel] = $item->count;
+                $date = Carbon::parse($item->date_group);
+                $dateString = $date->format('M j');
+                $formattedData[$dateString] = $item->count;
             }
         }
 
@@ -353,6 +336,7 @@ class DashboardService
             'percentage_change' => round($percentageChange, 1),
             'daily_data' => $formattedData,
             'status_counts' => $statusCounts,
+            'period' => $period
         ];
     }
 
