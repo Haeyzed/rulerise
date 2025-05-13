@@ -6,7 +6,7 @@ use App\Models\Employer;
 use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
 
-interface PaymentServiceInterface
+interface PaymentGatewayInterface
 {
     /**
      * Create a payment intent/order
@@ -17,7 +17,7 @@ interface PaymentServiceInterface
      * @return array
      */
     public function createPaymentIntent(Employer $employer, SubscriptionPlan $plan, array $paymentData): array;
-    
+
     /**
      * Process a successful payment
      *
@@ -25,7 +25,7 @@ interface PaymentServiceInterface
      * @return Subscription
      */
     public function processPayment(array $paymentData): Subscription;
-    
+
     /**
      * Handle webhook events from payment provider
      *
@@ -33,7 +33,7 @@ interface PaymentServiceInterface
      * @return bool
      */
     public function handleWebhook(array $payload): bool;
-    
+
     /**
      * Cancel a subscription
      *
@@ -41,7 +41,7 @@ interface PaymentServiceInterface
      * @return bool
      */
     public function cancelSubscription(Subscription $subscription): bool;
-    
+
     /**
      * Get payment provider name
      *

@@ -9,7 +9,7 @@ use Exception;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
-class PayPalPaymentService implements PaymentServiceInterface
+class PayPalGateway implements PaymentGatewayInterface
 {
     /**
      * PayPal API base URL
@@ -17,26 +17,26 @@ class PayPalPaymentService implements PaymentServiceInterface
      * @var string
      */
     protected string $baseUrl;
-    
+
     /**
      * PayPal access token
      *
      * @var string|null
      */
     protected ?string $accessToken = null;
-    
+
     /**
      * Constructor
      */
     public function __construct()
     {
-        $this->baseUrl = config('services.paypal.sandbox') 
-            ? 'https://api-m.sandbox.paypal.com' 
+        $this->baseUrl = config('services.paypal.sandbox')
+            ? 'https://api-m.sandbox.paypal.com'
             : 'https://api-m.paypal.com';
-        
+
         $this->getAccessToken();
     }
-    
+
     /**
      * Get PayPal access token
      *
@@ -47,23 +47,23 @@ class PayPalPaymentService implements PaymentServiceInterface
         if ($this->accessToken) {
             return $this->accessToken;
         }
-        
+
         $response = Http::withBasicAuth(
             config('services.paypal.client_id'),
             config('services.paypal.secret')
         )->asForm()->post("{$this->baseUrl}/v1/oauth2/token", [
             'grant_type' => 'client_credentials'
         ]);
-        
+
         if ($response->successful()) {
             $this->accessToken = $response->json('access_token');
             return $this->accessToken;
         }
-        
+
         Log::error('Failed to get PayPal access token: ' . $response->body());
         throw new Exception('Failed to authenticate with PayPal');
     }
-    
+
     /**
      * Create a payment intent/order
      *
@@ -99,14 +99,14 @@ class PayPalPaymentService implements PaymentServiceInterface
                         'cancel_url' => route('api.payments.paypal.cancel'),
                     ],
                 ]);
-            
+
             if (!$response->successful()) {
                 Log::error('PayPal order creation failed: ' . $response->body());
                 throw new Exception('Failed to create PayPal order');
             }
-            
+
             $data = $response->json();
-            
+
             return [
                 'order_id' => $data['id'],
                 'approval_url' => collect($data['links'])
@@ -118,7 +118,7 @@ class PayPalPaymentService implements PaymentServiceInterface
             throw $e;
         }
     }
-    
+
     /**
      * Process a successful payment
      *
@@ -130,34 +130,34 @@ class PayPalPaymentService implements PaymentServiceInterface
     {
         try {
             $orderId = $paymentData['order_id'];
-            
+
             // Capture the payment
             $response = Http::withToken($this->getAccessToken())
                 ->post("{$this->baseUrl}/v2/checkout/orders/{$orderId}/capture");
-            
+
             if (!$response->successful()) {
                 Log::error('PayPal payment capture failed: ' . $response->body());
                 throw new Exception('Failed to capture PayPal payment');
             }
-            
+
             $data = $response->json();
-            
+
             if ($data['status'] !== 'COMPLETED') {
                 throw new Exception("Payment has not completed. Current status: {$data['status']}");
             }
-            
+
             // Extract custom data
             $customData = json_decode($data['purchase_units'][0]['custom_id'], true);
             $employerId = $customData['employer_id'];
             $planId = $customData['plan_id'];
-            
+
             $employer = Employer::findOrFail($employerId);
             $plan = SubscriptionPlan::findOrFail($planId);
-            
+
             // Calculate dates
             $startDate = now();
             $endDate = $startDate->copy()->addDays($plan->duration_days);
-            
+
             // Create subscription
             return $employer->subscriptions()->create([
                 'subscription_plan_id' => $plan->id,
@@ -178,7 +178,7 @@ class PayPalPaymentService implements PaymentServiceInterface
             throw $e;
         }
     }
-    
+
     /**
      * Handle webhook events from PayPal
      *
@@ -191,12 +191,12 @@ class PayPalPaymentService implements PaymentServiceInterface
             // Verify webhook signature
             $headers = request()->header();
             $webhookId = config('services.paypal.webhook_id');
-            
+
             // In a real implementation, you would verify the webhook signature
             // using PayPal's SDK or API
-            
+
             $event = $payload['event_type'];
-            
+
             switch ($event) {
                 case 'PAYMENT.CAPTURE.COMPLETED':
                     $this->handlePaymentCompleted($payload['resource']);
@@ -206,14 +206,14 @@ class PayPalPaymentService implements PaymentServiceInterface
                     break;
                 // Handle other event types as needed
             }
-            
+
             return true;
         } catch (Exception $e) {
             Log::error('PayPal webhook handling failed: ' . $e->getMessage());
             return false;
         }
     }
-    
+
     /**
      * Handle completed payment
      *
@@ -225,7 +225,7 @@ class PayPalPaymentService implements PaymentServiceInterface
         // This could update subscription status or send notifications
         Log::info('PayPal payment completed: ' . $resource['id']);
     }
-    
+
     /**
      * Handle denied payment
      *
@@ -237,7 +237,7 @@ class PayPalPaymentService implements PaymentServiceInterface
         // This could update subscription status or send notifications
         Log::info('PayPal payment denied: ' . $resource['id']);
     }
-    
+
     /**
      * Cancel a subscription
      *
@@ -249,11 +249,11 @@ class PayPalPaymentService implements PaymentServiceInterface
         // For one-time payments, just mark as inactive
         $subscription->is_active = false;
         return $subscription->save();
-        
+
         // For recurring subscriptions, you would cancel in PayPal first
         // then update the local record
     }
-    
+
     /**
      * Get payment provider name
      *

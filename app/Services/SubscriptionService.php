@@ -6,8 +6,8 @@ use App\Models\Employer;
 use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
 use App\Services\Payment\PaymentGatewayInterface;
-use App\Services\Payment\PayPalService;
-use App\Services\Payment\StripeService;
+use App\Services\Payment\PayPalGateway;
+use App\Services\Payment\StripeGateway;
 use Exception;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\UploadedFile;
@@ -51,8 +51,8 @@ class SubscriptionService
     public function setPaymentGateway(string $gateway): self
     {
         $this->paymentGateway = match ($gateway) {
-            self::GATEWAY_STRIPE => app(StripeService::class),
-            self::GATEWAY_PAYPAL => app(PayPalService::class),
+            self::GATEWAY_STRIPE => app(StripeGateway::class),
+            self::GATEWAY_PAYPAL => app(PayPalGateway::class),
             default => throw new Exception("Unsupported payment gateway: {$gateway}"),
         };
 
@@ -386,9 +386,9 @@ class SubscriptionService
      */
     protected function getCurrentGateway(): string
     {
-        if ($this->paymentGateway instanceof StripeService) {
+        if ($this->paymentGateway instanceof StripeGateway) {
             return self::GATEWAY_STRIPE;
-        } elseif ($this->paymentGateway instanceof PayPalService) {
+        } elseif ($this->paymentGateway instanceof PayPalGateway) {
             return self::GATEWAY_PAYPAL;
         }
 

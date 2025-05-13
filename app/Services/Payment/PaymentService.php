@@ -14,21 +14,18 @@ class PaymentService
      * Get payment service for the specified provider
      *
      * @param string $provider
-     * @return PaymentServiceInterface
+     * @return PaymentGatewayInterface
      * @throws Exception
      */
-    public function getPaymentService(string $provider): PaymentServiceInterface
+    public function getPaymentService(string $provider): PaymentGatewayInterface
     {
-        switch (strtolower($provider)) {
-            case 'stripe':
-                return app(StripePaymentService::class);
-            case 'paypal':
-                return app(PayPalPaymentService::class);
-            default:
-                throw new Exception("Unsupported payment provider: {$provider}");
-        }
+        return match (strtolower($provider)) {
+            'stripe' => app(StripeGateway::class),
+            'paypal' => app(PayPalGateway::class),
+            default => throw new Exception("Unsupported payment provider: {$provider}"),
+        };
     }
-    
+
     /**
      * Create a payment intent/order
      *
@@ -40,9 +37,9 @@ class PaymentService
      * @throws Exception
      */
     public function createPaymentIntent(
-        Employer $employer, 
-        SubscriptionPlan $plan, 
-        string $provider, 
+        Employer $employer,
+        SubscriptionPlan $plan,
+        string $provider,
         array $paymentData = []
     ): array {
         try {
@@ -53,7 +50,7 @@ class PaymentService
             throw $e;
         }
     }
-    
+
     /**
      * Process a successful payment
      *
@@ -72,7 +69,7 @@ class PaymentService
             throw $e;
         }
     }
-    
+
     /**
      * Handle webhook events from payment provider
      *
@@ -90,7 +87,7 @@ class PaymentService
             return false;
         }
     }
-    
+
     /**
      * Cancel a subscription
      *
@@ -109,7 +106,7 @@ class PaymentService
             throw $e;
         }
     }
-    
+
     /**
      * Get available payment providers
      *

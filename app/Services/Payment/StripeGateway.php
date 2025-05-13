@@ -12,7 +12,7 @@ use Stripe\PaymentIntent;
 use Stripe\Stripe;
 use Stripe\Webhook;
 
-class StripePaymentService implements PaymentServiceInterface
+class StripeGateway implements PaymentGatewayInterface
 {
     /**
      * Constructor
@@ -35,7 +35,7 @@ class StripePaymentService implements PaymentServiceInterface
     {
         try {
             $amountInCents = (int)($plan->price * 100); // Convert to cents for Stripe
-            
+
             $paymentIntent = PaymentIntent::create([
                 'amount' => $amountInCents,
                 'currency' => strtolower($plan->currency),
@@ -47,7 +47,7 @@ class StripePaymentService implements PaymentServiceInterface
                 ],
                 'description' => "Subscription to {$plan->name} plan",
             ]);
-            
+
             return [
                 'client_secret' => $paymentIntent->client_secret,
                 'payment_intent_id' => $paymentIntent->id,
@@ -58,7 +58,7 @@ class StripePaymentService implements PaymentServiceInterface
             throw $e;
         }
     }
-    
+
     /**
      * Process a successful payment
      *
@@ -71,21 +71,21 @@ class StripePaymentService implements PaymentServiceInterface
         try {
             $paymentIntentId = $paymentData['payment_intent_id'];
             $paymentIntent = PaymentIntent::retrieve($paymentIntentId);
-            
+
             if ($paymentIntent->status !== 'succeeded') {
                 throw new Exception("Payment has not succeeded. Current status: {$paymentIntent->status}");
             }
-            
+
             $employerId = $paymentIntent->metadata['employer_id'];
             $planId = $paymentIntent->metadata['plan_id'];
-            
+
             $employer = Employer::findOrFail($employerId);
             $plan = SubscriptionPlan::findOrFail($planId);
-            
+
             // Calculate dates
             $startDate = now();
             $endDate = $startDate->copy()->addDays($plan->duration_days);
-            
+
             // Create subscription
             return $employer->subscriptions()->create([
                 'subscription_plan_id' => $plan->id,
@@ -106,7 +106,7 @@ class StripePaymentService implements PaymentServiceInterface
             throw $e;
         }
     }
-    
+
     /**
      * Handle webhook events from Stripe
      *
@@ -121,7 +121,7 @@ class StripePaymentService implements PaymentServiceInterface
                 request()->header('Stripe-Signature'),
                 config('services.stripe.webhook_secret')
             );
-            
+
             switch ($event->type) {
                 case 'payment_intent.succeeded':
                     $this->handlePaymentIntentSucceeded($event->data->object);
@@ -131,14 +131,14 @@ class StripePaymentService implements PaymentServiceInterface
                     break;
                 // Handle other event types as needed
             }
-            
+
             return true;
         } catch (Exception $e) {
             Log::error('Stripe webhook handling failed: ' . $e->getMessage());
             return false;
         }
     }
-    
+
     /**
      * Handle successful payment intent
      *
@@ -150,7 +150,7 @@ class StripePaymentService implements PaymentServiceInterface
         // This could update subscription status or send notifications
         Log::info('Payment succeeded: ' . $paymentIntent->id);
     }
-    
+
     /**
      * Handle failed payment intent
      *
@@ -162,7 +162,7 @@ class StripePaymentService implements PaymentServiceInterface
         // This could update subscription status or send notifications
         Log::info('Payment failed: ' . $paymentIntent->id);
     }
-    
+
     /**
      * Cancel a subscription
      *
@@ -174,11 +174,11 @@ class StripePaymentService implements PaymentServiceInterface
         // For one-time payments, just mark as inactive
         $subscription->is_active = false;
         return $subscription->save();
-        
+
         // For recurring subscriptions, you would cancel in Stripe first
         // then update the local record
     }
-    
+
     /**
      * Get payment provider name
      *
