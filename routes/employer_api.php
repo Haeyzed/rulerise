@@ -156,6 +156,9 @@ Route::middleware(['auth:api', 'role:employer'])->group(function () {
 
         // Update CV download usage
         Route::post('/cv-download', [SubscriptionsController::class, 'updateCVDownloadUsage']);
+
+        // Free trial activation (no payment required)
+        Route::post('/free-trial', [SubscriptionPaymentController::class, 'activateFreeTrial']);
     });
 });
 

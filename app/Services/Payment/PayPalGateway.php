@@ -6,6 +6,7 @@ use App\Models\Employer;
 use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
 use Exception;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -27,6 +28,7 @@ class PayPalGateway implements PaymentGatewayInterface
 
     /**
      * Constructor
+     * @throws Exception
      */
     public function __construct()
     {
@@ -41,6 +43,8 @@ class PayPalGateway implements PaymentGatewayInterface
      * Get PayPal access token
      *
      * @return string
+     * @throws ConnectionException
+     * @throws Exception
      */
     protected function getAccessToken(): string
     {
@@ -95,8 +99,8 @@ class PayPalGateway implements PaymentGatewayInterface
                         ],
                     ],
                     'application_context' => [
-                        'return_url' => route('api.payments.paypal.success'),
-                        'cancel_url' => route('api.payments.paypal.cancel'),
+                        'return_url' => config('app.frontend_url') . '/payment/success',
+                        'cancel_url' => config('app.frontend_url') . '/payment/cancel',
                     ],
                 ]);
 
