@@ -14,6 +14,7 @@ use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 
 /**
  * Controller for subscription payments
@@ -209,28 +210,19 @@ class SubscriptionPaymentController extends Controller implements HasMiddleware
             $employer = $user->employer;
 
             if (!$employer) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Employer profile not found',
-                ], 404);
+                return response()->notFound('Employer profile not found');
             }
 
             $plan = SubscriptionPlan::findOrFail($request->plan_id);
 
             // Verify this is actually a free plan
             if ($plan->price > 0) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'This is not a free plan and requires payment',
-                ], 400);
+                return response()->badRequest('This is not a free plan and requires payment');
             }
 
             // Check if user already has an active subscription
             if ($employer->hasActiveSubscription()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'You already have an active subscription',
-                ], 400);
+                return response()->badRequest('You already have an active subscription');
             }
 
             // Calculate dates
@@ -253,20 +245,11 @@ class SubscriptionPaymentController extends Controller implements HasMiddleware
                 'is_active' => true,
             ]);
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Free trial activated successfully',
-                'data' => [
-                    'subscription' => $subscription->load('plan'),
-                ],
-            ]);
+            return response()->success($subscription->load('plan'), 'Subscription activated successfully');
         } catch (Exception $e) {
             Log::error('Free trial activation failed: ' . $e->getMessage());
 
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to activate free trial: ' . $e->getMessage(),
-            ], 500);
+            return response()->serverError('Failed to activate free trial: ' . $e->getMessage());
         }
     }
 }
