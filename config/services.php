@@ -51,4 +51,8 @@ return [
         'webhook_id' => env('PAYPAL_WEBHOOK_ID'),
         'sandbox' => env('PAYPAL_SANDBOX', true),
     ],
+
+    'subscription' => [
+        'default' => env('DEFAULT_SUBSCRIPTION_PROVIDER', 'paypal'),
+    ],
 ];

@@ -3,104 +3,193 @@
 namespace App\Http\Controllers\Employer;
 
 use App\Http\Controllers\Controller;
+use App\Models\Employer;
 use App\Models\Subscription;
-use Illuminate\Http\JsonResponse;
+use App\Models\SubscriptionPlan;
+use App\Services\Subscription\SubscriptionServiceFactory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class SubscriptionController extends Controller
 {
     /**
-     * Get employer's subscriptions
+     * Get all available subscription plans
      *
-     * @return JsonResponse
+     * @return \Illuminate\Http\JsonResponse
      */
-    public function index(): JsonResponse
+    public function getPlans()
     {
-        $user = Auth::user();
-        $employer = $user->employer;
+        $plans = SubscriptionPlan::where('is_active', true)->get();
 
-        if (!$employer) {
+        return response()->json([
+            'success' => true,
+            'data' => $plans
+        ]);
+    }
+
+    /**
+     * Get the active subscription for the authenticated employer
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getActiveSubscription()
+    {
+        $employer = Auth::user()->employer;
+        $subscription = $employer->activeSubscription;
+
+        if (!$subscription) {
             return response()->json([
                 'success' => false,
-                'message' => 'Employer profile not found',
-            ], 404);
+                'message' => 'No active subscription found'
+            ]);
         }
-
-        $subscriptions = $employer->subscriptions()
-            ->with('plan')
-            ->latest()
-            ->get();
 
         return response()->json([
             'success' => true,
             'data' => [
-                'subscriptions' => $subscriptions
+                'subscription' => $subscription,
+                'plan' => $subscription->plan
             ]
         ]);
     }
 
     /**
-     * Get employer's active subscription
+     * Subscribe to a plan
      *
-     * @return JsonResponse
+     * @param Request $request
+     * @param SubscriptionPlan $plan
+     * @return \Illuminate\Http\JsonResponse
      */
-    public function getActiveSubscription(): JsonResponse
+    public function subscribe(Request $request, SubscriptionPlan $plan)
     {
-        $user = Auth::user();
-        $employer = $user->employer;
+        $employer = Auth::user()->employer;
+        $provider = $request->input('payment_provider', 'stripe');
 
-        if (!$employer) {
+        try {
+            $service = SubscriptionServiceFactory::create($provider);
+            $result = $service->createSubscription($employer, $plan);
+
+            return response()->json([
+                'success' => true,
+                'data' => $result
+            ]);
+        } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Employer profile not found',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Cancel subscription
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function cancel(Request $request)
+    {
+        $employer = Auth::user()->employer;
+        $subscription = $employer->activeSubscription;
+
+        if (!$subscription) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No active subscription found'
             ], 404);
         }
 
-        $activeSubscription = $employer->activeSubscription;
+        try {
+            $service = SubscriptionServiceFactory::create($subscription->payment_method);
+            $success = $service->cancelSubscription($subscription);
 
-        if (!$activeSubscription) {
+            if ($success) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Subscription cancelled successfully'
+                ]);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to cancel subscription'
+                ], 500);
+            }
+        } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'No active subscription found',
-            ], 404);
+                'message' => $e->getMessage()
+            ], 500);
         }
+    }
 
+    /**
+     * Handle PayPal success callback
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function paypalSuccess(Request $request)
+    {
+        // The subscription is updated via webhook
         return response()->json([
             'success' => true,
-            'data' => [
-                'subscription' => $activeSubscription->load('plan')
-            ]
+            'message' => 'Subscription activated successfully'
         ]);
     }
 
     /**
-     * Get a specific subscription
+     * Handle PayPal cancel callback
      *
-     * @param int $id
-     * @return JsonResponse
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
      */
-    public function show(int $id): JsonResponse
+    public function paypalCancel(Request $request)
     {
-        $user = Auth::user();
-        $employer = $user->employer;
+        return response()->json([
+            'success' => false,
+            'message' => 'Subscription process was cancelled'
+        ]);
+    }
 
-        if (!$employer) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Employer profile not found',
-            ], 404);
+    /**
+     * Handle Stripe success callback
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function stripeSuccess(Request $request)
+    {
+        $sessionId = $request->get('session_id');
+
+        if ($sessionId) {
+            // Update the subscription status if needed
+            $subscription = Subscription::where('payment_reference', $sessionId)
+                ->where('payment_method', 'stripe')
+                ->first();
+
+            if ($subscription && !$subscription->is_active) {
+                $subscription->is_active = true;
+                $subscription->save();
+            }
         }
-
-        $subscription = $employer->subscriptions()
-            ->with('plan')
-            ->findOrFail($id);
 
         return response()->json([
             'success' => true,
-            'data' => [
-                'subscription' => $subscription
-            ]
+            'message' => 'Subscription activated successfully'
+        ]);
+    }
+
+    /**
+     * Handle Stripe cancel callback
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function stripeCancel(Request $request)
+    {
+        return response()->json([
+            'success' => false,
+            'message' => 'Subscription process was cancelled'
         ]);
     }
 }

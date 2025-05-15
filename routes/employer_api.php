@@ -1,7 +1,10 @@
 <?php
 
+use App\Http\Controllers\API\Webhooks\PayPalWebhookController;
+use App\Http\Controllers\API\Webhooks\StripeWebhookController;
 use App\Http\Controllers\Employer\CandidatesController;
 use App\Http\Controllers\Employer\PaymentController;
+use App\Http\Controllers\Employer\SubscriptionController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Employer\DashboardsController;
@@ -92,16 +95,28 @@ Route::middleware(['auth:api', 'role:employer,employer_staff'])->group(function 
     });
 
     // Payment routes
-    Route::prefix('payments')->group(function () {
-        Route::get('/providers', [PaymentController::class, 'getProviders']);
-        Route::post('/create-intent', [PaymentController::class, 'createPaymentIntent']);
-        Route::post('/process', [PaymentController::class, 'processPayment']);
-        Route::delete('/subscriptions/{subscription}', [PaymentController::class, 'cancelSubscription']);
 
-        // PayPal specific routes
-        Route::get('/paypal/success', [PaymentController::class, 'handlePayPalSuccess'])->name('api.payments.paypal.success');
-        Route::get('/paypal/cancel', [PaymentController::class, 'handlePayPalCancel'])->name('api.payments.paypal.cancel');
-    });
+    Route::get('subscription/plans', [SubscriptionController::class, 'getPlans']);
+    Route::get('subscription/active', [SubscriptionController::class, 'getActiveSubscription']);
+    Route::post('subscription/{plan}/subscribe', [SubscriptionController::class, 'subscribe']);
+    Route::post('subscription/cancel', [SubscriptionController::class, 'cancel']);
+
+// Subscription callback endpoints (no auth required)
+    Route::get('subscription/paypal/success', [SubscriptionController::class, 'paypalSuccess']);
+    Route::get('subscription/paypal/cancel', [SubscriptionController::class, 'paypalCancel']);
+    Route::get('subscription/stripe/success', [SubscriptionController::class, 'stripeSuccess']);
+    Route::get('subscription/stripe/cancel', [SubscriptionController::class, 'stripeCancel']);
+
+//    Route::prefix('payments')->group(function () {
+//        Route::get('/providers', [PaymentController::class, 'getProviders']);
+//        Route::post('/create-intent', [PaymentController::class, 'createPaymentIntent']);
+//        Route::post('/process', [PaymentController::class, 'processPayment']);
+//        Route::delete('/subscriptions/{subscription}', [PaymentController::class, 'cancelSubscription']);
+//
+//        // PayPal specific routes
+//        Route::get('/paypal/success', [PaymentController::class, 'handlePayPalSuccess'])->name('api.payments.paypal.success');
+//        Route::get('/paypal/cancel', [PaymentController::class, 'handlePayPalCancel'])->name('api.payments.paypal.cancel');
+//    });
 
     // Subscriptions
     Route::prefix('cv-packages')->group(function () {
@@ -161,8 +176,12 @@ Route::middleware(['auth:api', 'role:employer'])->group(function () {
         Route::post('/free-trial', [SubscriptionPaymentController::class, 'activateFreeTrial']);
     });
 });
+//
+//
+//// Webhooks routes (no auth required)
+//Route::post('/webhooks/stripe', [PaymentController::class, 'handleStripeWebhook']);
+//Route::post('/webhooks/paypal', [PaymentController::class, 'handlePayPalWebhook']);
 
-
-// Webhook routes (no auth required)
-Route::post('/webhooks/stripe', [PaymentController::class, 'handleStripeWebhook']);
-Route::post('/webhooks/paypal', [PaymentController::class, 'handlePayPalWebhook']);
+// Webhook endpoints (no auth required, verified by signature)
+Route::post('webhooks/paypal', [PayPalWebhookController::class, 'handle']);
+Route::post('webhooks/stripe', [StripeWebhookController::class, 'handle']);
