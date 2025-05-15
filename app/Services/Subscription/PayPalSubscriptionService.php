@@ -20,8 +20,8 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
 
     public function __construct()
     {
-        $this->baseUrl = config('services.paypal.sandbox') 
-            ? 'https://api-m.sandbox.paypal.com' 
+        $this->baseUrl = config('services.paypal.sandbox')
+            ? 'https://api-m.sandbox.paypal.com'
             : 'https://api-m.paypal.com';
         $this->clientId = config('services.paypal.client_id');
         $this->clientSecret = config('services.paypal.client_secret');
@@ -30,7 +30,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * Get PayPal access token
-     * 
+     *
      * @return string
      */
     protected function getAccessToken(): string
@@ -59,7 +59,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * Create a product in PayPal
-     * 
+     *
      * @param SubscriptionPlan $plan
      * @return string Product ID
      */
@@ -73,7 +73,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
                 'name' => $plan->name,
                 'description' => $plan->description ?? $plan->name,
                 'type' => 'SERVICE',
-                'category' => 'EMPLOYMENT_SERVICES',
+                'category' => 'SOFTWARE',
             ]);
 
         if ($response->successful()) {
@@ -90,14 +90,14 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * Create a subscription plan in PayPal
-     * 
+     *
      * @param SubscriptionPlan $plan
      * @return string External plan ID
      */
     public function createPlan(SubscriptionPlan $plan): string
     {
         $productId = $this->createProduct($plan);
-        
+
         $response = Http::withToken($this->getAccessToken())
             ->withHeaders([
                 'PayPal-Request-Id' => Str::uuid()->toString(),
@@ -159,7 +159,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * Update a subscription plan in PayPal
-     * 
+     *
      * @param SubscriptionPlan $plan
      * @param string $externalPlanId
      * @return bool
@@ -191,7 +191,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * Delete a subscription plan from PayPal
-     * 
+     *
      * @param string $externalPlanId
      * @return bool
      */
@@ -215,7 +215,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * Create a subscription for an employer
-     * 
+     *
      * @param Employer $employer
      * @param SubscriptionPlan $plan
      * @param array $paymentData
@@ -225,7 +225,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
     {
         // Get or create the external plan ID
         $externalPlanId = $plan->external_paypal_id ?? $this->createPlan($plan);
-        
+
         // If we created a new plan, save the ID
         if (!$plan->external_paypal_id) {
             $plan->external_paypal_id = $externalPlanId;
@@ -264,7 +264,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
 
         if ($response->successful()) {
             $data = $response->json();
-            
+
             // Create a pending subscription record
             $subscription = new Subscription([
                 'employer_id' => $employer->id,
@@ -305,7 +305,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * Cancel a subscription
-     * 
+     *
      * @param Subscription $subscription
      * @return bool
      */
@@ -336,7 +336,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * Verify webhook signature
-     * 
+     *
      * @param string $payload
      * @param array $headers
      * @return bool
@@ -377,7 +377,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * Handle webhook events from PayPal
-     * 
+     *
      * @param string $payload
      * @param array $headers
      * @return bool
@@ -401,16 +401,16 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
         switch ($event) {
             case 'BILLING.SUBSCRIPTION.CREATED':
                 return $this->handleSubscriptionCreated($data);
-                
+
             case 'BILLING.SUBSCRIPTION.ACTIVATED':
                 return $this->handleSubscriptionActivated($data);
-                
+
             case 'PAYMENT.SALE.COMPLETED':
                 return $this->handlePaymentCompleted($data);
-                
+
             case 'BILLING.SUBSCRIPTION.CANCELLED':
                 return $this->handleSubscriptionCancelled($data);
-                
+
             default:
                 Log::info('Unhandled PayPal webhook event', ['event' => $event]);
                 return true;
@@ -419,113 +419,113 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * Handle subscription created event
-     * 
+     *
      * @param array $data
      * @return bool
      */
     protected function handleSubscriptionCreated(array $data): bool
     {
         $subscriptionId = $data['resource']['id'] ?? '';
-        
+
         // Find the subscription in our database
         $subscription = Subscription::where('subscription_id', $subscriptionId)
             ->where('payment_method', 'paypal')
             ->first();
-            
+
         if (!$subscription) {
             Log::error('PayPal subscription not found', ['subscriptionId' => $subscriptionId]);
             return false;
         }
-        
+
         // Update subscription status
         $subscription->payment_reference = $data['resource']['id'];
         $subscription->save();
-        
+
         return true;
     }
 
     /**
      * Handle subscription activated event
-     * 
+     *
      * @param array $data
      * @return bool
      */
     protected function handleSubscriptionActivated(array $data): bool
     {
         $subscriptionId = $data['resource']['id'] ?? '';
-        
+
         // Find the subscription in our database
         $subscription = Subscription::where('subscription_id', $subscriptionId)
             ->where('payment_method', 'paypal')
             ->first();
-            
+
         if (!$subscription) {
             Log::error('PayPal subscription not found', ['subscriptionId' => $subscriptionId]);
             return false;
         }
-        
+
         // Update subscription status
         $subscription->is_active = true;
         $subscription->save();
-        
+
         return true;
     }
 
     /**
      * Handle payment completed event
-     * 
+     *
      * @param array $data
      * @return bool
      */
     protected function handlePaymentCompleted(array $data): bool
     {
         $billingAgreementId = $data['resource']['billing_agreement_id'] ?? '';
-        
+
         if (!$billingAgreementId) {
             return true; // Not a subscription payment
         }
-        
+
         // Find the subscription in our database
         $subscription = Subscription::where('subscription_id', $billingAgreementId)
             ->where('payment_method', 'paypal')
             ->first();
-            
+
         if (!$subscription) {
             Log::error('PayPal subscription not found', ['billingAgreementId' => $billingAgreementId]);
             return false;
         }
-        
+
         // Update transaction ID
         $subscription->transaction_id = $data['resource']['id'];
         $subscription->save();
-        
+
         return true;
     }
 
     /**
      * Handle subscription cancelled event
-     * 
+     *
      * @param array $data
      * @return bool
      */
     protected function handleSubscriptionCancelled(array $data): bool
     {
         $subscriptionId = $data['resource']['id'] ?? '';
-        
+
         // Find the subscription in our database
         $subscription = Subscription::where('subscription_id', $subscriptionId)
             ->where('payment_method', 'paypal')
             ->first();
-            
+
         if (!$subscription) {
             Log::error('PayPal subscription not found', ['subscriptionId' => $subscriptionId]);
             return false;
         }
-        
+
         // Update subscription status
         $subscription->is_active = false;
         $subscription->save();
-        
+
         return true;
     }
 }
