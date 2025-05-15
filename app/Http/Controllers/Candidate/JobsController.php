@@ -141,8 +141,6 @@ class JobsController extends Controller implements HasMiddleware
             if ($resume->candidate_id !== $user->candidate->id) {
                 return response()->forbidden('Unauthorized resume');
             }
-        } else {
-            return response()->badRequest('Resume is required when applying with custom CV');
         }
 
         try {
