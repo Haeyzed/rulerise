@@ -85,13 +85,9 @@ Route::middleware(['auth:api', 'role:admin'])->group(function () {
     });
 
     // Job categories
+    Route::apiResource('job-category', JobCategoriesController::class);
     Route::prefix('job-category')->group(function () {
-        Route::get('/', [JobCategoriesController::class, 'index']);
-        Route::post('/', [JobCategoriesController::class, 'store']);
-        Route::get('{id}', [JobCategoriesController::class, 'show']);
-        Route::post('update', [JobCategoriesController::class, 'update']);
-        Route::post('{id}/delete', [JobCategoriesController::class, 'delete']);
-        Route::post('{id}/setActive', [JobCategoriesController::class, 'setActive']);
+        Route::post('{id}/set-active', [JobCategoriesController::class, 'setActive']);
     });
 
     // Website customizations
