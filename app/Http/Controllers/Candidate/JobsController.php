@@ -133,24 +133,24 @@ class JobsController extends Controller implements HasMiddleware
         $job = Job::query()->findOrFail($data['job_id']);
 
         // Check if resume is provided
-        $resume = null;
-        if (!empty($data['resume_id'])) {
-            $resume = Resume::query()->findOrFail($data['resume_id']);
-
-            // Check if the resume belongs to the authenticated user
-            if ($resume->candidate_id !== $user->candidate->id) {
-                return response()->forbidden('Unauthorized resume');
-            }
-        } elseif ($data['apply_via'] === 'profile_cv') {
-            // If using profile CV but no resume_id provided, get the primary resume
-            $resume = $user->candidate->primaryResume;
-
-            if (!$resume) {
-                return response()->badRequest('No primary resume found in your profile');
-            }
-        } else {
-            return response()->badRequest('Resume is required when applying with custom CV');
-        }
+//        $resume = null;
+//        if (!empty($data['resume_id'])) {
+//            $resume = Resume::query()->findOrFail($data['resume_id']);
+//
+//            // Check if the resume belongs to the authenticated user
+//            if ($resume->candidate_id !== $user->candidate->id) {
+//                return response()->forbidden('Unauthorized resume');
+//            }
+//        } elseif ($data['apply_via'] === 'profile_cv') {
+//            // If using profile CV but no resume_id provided, get the primary resume
+//            $resume = $user->candidate->primaryResume;
+//
+//            if (!$resume) {
+//                return response()->badRequest('No primary resume found in your profile');
+//            }
+//        } else {
+//            return response()->badRequest('Resume is required when applying with custom CV');
+//        }
 
         try {
             $application = $this->jobService->applyForJob(
