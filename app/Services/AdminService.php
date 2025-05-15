@@ -120,19 +120,18 @@ class AdminService
      * Create or update job category
      *
      * @param array $data
-     * @param int|null $categoryId
+     * @param JobCategory|null $jobCategory
      * @return JobCategory
      */
     public function saveJobCategory(array $data, ?JobCategory $jobCategory = null): JobCategory
     {
         if ($jobCategory) {
-            $category = JobCategory::query()->findOrFail($jobCategory);
-            $category->update($data);
+            $jobCategory->update($data);
         } else {
-            $category = JobCategory::query()->create($data);
+            $jobCategory = JobCategory::query()->create($data);
         }
 
-        return $category;
+        return $jobCategory;
     }
 
     /**

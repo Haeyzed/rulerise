@@ -88,6 +88,7 @@ class JobCategoriesController extends Controller implements HasMiddleware
      * Update job category
      *
      * @param JobCategoryRequest $request
+     * @param JobCategory $jobCategory
      * @return JsonResponse
      */
     public function update(JobCategoryRequest $request, JobCategory $jobCategory): JsonResponse
