@@ -257,8 +257,10 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
                         'payer_selected' => 'PAYPAL',
                         'payee_preferred' => 'IMMEDIATE_PAYMENT_REQUIRED'
                     ],
-                    'return_url' => url('/api/subscription/paypal/success'),
-                    'cancel_url' => url('/api/subscription/paypal/cancel')
+                    'return_url' => config('app.frontend_url') . '/employer/dashboard',
+                    'cancel_url' => config('app.frontend_url') . '/employer/dashboard',
+//                    'return_url' => url('/api/subscription/paypal/success'),
+//                    'cancel_url' => url('/api/subscription/paypal/cancel')
                 ]
             ]);
 

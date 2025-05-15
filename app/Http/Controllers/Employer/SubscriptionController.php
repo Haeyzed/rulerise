@@ -7,6 +7,7 @@ use App\Models\Employer;
 use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
 use App\Services\Subscription\SubscriptionServiceFactory;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -15,7 +16,7 @@ class SubscriptionController extends Controller
     /**
      * Get all available subscription plans
      *
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
     public function getPlans()
     {
@@ -30,7 +31,7 @@ class SubscriptionController extends Controller
     /**
      * Get the active subscription for the authenticated employer
      *
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
     public function getActiveSubscription()
     {
@@ -58,7 +59,7 @@ class SubscriptionController extends Controller
      *
      * @param Request $request
      * @param SubscriptionPlan $plan
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
     public function subscribe(Request $request, SubscriptionPlan $plan)
     {
@@ -85,7 +86,7 @@ class SubscriptionController extends Controller
      * Cancel subscription
      *
      * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
     public function cancel(Request $request)
     {
@@ -126,7 +127,7 @@ class SubscriptionController extends Controller
      * Handle PayPal success callback
      *
      * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
     public function paypalSuccess(Request $request)
     {
@@ -141,7 +142,7 @@ class SubscriptionController extends Controller
      * Handle PayPal cancel callback
      *
      * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
     public function paypalCancel(Request $request)
     {
@@ -155,7 +156,7 @@ class SubscriptionController extends Controller
      * Handle Stripe success callback
      *
      * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
     public function stripeSuccess(Request $request)
     {
@@ -183,7 +184,7 @@ class SubscriptionController extends Controller
      * Handle Stripe cancel callback
      *
      * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
     public function stripeCancel(Request $request)
     {
