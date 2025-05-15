@@ -189,7 +189,8 @@ class JobService
         }
 
         // Check if candidate has already applied
-        $existingApplication = JobApplication::query()->where('job_id', $job->id)
+        $existingApplication = JobApplication::query()
+            ->where('job_id', $job->id)
             ->where('candidate_id', $candidate->id)
             ->first();
 
@@ -202,12 +203,15 @@ class JobService
             throw new Exception('Invalid application method');
         }
 
-        // If no resume is provided, use the primary resume
-        if (!$resume) {
-            $resume = $candidate->primaryResume;
-
+        // If using custom CV, a resume must be provided
+        if ($applyVia === 'custom_cv') {
             if (!$resume) {
-                throw new Exception('No resume provided or found');
+                throw new Exception('A custom resume must be provided when applying via custom cv');
+            }
+
+            // Optional: validate resume belongs to candidate
+            if ($resume->candidate_id !== $candidate->id) {
+                throw new Exception('This resume does not belong to the candidate');
             }
         }
 
@@ -215,7 +219,7 @@ class JobService
         $application = JobApplication::query()->create([
             'job_id' => $job->id,
             'candidate_id' => $candidate->id,
-            'resume_id' => $resume->id,
+            'resume_id' => $applyVia === 'custom_cv' ? $resume->id : null,
             'cover_letter' => $coverLetter,
             'status' => 'applied',
             'apply_via' => $applyVia,
@@ -226,6 +230,7 @@ class JobService
 
         return $application;
     }
+
 
     /**
      * Send notifications for a new job application

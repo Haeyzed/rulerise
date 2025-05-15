@@ -182,20 +182,11 @@ class PaymentController extends Controller
                 $request->except('provider')
             );
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Payment processed successfully',
-                'data' => [
-                    'subscription' => $subscription->load('plan'),
-                ],
-            ]);
+            return response()->success($subscription->load('plan'), 'Payment processed successfully');
         } catch (Exception $e) {
             Log::error('Payment processing failed: ' . $e->getMessage());
 
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to process payment: ' . $e->getMessage(),
-            ], 500);
+            return response()->serverError('Failed to process payment: ' . $e->getMessage());
         }
     }
 
