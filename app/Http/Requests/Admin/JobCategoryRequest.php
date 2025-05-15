@@ -18,21 +18,14 @@ class JobCategoryRequest extends BaseRequest
      */
     public function rules(): array
     {
-        $rules = [
-            'name' => 'required|string|max:255|unique:job_categories,name',
+        return [
+            'name' => 'required|string|max:255|unique:job_categories,name,'.$this->route('id'),
             'description' => 'nullable|string|max:1000',
             'icon' => 'nullable|string|max:50',
             'is_active' => 'boolean',
             'parent_id' => 'nullable|integer|exists:job_categories,id',
             'display_order' => 'nullable|integer|min:0',
         ];
-
-        // If we're updating an existing job category
-        if ($this->isMethod('PUT') || $this->isMethod('PATCH')) {
-            $rules['name'] = 'required|string|max:255|unique:job_categories,name,' . $this->route('id');
-        }
-
-        return $rules;
     }
 
     /**
