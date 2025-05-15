@@ -124,6 +124,290 @@ class SubscriptionController extends Controller
     }
 
     /**
+     * List all plans from a payment provider
+     *
+     * @param Request $request
+     * @param string $provider
+     * @return JsonResponse
+     */
+    public function listProviderPlans(Request $request, string $provider)
+    {
+        try {
+            $filters = $request->all();
+            $service = SubscriptionServiceFactory::create($provider);
+            $plans = $service->listPlans($filters);
+
+            return response()->json([
+                'success' => true,
+                'data' => $plans
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get details of a specific plan
+     *
+     * @param string $provider
+     * @param string $externalPlanId
+     * @return JsonResponse
+     */
+    public function getPlanDetails(string $provider, string $externalPlanId)
+    {
+        try {
+            $service = SubscriptionServiceFactory::create($provider);
+            $planDetails = $service->getPlanDetails($externalPlanId);
+
+            return response()->json([
+                'success' => true,
+                'data' => $planDetails
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get details of a specific subscription
+     *
+     * @param string $provider
+     * @param string $subscriptionId
+     * @return JsonResponse
+     */
+    public function getSubscriptionDetails(string $provider, string $subscriptionId)
+    {
+        try {
+            $service = SubscriptionServiceFactory::create($provider);
+            $subscriptionDetails = $service->getSubscriptionDetails($subscriptionId);
+
+            return response()->json([
+                'success' => true,
+                'data' => $subscriptionDetails
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * List all subscriptions for the authenticated employer
+     *
+     * @param Request $request
+     * @param string $provider
+     * @return JsonResponse
+     */
+    public function listEmployerSubscriptions(Request $request, string $provider)
+    {
+        $employer = Auth::user()->employer;
+
+        try {
+            $service = SubscriptionServiceFactory::create($provider);
+            $subscriptions = $service->listSubscriptions($employer);
+
+            return response()->json([
+                'success' => true,
+                'data' => $subscriptions
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Suspend a subscription
+     *
+     * @param Request $request
+     * @param Subscription $subscription
+     * @return JsonResponse
+     */
+    public function suspendSubscription(Request $request, Subscription $subscription)
+    {
+        $employer = Auth::user()->employer;
+
+        // Check if the subscription belongs to the employer
+        if ($subscription->employer_id !== $employer->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized'
+            ], 403);
+        }
+
+        try {
+            $service = SubscriptionServiceFactory::create($subscription->payment_method);
+            $success = $service->suspendSubscription($subscription);
+
+            if ($success) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Subscription suspended successfully'
+                ]);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to suspend subscription'
+                ], 500);
+            }
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Reactivate a suspended subscription
+     *
+     * @param Request $request
+     * @param Subscription $subscription
+     * @return JsonResponse
+     */
+    public function reactivateSubscription(Request $request, Subscription $subscription)
+    {
+        $employer = Auth::user()->employer;
+
+        // Check if the subscription belongs to the employer
+        if ($subscription->employer_id !== $employer->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized'
+            ], 403);
+        }
+
+        try {
+            $service = SubscriptionServiceFactory::create($subscription->payment_method);
+            $success = $service->reactivateSubscription($subscription);
+
+            if ($success) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Subscription reactivated successfully'
+                ]);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to reactivate subscription'
+                ], 500);
+            }
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get subscription transactions
+     *
+     * @param Request $request
+     * @param string $provider
+     * @param string $subscriptionId
+     * @return JsonResponse
+     */
+    public function getSubscriptionTransactions(Request $request, string $provider, string $subscriptionId)
+    {
+        try {
+            $service = SubscriptionServiceFactory::create($provider);
+
+            // Check if the service has the method
+            if (!method_exists($service, 'getSubscriptionTransactions')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This feature is not supported by the selected payment provider'
+                ], 400);
+            }
+
+            $transactions = $service->getSubscriptionTransactions($subscriptionId);
+
+            return response()->json([
+                'success' => true,
+                'data' => $transactions
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Update subscription plan
+     *
+     * @param Request $request
+     * @param Subscription $subscription
+     * @return JsonResponse
+     */
+    public function updateSubscriptionPlan(Request $request, Subscription $subscription)
+    {
+        $employer = Auth::user()->employer;
+
+        // Check if the subscription belongs to the employer
+        if ($subscription->employer_id !== $employer->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized'
+            ], 403);
+        }
+
+        // Validate request
+        $request->validate([
+            'plan_id' => 'required|exists:subscription_plans,id'
+        ]);
+
+        $newPlan = SubscriptionPlan::findOrFail($request->plan_id);
+
+        try {
+            $service = SubscriptionServiceFactory::create($subscription->payment_method);
+
+            // Check if the service has the method
+            if (!method_exists($service, 'updateSubscriptionPlan')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This feature is not supported by the selected payment provider'
+                ], 400);
+            }
+
+            $success = $service->updateSubscriptionPlan($subscription, $newPlan);
+
+            if ($success) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Subscription plan updated successfully',
+                    'data' => [
+                        'subscription' => $subscription->fresh(),
+                        'plan' => $newPlan
+                    ]
+                ]);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to update subscription plan'
+                ], 500);
+            }
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Handle PayPal success callback
      *
      * @param Request $request

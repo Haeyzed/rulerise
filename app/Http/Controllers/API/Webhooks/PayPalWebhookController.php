@@ -5,6 +5,7 @@ namespace App\Http\Controllers\API\Webhooks;
 use App\Http\Controllers\Controller;
 use App\Services\Subscription\SubscriptionServiceFactory;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Log;
 
 class PayPalWebhookController extends Controller
@@ -17,29 +18,29 @@ class PayPalWebhookController extends Controller
      */
     public function handle(Request $request)
     {
+        $payload = $request->getContent();
+        $headers = $request->header();
+
         Log::info('PayPal webhook received', [
-            'headers' => $request->headers->all(),
-            'payload' => $request->getContent()
+            'payload' => json_decode($payload, true),
+            'headers' => $headers
         ]);
 
         try {
             $service = SubscriptionServiceFactory::create('paypal');
-            $success = $service->handleWebhook(
-                $request->getContent(),
-                $request->headers->all()
-            );
+            $success = $service->handleWebhook($payload, $headers);
 
-            if (!$success) {
-                return response()->json(['error' => 'Webhooks processing failed'], 400);
+            if ($success) {
+                return response()->json(['status' => 'success']);
+            } else {
+                return response()->json(['status' => 'error', 'message' => 'Failed to process webhook'], 400);
             }
-
-            return response()->json(['success' => true]);
         } catch (\Exception $e) {
             Log::error('PayPal webhook error', [
                 'error' => $e->getMessage()
             ]);
 
-            return response()->json(['error' => $e->getMessage()], 500);
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
         }
     }
 }

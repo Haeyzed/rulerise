@@ -94,38 +94,37 @@ Route::middleware(['auth:api', 'role:employer,employer_staff'])->group(function 
         Route::post('upload-profile-picture', [UserAccountSettingsController::class, 'uploadProfilePicture']);
     });
 
-    // Payment routes
+    Route::prefix('subscription')->group(function () {
+        // Payment routes
+        Route::get('/plans', [SubscriptionController::class, 'getPlans']);
+        Route::get('/active', [SubscriptionController::class, 'getActiveSubscription']);
+        Route::post('/{plan}/subscribe', [SubscriptionController::class, 'subscribe']);
+        Route::post('/cancel', [SubscriptionController::class, 'cancel']);
 
-    Route::get('subscription/plans', [SubscriptionController::class, 'getPlans']);
-    Route::get('subscription/active', [SubscriptionController::class, 'getActiveSubscription']);
-    Route::post('subscription/{plan}/subscribe', [SubscriptionController::class, 'subscribe']);
-    Route::post('subscription/cancel', [SubscriptionController::class, 'cancel']);
+        // List plans from a specific provider
+        Route::get('/provider/{provider}/plans', [SubscriptionController::class, 'listProviderPlans']);
 
-// Subscription callback endpoints (no auth required)
-    Route::get('subscription/paypal/success', [SubscriptionController::class, 'paypalSuccess']);
-    Route::get('subscription/paypal/cancel', [SubscriptionController::class, 'paypalCancel']);
-    Route::get('subscription/stripe/success', [SubscriptionController::class, 'stripeSuccess']);
-    Route::get('subscription/stripe/cancel', [SubscriptionController::class, 'stripeCancel']);
+        // Get plan details
+        Route::get('/provider/{provider}/plans/{externalPlanId}', [SubscriptionController::class, 'getPlanDetails']);
 
-//    Route::prefix('payments')->group(function () {
-//        Route::get('/providers', [PaymentController::class, 'getProviders']);
-//        Route::post('/create-intent', [PaymentController::class, 'createPaymentIntent']);
-//        Route::post('/process', [PaymentController::class, 'processPayment']);
-//        Route::delete('/subscriptions/{subscription}', [PaymentController::class, 'cancelSubscription']);
-//
-//        // PayPal specific routes
-//        Route::get('/paypal/success', [PaymentController::class, 'handlePayPalSuccess'])->name('api.payments.paypal.success');
-//        Route::get('/paypal/cancel', [PaymentController::class, 'handlePayPalCancel'])->name('api.payments.paypal.cancel');
-//    });
+        // Get subscription details
+        Route::get('/provider/{provider}/subscriptions/{subscriptionId}', [SubscriptionController::class, 'getSubscriptionDetails']);
+
+        // Suspend subscription
+        Route::post('/{subscription}/suspend', [SubscriptionController::class, 'suspendSubscription']);
+
+        // Reactivate subscription
+        Route::post('/{subscription}/reactivate', [SubscriptionController::class, 'reactivateSubscription']);
+    });
 
     // Subscriptions
-    Route::prefix('cv-packages')->group(function () {
-        Route::get('/', [SubscriptionPaymentController::class, 'subscriptionList']);
-        Route::post('{id}/subscribe', [SubscriptionPaymentController::class, 'createPaymentLink']);
-        Route::get('subscription-detail', [SubscriptionsController::class, 'subscriptionInformation']);
-        Route::post('update-download-usage', [SubscriptionsController::class, 'updateCVDownloadUsage']);
-        Route::post('verifySubscription', [SubscriptionPaymentController::class, 'verifySubscription']);
-    });
+//    Route::prefix('cv-packages')->group(function () {
+//        Route::get('/', [SubscriptionPaymentController::class, 'subscriptionList']);
+//        Route::post('{id}/subscribe', [SubscriptionPaymentController::class, 'createPaymentLink']);
+//        Route::get('subscription-detail', [SubscriptionsController::class, 'subscriptionInformation']);
+//        Route::post('update-download-usage', [SubscriptionsController::class, 'updateCVDownloadUsage']);
+//        Route::post('verifySubscription', [SubscriptionPaymentController::class, 'verifySubscription']);
+//    });
 
     // Job notification templates
     Route::prefix('job-notification-template')->group(function () {
@@ -176,11 +175,12 @@ Route::middleware(['auth:api', 'role:employer'])->group(function () {
         Route::post('/free-trial', [SubscriptionPaymentController::class, 'activateFreeTrial']);
     });
 });
-//
-//
-//// Webhooks routes (no auth required)
-//Route::post('/webhooks/stripe', [PaymentController::class, 'handleStripeWebhook']);
-//Route::post('/webhooks/paypal', [PaymentController::class, 'handlePayPalWebhook']);
+
+// Subscription callback endpoints (no auth required)
+Route::get('subscription/paypal/success', [SubscriptionController::class, 'paypalSuccess']);
+Route::get('subscription/paypal/cancel', [SubscriptionController::class, 'paypalCancel']);
+Route::get('subscription/stripe/success', [SubscriptionController::class, 'stripeSuccess']);
+Route::get('subscription/stripe/cancel', [SubscriptionController::class, 'stripeCancel']);
 
 // Webhook endpoints (no auth required, verified by signature)
 Route::post('webhooks/paypal', [PayPalWebhookController::class, 'handle']);

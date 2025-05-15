@@ -89,7 +89,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
     }
 
     /**
-     * Create a subscription plan in PayPal
+     * Create a subscription plan in the payment gateway
      *
      * @param SubscriptionPlan $plan
      * @return string External plan ID
@@ -158,7 +158,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
     }
 
     /**
-     * Update a subscription plan in PayPal
+     * Update a subscription plan in the payment gateway
      *
      * @param SubscriptionPlan $plan
      * @param string $externalPlanId
@@ -190,7 +190,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
     }
 
     /**
-     * Delete a subscription plan from PayPal
+     * Delete a subscription plan from the payment gateway
      *
      * @param string $externalPlanId
      * @return bool
@@ -211,6 +211,63 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
         ]);
 
         return false;
+    }
+
+    /**
+     * List all subscription plans from PayPal
+     *
+     * @param array $filters Optional filters
+     * @return array List of plans
+     */
+    public function listPlans(array $filters = []): array
+    {
+        $queryParams = [
+            'product_id' => $filters['product_id'] ?? null,
+            'page_size' => $filters['page_size'] ?? 20,
+            'page' => $filters['page'] ?? 1,
+            'total_required' => 'true',
+            'status' => $filters['status'] ?? 'ACTIVE',
+        ];
+
+        // Remove null values
+        $queryParams = array_filter($queryParams);
+
+        $response = Http::withToken($this->getAccessToken())
+            ->get("{$this->baseUrl}/v1/billing/plans", $queryParams);
+
+        if ($response->successful()) {
+            return $response->json();
+        }
+
+        Log::error('PayPal list plans error', [
+            'filters' => $filters,
+            'response' => $response->json()
+        ]);
+
+        return ['plans' => []];
+    }
+
+    /**
+     * Get details of a specific subscription plan
+     *
+     * @param string $externalPlanId
+     * @return array Plan details
+     */
+    public function getPlanDetails(string $externalPlanId): array
+    {
+        $response = Http::withToken($this->getAccessToken())
+            ->get("{$this->baseUrl}/v1/billing/plans/{$externalPlanId}");
+
+        if ($response->successful()) {
+            return $response->json();
+        }
+
+        Log::error('PayPal get plan details error', [
+            'externalPlanId' => $externalPlanId,
+            'response' => $response->json()
+        ]);
+
+        return [];
     }
 
     /**
@@ -259,8 +316,6 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
                     ],
                     'return_url' => config('app.frontend_url') . '/employer/dashboard',
                     'cancel_url' => config('app.frontend_url') . '/employer/dashboard',
-//                    'return_url' => url('/api/subscription/paypal/success'),
-//                    'cancel_url' => url('/api/subscription/paypal/cancel')
                 ]
             ]);
 
@@ -306,6 +361,58 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
     }
 
     /**
+     * List all subscriptions for an employer
+     *
+     * @param Employer $employer
+     * @return array List of subscriptions
+     */
+    public function listSubscriptions(Employer $employer): array
+    {
+        // PayPal doesn't provide a direct way to list subscriptions by customer
+        // We'll retrieve from our database instead
+        $subscriptions = Subscription::where('employer_id', $employer->id)
+            ->where('payment_method', 'paypal')
+            ->whereNotNull('subscription_id')
+            ->get();
+
+        $result = ['subscriptions' => []];
+
+        foreach ($subscriptions as $subscription) {
+            if ($subscription->subscription_id) {
+                $details = $this->getSubscriptionDetails($subscription->subscription_id);
+                if (!empty($details)) {
+                    $result['subscriptions'][] = $details;
+                }
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * Get details of a specific subscription
+     *
+     * @param string $subscriptionId
+     * @return array Subscription details
+     */
+    public function getSubscriptionDetails(string $subscriptionId): array
+    {
+        $response = Http::withToken($this->getAccessToken())
+            ->get("{$this->baseUrl}/v1/billing/subscriptions/{$subscriptionId}");
+
+        if ($response->successful()) {
+            return $response->json();
+        }
+
+        Log::error('PayPal get subscription details error', [
+            'subscriptionId' => $subscriptionId,
+            'response' => $response->json()
+        ]);
+
+        return [];
+    }
+
+    /**
      * Cancel a subscription
      *
      * @param Subscription $subscription
@@ -329,6 +436,68 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
         }
 
         Log::error('PayPal cancel subscription error', [
+            'subscription' => $subscription->toArray(),
+            'response' => $response->json()
+        ]);
+
+        return false;
+    }
+
+    /**
+     * Suspend a subscription (temporarily pause)
+     *
+     * @param Subscription $subscription
+     * @return bool
+     */
+    public function suspendSubscription(Subscription $subscription): bool
+    {
+        if (!$subscription->subscription_id) {
+            return false;
+        }
+
+        $response = Http::withToken($this->getAccessToken())
+            ->post("{$this->baseUrl}/v1/billing/subscriptions/{$subscription->subscription_id}/suspend", [
+                'reason' => 'Suspended by user'
+            ]);
+
+        if ($response->successful()) {
+            $subscription->is_active = false;
+            $subscription->save();
+            return true;
+        }
+
+        Log::error('PayPal suspend subscription error', [
+            'subscription' => $subscription->toArray(),
+            'response' => $response->json()
+        ]);
+
+        return false;
+    }
+
+    /**
+     * Reactivate a suspended subscription
+     *
+     * @param Subscription $subscription
+     * @return bool
+     */
+    public function reactivateSubscription(Subscription $subscription): bool
+    {
+        if (!$subscription->subscription_id) {
+            return false;
+        }
+
+        $response = Http::withToken($this->getAccessToken())
+            ->post("{$this->baseUrl}/v1/billing/subscriptions/{$subscription->subscription_id}/activate", [
+                'reason' => 'Reactivated by user'
+            ]);
+
+        if ($response->successful()) {
+            $subscription->is_active = true;
+            $subscription->save();
+            return true;
+        }
+
+        Log::error('PayPal reactivate subscription error', [
             'subscription' => $subscription->toArray(),
             'response' => $response->json()
         ]);
@@ -412,6 +581,12 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
 
             case 'BILLING.SUBSCRIPTION.CANCELLED':
                 return $this->handleSubscriptionCancelled($data);
+
+            case 'BILLING.SUBSCRIPTION.SUSPENDED':
+                return $this->handleSubscriptionSuspended($data);
+
+            case 'BILLING.SUBSCRIPTION.UPDATED':
+                return $this->handleSubscriptionUpdated($data);
 
             default:
                 Log::info('Unhandled PayPal webhook event', ['event' => $event]);
@@ -529,5 +704,261 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
         $subscription->save();
 
         return true;
+    }
+
+    /**
+     * Handle subscription suspended event
+     *
+     * @param array $data
+     * @return bool
+     */
+    protected function handleSubscriptionSuspended(array $data): bool
+    {
+        $subscriptionId = $data['resource']['id'] ?? '';
+
+        // Find the subscription in our database
+        $subscription = Subscription::where('subscription_id', $subscriptionId)
+            ->where('payment_method', 'paypal')
+            ->first();
+
+        if (!$subscription) {
+            Log::error('PayPal subscription not found', ['subscriptionId' => $subscriptionId]);
+            return false;
+        }
+
+        // Update subscription status
+        $subscription->is_active = false;
+        $subscription->save();
+
+        return true;
+    }
+
+    /**
+     * Handle subscription updated event
+     *
+     * @param array $data
+     * @return bool
+     */
+    protected function handleSubscriptionUpdated(array $data): bool
+    {
+        $subscriptionId = $data['resource']['id'] ?? '';
+
+        // Find the subscription in our database
+        $subscription = Subscription::where('subscription_id', $subscriptionId)
+            ->where('payment_method', 'paypal')
+            ->first();
+
+        if (!$subscription) {
+            Log::error('PayPal subscription not found', ['subscriptionId' => $subscriptionId]);
+            return false;
+        }
+
+        // Update subscription status based on the status in the webhook
+        $status = $data['resource']['status'] ?? '';
+        if ($status === 'ACTIVE') {
+            $subscription->is_active = true;
+        } elseif (in_array($status, ['SUSPENDED', 'CANCELLED', 'EXPIRED'])) {
+            $subscription->is_active = false;
+        }
+
+        $subscription->save();
+
+        return true;
+    }
+
+    /**
+     * Get subscription transactions
+     *
+     * @param string $subscriptionId
+     * @return array List of transactions
+     */
+    public function getSubscriptionTransactions(string $subscriptionId): array
+    {
+        $response = Http::withToken($this->getAccessToken())
+            ->get("{$this->baseUrl}/v1/billing/subscriptions/{$subscriptionId}/transactions");
+
+        if ($response->successful()) {
+            return $response->json();
+        }
+
+        Log::error('PayPal get subscription transactions error', [
+            'subscriptionId' => $subscriptionId,
+            'response' => $response->json()
+        ]);
+
+        return ['transactions' => []];
+    }
+
+    /**
+     * Update subscription quantity
+     *
+     * @param Subscription $subscription
+     * @param int $quantity
+     * @return bool
+     */
+    public function updateSubscriptionQuantity(Subscription $subscription, int $quantity): bool
+    {
+        if (!$subscription->subscription_id) {
+            return false;
+        }
+
+        $response = Http::withToken($this->getAccessToken())
+            ->patch("{$this->baseUrl}/v1/billing/subscriptions/{$subscription->subscription_id}", [
+                [
+                    'op' => 'replace',
+                    'path' => '/quantity',
+                    'value' => $quantity
+                ]
+            ]);
+
+        if ($response->successful()) {
+            return true;
+        }
+
+        Log::error('PayPal update subscription quantity error', [
+            'subscription' => $subscription->toArray(),
+            'quantity' => $quantity,
+            'response' => $response->json()
+        ]);
+
+        return false;
+    }
+
+    /**
+     * Update subscription plan
+     *
+     * @param Subscription $subscription
+     * @param SubscriptionPlan $newPlan
+     * @return bool
+     */
+    public function updateSubscriptionPlan(Subscription $subscription, SubscriptionPlan $newPlan): bool
+    {
+        if (!$subscription->subscription_id) {
+            return false;
+        }
+
+        // Get or create the external plan ID for the new plan
+        $externalPlanId = $newPlan->external_paypal_id ?? $this->createPlan($newPlan);
+
+        // If we created a new plan, save the ID
+        if (!$newPlan->external_paypal_id) {
+            $newPlan->external_paypal_id = $externalPlanId;
+            $newPlan->save();
+        }
+
+        $response = Http::withToken($this->getAccessToken())
+            ->post("{$this->baseUrl}/v1/billing/subscriptions/{$subscription->subscription_id}/revise", [
+                'plan_id' => $externalPlanId
+            ]);
+
+        if ($response->successful()) {
+            // Update the subscription in our database
+            $subscription->subscription_plan_id = $newPlan->id;
+            $subscription->end_date = Carbon::now()->addDays($newPlan->duration_days);
+            $subscription->job_posts_left = $newPlan->job_posts_limit;
+            $subscription->featured_jobs_left = $newPlan->featured_jobs_limit;
+            $subscription->cv_downloads_left = $newPlan->resume_views_limit;
+            $subscription->save();
+
+            return true;
+        }
+
+        Log::error('PayPal update subscription plan error', [
+            'subscription' => $subscription->toArray(),
+            'newPlan' => $newPlan->toArray(),
+            'response' => $response->json()
+        ]);
+
+        return false;
+    }
+
+    /**
+     * Create a webhook for subscription events
+     *
+     * @param string $url Webhook URL
+     * @param array $events Events to subscribe to
+     * @return array Webhook details
+     */
+    public function createWebhook(string $url, array $events = []): array
+    {
+        // Default events if none provided
+        if (empty($events)) {
+            $events = [
+                'BILLING.SUBSCRIPTION.CREATED',
+                'BILLING.SUBSCRIPTION.ACTIVATED',
+                'BILLING.SUBSCRIPTION.UPDATED',
+                'BILLING.SUBSCRIPTION.CANCELLED',
+                'BILLING.SUBSCRIPTION.SUSPENDED',
+                'BILLING.SUBSCRIPTION.EXPIRED',
+                'PAYMENT.SALE.COMPLETED'
+            ];
+        }
+
+        $eventTypes = [];
+        foreach ($events as $event) {
+            $eventTypes[] = ['name' => $event];
+        }
+
+        $response = Http::withToken($this->getAccessToken())
+            ->post("{$this->baseUrl}/v1/notifications/webhooks", [
+                'url' => $url,
+                'event_types' => $eventTypes
+            ]);
+
+        if ($response->successful()) {
+            return $response->json();
+        }
+
+        Log::error('PayPal create webhook error', [
+            'url' => $url,
+            'events' => $events,
+            'response' => $response->json()
+        ]);
+
+        return [];
+    }
+
+    /**
+     * List all webhooks
+     *
+     * @return array List of webhooks
+     */
+    public function listWebhooks(): array
+    {
+        $response = Http::withToken($this->getAccessToken())
+            ->get("{$this->baseUrl}/v1/notifications/webhooks");
+
+        if ($response->successful()) {
+            return $response->json();
+        }
+
+        Log::error('PayPal list webhooks error', [
+            'response' => $response->json()
+        ]);
+
+        return ['webhooks' => []];
+    }
+
+    /**
+     * Delete a webhook
+     *
+     * @param string $webhookId
+     * @return bool
+     */
+    public function deleteWebhook(string $webhookId): bool
+    {
+        $response = Http::withToken($this->getAccessToken())
+            ->delete("{$this->baseUrl}/v1/notifications/webhooks/{$webhookId}");
+
+        if ($response->successful()) {
+            return true;
+        }
+
+        Log::error('PayPal delete webhook error', [
+            'webhookId' => $webhookId,
+            'response' => $response->json()
+        ]);
+
+        return false;
     }
 }
