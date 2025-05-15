@@ -99,8 +99,8 @@ class PayPalGateway implements PaymentGatewayInterface
                         ],
                     ],
                     'application_context' => [
-                        'return_url' => config('app.frontend_url') . '/dashboard',
-                        'cancel_url' => config('app.frontend_url') . '/dashboard',
+                        'return_url' => config('app.frontend_url') . '/employer/dashboard',
+                        'cancel_url' => config('app.frontend_url') . '/employer/dashboard',
                     ],
                 ]);
 

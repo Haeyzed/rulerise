@@ -136,11 +136,6 @@ class JobsController extends Controller implements HasMiddleware
         $resume = null;
         if (!empty($data['resume_id'])) {
             $resume = Resume::query()->findOrFail($data['resume_id']);
-
-            // Check if the resume belongs to the authenticated user
-            if ($resume->candidate_id !== $user->candidate->id) {
-                return response()->forbidden('Unauthorized resume');
-            }
         }
 
         try {
