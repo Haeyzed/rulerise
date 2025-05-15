@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Admin;
 
 use App\Http\Requests\BaseRequest;
+use Illuminate\Validation\Rule;
 
 /**
  * Request for creating or updating a job category.
@@ -19,7 +20,12 @@ class JobCategoryRequest extends BaseRequest
     public function rules(): array
     {
         return [
-            'name' => 'required|string|max:255|unique:job_categories,name,'.$this->route('id'),
+            'name' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('job_categories', 'name')->ignore($this->route('id')),
+            ],
             'description' => 'nullable|string|max:1000',
             'icon' => 'nullable|string|max:50',
             'is_active' => 'boolean',

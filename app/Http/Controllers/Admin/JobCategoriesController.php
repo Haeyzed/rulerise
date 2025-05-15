@@ -90,11 +90,11 @@ class JobCategoriesController extends Controller implements HasMiddleware
      * @param JobCategoryRequest $request
      * @return JsonResponse
      */
-    public function update(JobCategoryRequest $request, int $id): JsonResponse
+    public function update(JobCategoryRequest $request, JobCategory $jobCategory): JsonResponse
     {
         $data = $request->validated();
 
-        $category = $this->adminService->saveJobCategory($data, $id);
+        $category = $this->adminService->saveJobCategory($data, $jobCategory);
 
         return response()->success($category, 'Job category updated successfully');
     }

@@ -123,10 +123,10 @@ class AdminService
      * @param int|null $categoryId
      * @return JobCategory
      */
-    public function saveJobCategory(array $data, ?int $categoryId = null): JobCategory
+    public function saveJobCategory(array $data, ?JobCategory $jobCategory = null): JobCategory
     {
-        if ($categoryId) {
-            $category = JobCategory::query()->findOrFail($categoryId);
+        if ($jobCategory) {
+            $category = JobCategory::query()->findOrFail($jobCategory);
             $category->update($data);
         } else {
             $category = JobCategory::query()->create($data);

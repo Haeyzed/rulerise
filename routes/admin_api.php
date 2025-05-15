@@ -85,7 +85,7 @@ Route::middleware(['auth:api', 'role:admin'])->group(function () {
     });
 
     // Job categories
-    Route::apiResource('job-category', JobCategoriesController::class)->parameters(['job-categories'=>'id']);
+    Route::apiResource('job-category', JobCategoriesController::class);
     Route::prefix('job-category')->group(function () {
         Route::post('{id}/set-active', [JobCategoriesController::class, 'setActive']);
     });
