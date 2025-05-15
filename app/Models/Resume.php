@@ -27,6 +27,8 @@ class Resume extends Model
 {
     use HasFactory;
 
+    protected $appends = ['document_url'];
+
     /**
      * The attributes that are mass assignable.
      *
