@@ -2,68 +2,51 @@
 
 namespace App\Http\Requests\Admin;
 
-use App\Http\Requests\BaseRequest;
+use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
-/**
- * Request for creating or updating a job category.
- *
- * @package App\Http\Requests\Admin
- */
-class JobCategoryRequest extends BaseRequest
+class JobCategoryRequest extends FormRequest
 {
+    /**
+     * Determine if the user is authorized to make this request.
+     */
+    public function authorize(): bool
+    {
+        return true;
+    }
+
     /**
      * Get the validation rules that apply to the request.
      *
-     * @return array
+     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array|string>
      */
     public function rules(): array
     {
-        return [
+        $rules = [
             'name' => [
                 'required',
                 'string',
-                'max:255',
-                Rule::unique('job_categories', 'name')->ignore($this->route('jobCategory')),
+                'max:100',
             ],
-            'description' => 'nullable|string|max:1000',
+            'description' => 'nullable|string|max:500',
             'icon' => 'nullable|string|max:50',
             'is_active' => 'boolean',
-            'parent_id' => 'nullable|integer|exists:job_categories,id',
-            'display_order' => 'nullable|integer|min:0',
         ];
-    }
 
-    /**
-     * Get custom messages for validator errors.
-     *
-     * @return array
-     */
-    public function messages(): array
-    {
-        return [
-            'name.required' => 'The category name field is required.',
-            'name.unique' => 'This category name already exists.',
-            'parent_id.exists' => 'The selected parent category is invalid.',
-            'display_order.integer' => 'The display order must be an integer.',
-            'display_order.min' => 'The display order must be at least 0.',
-        ];
-    }
+        // If this is an update request (PUT/PATCH), add the unique rule with the current record excluded
+        if ($this->isMethod('put') || $this->isMethod('patch') || $this->route('jobCategory')) {
+            $jobCategoryId = $this->route('jobCategory') ? $this->route('jobCategory')->id : null;
 
-    /**
-     * Get custom attributes for validator errors.
-     *
-     * @return array
-     */
-    public function attributes(): array
-    {
-        return [
-            'name' => 'category name',
-            'description' => 'description',
-            'icon' => 'icon',
-            'is_active' => 'active status',
-            'parent_id' => 'parent category',
-            'display_order' => 'display order',
-        ];
+            if (!$jobCategoryId && $this->route('id')) {
+                $jobCategoryId = $this->route('id');
+            }
+
+            $rules['name'][] = Rule::unique('job_categories', 'name')->ignore($jobCategoryId);
+        } else {
+            // For new records, simply check uniqueness
+            $rules['name'][] = 'unique:job_categories,name';
+        }
+
+        return $rules;
     }
 }
