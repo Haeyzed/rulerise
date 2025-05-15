@@ -114,12 +114,8 @@ Route::middleware(['auth:api', 'role:admin'])->group(function () {
     });
 
 // User management - Users
-    Route::prefix('user-management/user')->group(function () {
-        Route::get('/', [UsersController::class, 'index']);
-        Route::get('{id}', [UsersController::class, 'show']);
-        Route::post('/', [UsersController::class, 'store']);
-        Route::post('update', [UsersController::class, 'update']);
-        Route::post('{id}/delete', [UsersController::class, 'delete']);
+    Route::prefix('user-management')->group(function () {
+        Route::apiResource('user', UsersController::class);
     });
 
 // User management - Permissions

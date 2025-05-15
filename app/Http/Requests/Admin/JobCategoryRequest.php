@@ -24,7 +24,7 @@ class JobCategoryRequest extends BaseRequest
                 'required',
                 'string',
                 'max:255',
-                Rule::unique('job_categories', 'name')->ignore($this->route('id')),
+                Rule::unique('job_categories', 'name')->ignore($this->route('jobCategory')),
             ],
             'description' => 'nullable|string|max:1000',
             'icon' => 'nullable|string|max:50',
