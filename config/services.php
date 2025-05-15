@@ -47,7 +47,7 @@ return [
 
     'paypal' => [
         'client_id' => env('PAYPAL_CLIENT_ID'),
-        'secret' => env('PAYPAL_SECRET'),
+        'client_secret' => env('PAYPAL_CLIENT_SECRET'),
         'webhook_id' => env('PAYPAL_WEBHOOK_ID'),
         'sandbox' => env('PAYPAL_SANDBOX', true),
     ],
