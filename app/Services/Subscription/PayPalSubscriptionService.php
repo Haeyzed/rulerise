@@ -461,7 +461,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
             ]);
 
         if ($response->successful()) {
-            $subscription->is_active = false;
+//            $subscription->is_active = false;
             $subscription->is_suspended = true;
             $subscription->save();
             return true;
@@ -758,7 +758,9 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
         $status = $data['resource']['status'] ?? '';
         if ($status === 'ACTIVE') {
             $subscription->is_active = true;
-        } elseif (in_array($status, ['SUSPENDED', 'CANCELLED', 'EXPIRED'])) {
+        } elseif ($status === 'SUSPENDED') {
+            $subscription->is_suspended = true;
+        } elseif (in_array($status, ['CANCELLED', 'EXPIRED'])) {
             $subscription->is_active = false;
         }
 
