@@ -32,14 +32,15 @@ class SubscriptionResource extends JsonResource
             'featured_jobs_left' => $this->featured_jobs_left,
             'cv_downloads_left' => $this->cv_downloads_left,
             'is_active' => $this->is_active,
+            'is_suspended' => $this->is_suspended,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
-            
+
             // Computed properties
             'is_expired' => $this->isExpired(),
             'days_remaining' => $this->daysRemaining(),
             'status_text' => $this->getStatusText(),
-            
+
             // Related data
             'plan' => new SubscriptionPlanResource($this->whenLoaded('plan')),
         ];
