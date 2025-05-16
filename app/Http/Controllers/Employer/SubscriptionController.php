@@ -84,10 +84,7 @@ class SubscriptionController extends Controller
         $subscription = $employer->activeSubscription;
 
         if (!$subscription) {
-            return response()->json([
-                'success' => false,
-                'message' => 'No active subscription found'
-            ], 404);
+            return response()->notFound('No active subscription found');
         }
 
         try {
@@ -291,10 +288,7 @@ class SubscriptionController extends Controller
 
             // Check if the service has the method
             if (!method_exists($service, 'getSubscriptionTransactions')) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'This feature is not supported by the selected payment provider'
-                ], 400);
+                return response()->badRequest('This feature is not supported by the selected payment provider');
             }
 
             $transactions = $service->getSubscriptionTransactions($subscriptionId);
@@ -324,10 +318,7 @@ class SubscriptionController extends Controller
 
         // Check if the subscription belongs to the employer
         if ($subscription->employer_id !== $employer->id) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unauthorized'
-            ], 403);
+            return response()->forbidden('Unauthorized');
         }
 
         // Validate request
@@ -545,25 +536,17 @@ class SubscriptionController extends Controller
                     'paypal_id' => $subscriptionId
                 ]);
 
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Subscription activated successfully',
-                    'data' => [
+                return response()->success([
                         'subscription' => $subscription->fresh(),
                         'plan' => $subscription->plan
-                    ]
-                ]);
+                    ],'Subscription activated successfully');
             }
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Subscription status checked',
-                'data' => [
+            return response()->success([
                     'subscription' => $subscription,
                     'plan' => $subscription->plan,
                     'paypal_status' => $details['status'] ?? 'UNKNOWN'
-                ]
-            ]);
+                ],'Subscription status checked');
         } catch (Exception $e) {
             Log::error('Error verifying PayPal subscription', [
                 'subscription_id' => $subscriptionId,
