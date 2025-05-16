@@ -321,6 +321,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
 
         if ($response->successful()) {
             $data = $response->json();
+            Log::info($data);
 
             // Create a pending subscription record
             $subscription = new Subscription([
