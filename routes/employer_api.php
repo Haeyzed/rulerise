@@ -95,7 +95,7 @@ Route::middleware(['auth:api', 'role:employer,employer_staff'])->group(function 
     });
 
     Route::prefix('subscription')->group(function () {
-        // Payment routes
+        // Basic subscription management
         Route::get('/plans', [SubscriptionController::class, 'getPlans']);
         Route::get('/active', [SubscriptionController::class, 'getActiveSubscription']);
         Route::post('/{plan}/subscribe', [SubscriptionController::class, 'subscribe']);
@@ -107,14 +107,26 @@ Route::middleware(['auth:api', 'role:employer,employer_staff'])->group(function 
         // Get plan details
         Route::get('/provider/{provider}/plans/{externalPlanId}', [SubscriptionController::class, 'getPlanDetails']);
 
+        // List employer subscriptions
+        Route::get('/provider/{provider}/subscriptions', [SubscriptionController::class, 'listEmployerSubscriptions']);
+
         // Get subscription details
         Route::get('/provider/{provider}/subscriptions/{subscriptionId}', [SubscriptionController::class, 'getSubscriptionDetails']);
+
+        // Get subscription transactions
+        Route::get('/provider/{provider}/subscriptions/{subscriptionId}/transactions', [SubscriptionController::class, 'getSubscriptionTransactions']);
 
         // Suspend subscription
         Route::post('/{subscription}/suspend', [SubscriptionController::class, 'suspendSubscription']);
 
         // Reactivate subscription
         Route::post('/{subscription}/reactivate', [SubscriptionController::class, 'reactivateSubscription']);
+
+        // Update subscription plan
+        Route::post('/{subscription}/update-plan', [SubscriptionController::class, 'updateSubscriptionPlan']);
+
+        // Verify PayPal subscription
+        Route::post('/verify-paypal', [SubscriptionController::class, 'verifyPayPalSubscription']);
     });
 
     // Subscriptions

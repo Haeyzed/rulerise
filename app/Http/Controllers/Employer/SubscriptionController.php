@@ -10,6 +10,7 @@ use App\Services\Subscription\SubscriptionServiceFactory;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 
 class SubscriptionController extends Controller
 {
@@ -415,10 +416,44 @@ class SubscriptionController extends Controller
      */
     public function paypalSuccess(Request $request)
     {
-        // The subscription is updated via webhook
+        // Log the request parameters
+        Log::info('PayPal success callback received', [
+            'params' => $request->all()
+        ]);
+
+        // The subscription is updated via webhook, but we can check status here
+        $subscriptionId = $request->get('subscription_id');
+
+        if ($subscriptionId) {
+            // Find the subscription in our database
+            $subscription = Subscription::where('subscription_id', $subscriptionId)
+                ->where('payment_method', 'paypal')
+                ->first();
+
+            if ($subscription) {
+                // Log that we found the subscription
+                Log::info('Found subscription for PayPal callback', [
+                    'subscription_id' => $subscription->id,
+                    'is_active' => $subscription->is_active
+                ]);
+
+                // We don't update the status here as it should be done by the webhook
+                // But we can return the current status
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Subscription process completed',
+                    'data' => [
+                        'subscription_id' => $subscription->id,
+                        'is_active' => $subscription->is_active
+                    ]
+                ]);
+            }
+        }
+
+        // If we can't find the subscription, just return a generic success
         return response()->json([
             'success' => true,
-            'message' => 'Subscription activated successfully'
+            'message' => 'Subscription process completed. It may take a few moments to activate.'
         ]);
     }
 
@@ -430,6 +465,10 @@ class SubscriptionController extends Controller
      */
     public function paypalCancel(Request $request)
     {
+        Log::info('PayPal cancel callback received', [
+            'params' => $request->all()
+        ]);
+
         return response()->json([
             'success' => false,
             'message' => 'Subscription process was cancelled'
@@ -476,5 +515,98 @@ class SubscriptionController extends Controller
             'success' => false,
             'message' => 'Subscription process was cancelled'
         ]);
+    }
+
+    /**
+     * Manually verify a PayPal subscription
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function verifyPayPalSubscription(Request $request)
+    {
+        $subscriptionId = $request->input('subscription_id');
+
+        if (!$subscriptionId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Subscription ID is required'
+            ], 400);
+        }
+
+        try {
+            $employer = Auth::user()->employer;
+
+            // Find the subscription
+            $subscription = Subscription::where('subscription_id', $subscriptionId)
+                ->where('employer_id', $employer->id)
+                ->where('payment_method', 'paypal')
+                ->first();
+
+            if (!$subscription) {
+                // Try to find by subscription_id only, in case it was created for this employer
+                $subscription = Subscription::where('subscription_id', $subscriptionId)
+                    ->where('payment_method', 'paypal')
+                    ->first();
+
+                if (!$subscription || ($subscription->employer_id !== $employer->id)) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Subscription not found'
+                    ], 404);
+                }
+            }
+
+            // Get subscription details from PayPal
+            $service = SubscriptionServiceFactory::create('paypal');
+            $details = $service->getSubscriptionDetails($subscriptionId);
+
+            // Log the details for debugging
+            Log::info('PayPal subscription details', [
+                'subscription_id' => $subscriptionId,
+                'details' => $details
+            ]);
+
+            // If subscription is active in PayPal but not in our database
+            if (isset($details['status']) && ($details['status'] === 'ACTIVE' || $details['status'] === 'APPROVED') && !$subscription->is_active) {
+                $subscription->is_active = true;
+                $subscription->save();
+
+                Log::info('Subscription activated via manual verification', [
+                    'subscription_id' => $subscription->id,
+                    'paypal_id' => $subscriptionId
+                ]);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Subscription activated successfully',
+                    'data' => [
+                        'subscription' => $subscription->fresh(),
+                        'plan' => $subscription->plan
+                    ]
+                ]);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Subscription status checked',
+                'data' => [
+                    'subscription' => $subscription,
+                    'plan' => $subscription->plan,
+                    'paypal_status' => $details['status'] ?? 'UNKNOWN'
+                ]
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error verifying PayPal subscription', [
+                'subscription_id' => $subscriptionId,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error verifying subscription: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }
