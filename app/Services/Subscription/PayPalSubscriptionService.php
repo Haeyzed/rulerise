@@ -6,17 +6,19 @@ use App\Models\Employer;
 use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
 use Carbon\Carbon;
+use Exception;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class PayPalSubscriptionService implements SubscriptionServiceInterface
 {
-    protected $baseUrl;
-    protected $clientId;
-    protected $clientSecret;
-    protected $accessToken;
-    protected $webhookId;
+    protected string $baseUrl;
+    protected mixed $clientId;
+    protected mixed $clientSecret;
+    protected string $accessToken;
+    protected mixed $webhookId;
 
     public function __construct()
     {
@@ -32,6 +34,8 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
      * Get PayPal access token
      *
      * @return string
+     * @throws ConnectionException
+     * @throws Exception
      */
     protected function getAccessToken(): string
     {
@@ -54,7 +58,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
             'response' => $response->json()
         ]);
 
-        throw new \Exception('Failed to get PayPal access token');
+        throw new Exception('Failed to get PayPal access token');
     }
 
     /**
@@ -62,6 +66,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
      *
      * @param SubscriptionPlan $plan
      * @return string Product ID
+     * @throws Exception
      */
     protected function createProduct(SubscriptionPlan $plan): string
     {
@@ -85,7 +90,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
             'response' => $response->json()
         ]);
 
-        throw new \Exception('Failed to create PayPal product');
+        throw new Exception('Failed to create PayPal product');
     }
 
     /**
@@ -93,6 +98,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
      *
      * @param SubscriptionPlan $plan
      * @return string External plan ID
+     * @throws Exception
      */
     public function createPlan(SubscriptionPlan $plan): string
     {
@@ -154,7 +160,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
             'response' => $response->json()
         ]);
 
-        throw new \Exception('Failed to create PayPal plan');
+        throw new Exception('Failed to create PayPal plan');
     }
 
     /**
@@ -163,6 +169,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
      * @param SubscriptionPlan $plan
      * @param string $externalPlanId
      * @return bool
+     * @throws ConnectionException
      */
     public function updatePlan(SubscriptionPlan $plan, string $externalPlanId): bool
     {
@@ -194,6 +201,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
      *
      * @param string $externalPlanId
      * @return bool
+     * @throws ConnectionException
      */
     public function deletePlan(string $externalPlanId): bool
     {
@@ -218,6 +226,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
      *
      * @param array $filters Optional filters
      * @return array List of plans
+     * @throws ConnectionException
      */
     public function listPlans(array $filters = []): array
     {
@@ -252,6 +261,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
      *
      * @param string $externalPlanId
      * @return array Plan details
+     * @throws ConnectionException
      */
     public function getPlanDetails(string $externalPlanId): array
     {
@@ -277,6 +287,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
      * @param SubscriptionPlan $plan
      * @param array $paymentData
      * @return array Subscription data with redirect URL
+     * @throws Exception
      */
     public function createSubscription(Employer $employer, SubscriptionPlan $plan, array $paymentData = []): array
     {
@@ -321,7 +332,6 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
 
         if ($response->successful()) {
             $data = $response->json();
-            Log::info($data);
 
             // Create a pending subscription record
             $subscription = new Subscription([
@@ -358,7 +368,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
             'response' => $response->json()
         ]);
 
-        throw new \Exception('Failed to create PayPal subscription');
+        throw new Exception('Failed to create PayPal subscription');
     }
 
     /**
@@ -366,12 +376,13 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
      *
      * @param Employer $employer
      * @return array List of subscriptions
+     * @throws ConnectionException
      */
     public function listSubscriptions(Employer $employer): array
     {
         // PayPal doesn't provide a direct way to list subscriptions by customer
         // We'll retrieve from our database instead
-        $subscriptions = Subscription::where('employer_id', $employer->id)
+        $subscriptions = Subscription::query()->where('employer_id', $employer->id)
             ->where('payment_method', 'paypal')
             ->whereNotNull('subscription_id')
             ->get();
@@ -395,6 +406,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
      *
      * @param string $subscriptionId
      * @return array Subscription details
+     * @throws ConnectionException
      */
     public function getSubscriptionDetails(string $subscriptionId): array
     {
@@ -418,6 +430,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
      *
      * @param Subscription $subscription
      * @return bool
+     * @throws ConnectionException
      */
     public function cancelSubscription(Subscription $subscription): bool
     {
@@ -449,6 +462,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
      *
      * @param Subscription $subscription
      * @return bool
+     * @throws ConnectionException
      */
     public function suspendSubscription(Subscription $subscription): bool
     {
@@ -481,6 +495,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
      *
      * @param Subscription $subscription
      * @return bool
+     * @throws ConnectionException
      */
     public function reactivateSubscription(Subscription $subscription): bool
     {
@@ -514,6 +529,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
      * @param string $payload
      * @param array $headers
      * @return bool
+     * @throws ConnectionException
      */
     protected function verifyWebhookSignature(string $payload, array $headers): bool
     {
@@ -555,6 +571,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
      * @param string $payload
      * @param array $headers
      * @return bool
+     * @throws ConnectionException
      */
     public function handleWebhook(string $payload, array $headers): bool
     {
@@ -608,7 +625,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
         $subscriptionId = $data['resource']['id'] ?? '';
 
         // Find the subscription in our database
-        $subscription = Subscription::where('subscription_id', $subscriptionId)
+        $subscription = Subscription::query()->where('subscription_id', $subscriptionId)
             ->where('payment_method', 'paypal')
             ->first();
 
@@ -635,7 +652,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
         $subscriptionId = $data['resource']['id'] ?? '';
 
         // Find the subscription in our database
-        $subscription = Subscription::where('subscription_id', $subscriptionId)
+        $subscription = Subscription::query()->where('subscription_id', $subscriptionId)
             ->where('payment_method', 'paypal')
             ->first();
 
@@ -646,6 +663,20 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
 
         // Update subscription status
         $subscription->is_active = true;
+
+        // Get detailed subscription information
+        try {
+            $details = $this->getSubscriptionDetails($subscriptionId);
+            if (!empty($details)) {
+                $this->updateSubscriptionWithPayPalDetails($subscription, $details);
+            }
+        } catch (\Exception $e) {
+            Log::error('Failed to get PayPal subscription details', [
+                'subscriptionId' => $subscriptionId,
+                'error' => $e->getMessage()
+            ]);
+        }
+
         $subscription->save();
 
         return true;
@@ -666,7 +697,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
         }
 
         // Find the subscription in our database
-        $subscription = Subscription::where('subscription_id', $billingAgreementId)
+        $subscription = Subscription::query()->where('subscription_id', $billingAgreementId)
             ->where('payment_method', 'paypal')
             ->first();
 
@@ -693,7 +724,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
         $subscriptionId = $data['resource']['id'] ?? '';
 
         // Find the subscription in our database
-        $subscription = Subscription::where('subscription_id', $subscriptionId)
+        $subscription = Subscription::query()->where('subscription_id', $subscriptionId)
             ->where('payment_method', 'paypal')
             ->first();
 
@@ -720,7 +751,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
         $subscriptionId = $data['resource']['id'] ?? '';
 
         // Find the subscription in our database
-        $subscription = Subscription::where('subscription_id', $subscriptionId)
+        $subscription = Subscription::query()->where('subscription_id', $subscriptionId)
             ->where('payment_method', 'paypal')
             ->first();
 
@@ -747,7 +778,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
         $subscriptionId = $data['resource']['id'] ?? '';
 
         // Find the subscription in our database
-        $subscription = Subscription::where('subscription_id', $subscriptionId)
+        $subscription = Subscription::query()->where('subscription_id', $subscriptionId)
             ->where('payment_method', 'paypal')
             ->first();
 
@@ -766,6 +797,19 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
             $subscription->is_active = false;
         }
 
+        // Get detailed subscription information
+        try {
+            $details = $this->getSubscriptionDetails($subscriptionId);
+            if (!empty($details)) {
+                $this->updateSubscriptionWithPayPalDetails($subscription, $details);
+            }
+        } catch (\Exception $e) {
+            Log::error('Failed to get PayPal subscription details', [
+                'subscriptionId' => $subscriptionId,
+                'error' => $e->getMessage()
+            ]);
+        }
+
         $subscription->save();
 
         return true;
@@ -776,6 +820,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
      *
      * @param string $subscriptionId
      * @return array List of transactions
+     * @throws ConnectionException
      */
     public function getSubscriptionTransactions(string $subscriptionId): array
     {
@@ -800,6 +845,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
      * @param Subscription $subscription
      * @param int $quantity
      * @return bool
+     * @throws ConnectionException
      */
     public function updateSubscriptionQuantity(Subscription $subscription, int $quantity): bool
     {
@@ -835,6 +881,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
      * @param Subscription $subscription
      * @param SubscriptionPlan $newPlan
      * @return bool
+     * @throws ConnectionException
      */
     public function updateSubscriptionPlan(Subscription $subscription, SubscriptionPlan $newPlan): bool
     {
@@ -883,6 +930,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
      * @param string $url Webhook URL
      * @param array $events Events to subscribe to
      * @return array Webhook details
+     * @throws ConnectionException
      */
     public function createWebhook(string $url, array $events = []): array
     {
@@ -927,6 +975,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
      * List all webhooks
      *
      * @return array List of webhooks
+     * @throws ConnectionException
      */
     public function listWebhooks(): array
     {
@@ -949,6 +998,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
      *
      * @param string $webhookId
      * @return bool
+     * @throws ConnectionException
      */
     public function deleteWebhook(string $webhookId): bool
     {
@@ -965,5 +1015,59 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
         ]);
 
         return false;
+    }
+
+
+
+    /**
+     * Update subscription with PayPal details
+     *
+     * @param Subscription $subscription
+     * @param array $details
+     * @return void
+     */
+    public function updateSubscriptionWithPayPalDetails(Subscription $subscription, array $details): void
+    {
+        // Store subscriber information if available
+        if (isset($details['subscriber'])) {
+            $subscriber = $details['subscriber'];
+            $subscription->subscriber_info = [
+                'email_address' => $subscriber['email_address'] ?? null,
+                'payer_id' => $subscriber['payer_id'] ?? null,
+                'name' => $subscriber['name'] ?? null,
+                'tenant' => $subscriber['tenant'] ?? null
+            ];
+        }
+
+        // Store billing information if available
+        if (isset($details['billing_info'])) {
+            $billingInfo = $details['billing_info'];
+            $subscription->billing_info = [
+                'outstanding_balance' => $billingInfo['outstanding_balance'] ?? null,
+                'cycle_executions' => $billingInfo['cycle_executions'] ?? null,
+                'next_billing_time' => $billingInfo['next_billing_time'] ?? null,
+                'final_payment_time' => $billingInfo['final_payment_time'] ?? null,
+                'failed_payments_count' => $billingInfo['failed_payments_count'] ?? null
+            ];
+
+            // Update subscription end date based on final payment time if available
+            if (isset($billingInfo['final_payment_time'])) {
+                $subscription->end_date = Carbon::parse($billingInfo['final_payment_time']);
+            }
+
+            // Update next billing date if available
+            if (isset($billingInfo['next_billing_time'])) {
+                $subscription->next_billing_date = Carbon::parse($billingInfo['next_billing_time']);
+            }
+        }
+
+        // Store status and status update time if available
+        if (isset($details['status'])) {
+            $subscription->external_status = $details['status'];
+        }
+
+        if (isset($details['status_update_time'])) {
+            $subscription->status_update_time = Carbon::parse($details['status_update_time']);
+        }
     }
 }

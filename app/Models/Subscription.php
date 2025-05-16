@@ -58,6 +58,11 @@ class Subscription extends Model
         'cv_downloads_left',
         'is_active',
         'is_suspended',
+        'subscriber_info',
+        'billing_info',
+        'external_status',
+        'status_update_time',
+        'next_billing_date',
     ];
 
     /**
@@ -68,12 +73,16 @@ class Subscription extends Model
     protected $casts = [
         'start_date' => 'date',
         'end_date' => 'date',
+        'next_billing_date' => 'date',
+        'status_update_time' => 'datetime',
         'amount_paid' => 'float',
         'job_posts_left' => 'integer',
         'featured_jobs_left' => 'integer',
         'cv_downloads_left' => 'integer',
         'is_active' => 'boolean',
         'is_suspended' => 'boolean',
+        'subscriber_info' => 'json',
+        'billing_info' => 'json',
     ];
 
     /**

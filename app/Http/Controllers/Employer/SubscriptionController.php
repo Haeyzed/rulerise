@@ -532,6 +532,9 @@ class SubscriptionController extends Controller
                 'details' => $details
             ]);
 
+            // Update subscription with PayPal details
+            $service->updateSubscriptionWithPayPalDetails($subscription, $details);
+
             // If subscription is active in PayPal but not in our database
             if (isset($details['status']) && ($details['status'] === 'ACTIVE' || $details['status'] === 'APPROVED') && !$subscription->is_active) {
                 $subscription->is_active = true;
