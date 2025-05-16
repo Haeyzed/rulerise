@@ -228,9 +228,9 @@ class SubscriptionController extends Controller
             $success = $service->suspendSubscription($subscription);
 
             if ($success) {
-                return response()->json(null, 'Subscription suspended successfully');
+                return response()->success(null, 'Subscription suspended successfully');
             } else {
-                return response()->serverError('Failed to suspend subscription');
+                return response()->success('Subscription already suspended');
             }
         } catch (Exception $e) {
             return response()->json([
