@@ -7,6 +7,7 @@ use App\Models\Employer;
 use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
 use App\Services\Subscription\SubscriptionServiceFactory;
+use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -40,10 +41,7 @@ class SubscriptionController extends Controller
         $subscription = $employer->activeSubscription;
 
         if (!$subscription) {
-            return response()->json([
-                'success' => false,
-                'message' => 'No active subscription found'
-            ]);
+            return response()->success(null,'No active subscription found');
         }
 
         return response()->success([
@@ -69,7 +67,7 @@ class SubscriptionController extends Controller
             $result = $service->createSubscription($employer, $plan);
 
             return response()->success($result, 'Subscription created successfully');
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             return response()->serverError($e->getMessage());
         }
     }
@@ -104,7 +102,7 @@ class SubscriptionController extends Controller
                     'message' => 'Failed to cancel subscription'
                 ], 500);
             }
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => $e->getMessage()
@@ -126,11 +124,8 @@ class SubscriptionController extends Controller
             $service = SubscriptionServiceFactory::create($provider);
             $plans = $service->listPlans($filters);
 
-            return response()->json([
-                'success' => true,
-                'data' => $plans
-            ]);
-        } catch (\Exception $e) {
+            return response()->success($plans, 'Plans retrieved successfully');
+        } catch (Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => $e->getMessage()
@@ -151,11 +146,8 @@ class SubscriptionController extends Controller
             $service = SubscriptionServiceFactory::create($provider);
             $planDetails = $service->getPlanDetails($externalPlanId);
 
-            return response()->json([
-                'success' => true,
-                'data' => $planDetails
-            ]);
-        } catch (\Exception $e) {
+            return response()->success($planDetails, 'Plan details retrieved successfully');
+        } catch (Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => $e->getMessage()
@@ -180,7 +172,7 @@ class SubscriptionController extends Controller
                 'success' => true,
                 'data' => $subscriptionDetails
             ]);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => $e->getMessage()
@@ -207,7 +199,7 @@ class SubscriptionController extends Controller
                 'success' => true,
                 'data' => $subscriptions
             ]);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => $e->getMessage()
@@ -228,10 +220,7 @@ class SubscriptionController extends Controller
 
         // Check if the subscription belongs to the employer
         if ($subscription->employer_id !== $employer->id) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unauthorized'
-            ], 403);
+            return response()->forbidden('Unauthorized');
         }
 
         try {
@@ -239,17 +228,11 @@ class SubscriptionController extends Controller
             $success = $service->suspendSubscription($subscription);
 
             if ($success) {
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Subscription suspended successfully'
-                ]);
+                return response()->json(null, 'Subscription suspended successfully');
             } else {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Failed to suspend subscription'
-                ], 500);
+                return response()->serverError('Failed to suspend subscription');
             }
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => $e->getMessage()
@@ -270,10 +253,7 @@ class SubscriptionController extends Controller
 
         // Check if the subscription belongs to the employer
         if ($subscription->employer_id !== $employer->id) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unauthorized'
-            ], 403);
+            return response()->forbidden('Unauthorized');
         }
 
         try {
@@ -281,17 +261,14 @@ class SubscriptionController extends Controller
             $success = $service->reactivateSubscription($subscription);
 
             if ($success) {
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Subscription reactivated successfully'
-                ]);
+                return response()->success(null, 'Subscription reactivated successfully');
             } else {
                 return response()->json([
                     'success' => false,
                     'message' => 'Failed to reactivate subscription'
                 ], 500);
             }
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => $e->getMessage()
@@ -326,7 +303,7 @@ class SubscriptionController extends Controller
                 'success' => true,
                 'data' => $transactions
             ]);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => $e->getMessage()
@@ -388,7 +365,7 @@ class SubscriptionController extends Controller
                     'message' => 'Failed to update subscription plan'
                 ], 500);
             }
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => $e->getMessage()
@@ -584,7 +561,7 @@ class SubscriptionController extends Controller
                     'paypal_status' => $details['status'] ?? 'UNKNOWN'
                 ]
             ]);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::error('Error verifying PayPal subscription', [
                 'subscription_id' => $subscriptionId,
                 'error' => $e->getMessage(),
