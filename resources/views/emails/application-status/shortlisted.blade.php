@@ -22,6 +22,6 @@ We're excited to inform you that your application for {{ $jobDetails['title'] }}
 
 We wish you the best of luck! If you have any questions, feel free to reach out.
 
-Best regards,  
+Best regards,
 **TalentBeyondBorders Team**
 </x-mail::message>
