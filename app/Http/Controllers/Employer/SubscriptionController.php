@@ -46,13 +46,10 @@ class SubscriptionController extends Controller
             ]);
         }
 
-        return response()->json([
-            'success' => true,
-            'data' => [
+        return response()->success([
                 'subscription' => $subscription,
                 'plan' => $subscription->plan
-            ]
-        ]);
+            ], 'Active subscription retrieved successfully');
     }
 
     /**
@@ -71,15 +68,9 @@ class SubscriptionController extends Controller
             $service = SubscriptionServiceFactory::create($provider);
             $result = $service->createSubscription($employer, $plan);
 
-            return response()->json([
-                'success' => true,
-                'data' => $result
-            ]);
+            return response()->success($result, 'Subscription created successfully');
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage()
-            ], 500);
+            return response()->serverError($e->getMessage());
         }
     }
 
@@ -106,10 +97,7 @@ class SubscriptionController extends Controller
             $success = $service->cancelSubscription($subscription);
 
             if ($success) {
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Subscription cancelled successfully'
-                ]);
+                return response()->success(null, 'Subscription cancelled successfully');
             } else {
                 return response()->json([
                     'success' => false,
