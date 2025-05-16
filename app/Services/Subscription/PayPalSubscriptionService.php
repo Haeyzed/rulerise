@@ -623,6 +623,8 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
         return true;
     }
 
+
+
     /**
      * Handle subscription activated event
      *
@@ -634,7 +636,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
         $subscriptionId = $data['resource']['id'] ?? '';
 
         // Find the subscription in our database
-        $subscription = Subscription::where('subscription_id', $subscriptionId)
+        $subscription = Subscription::query()->where('subscription_id', $subscriptionId)
             ->where('payment_method', 'paypal')
             ->first();
 
@@ -645,6 +647,20 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
 
         // Update subscription status
         $subscription->is_active = true;
+
+        // Get detailed subscription information
+        try {
+            $details = $this->getSubscriptionDetails($subscriptionId);
+            if (!empty($details)) {
+                $this->updateSubscriptionWithPayPalDetails($subscription, $details);
+            }
+        } catch (\Exception $e) {
+            Log::error('Failed to get PayPal subscription details', [
+                'subscriptionId' => $subscriptionId,
+                'error' => $e->getMessage()
+            ]);
+        }
+
         $subscription->save();
 
         return true;
@@ -746,7 +762,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
         $subscriptionId = $data['resource']['id'] ?? '';
 
         // Find the subscription in our database
-        $subscription = Subscription::where('subscription_id', $subscriptionId)
+        $subscription = Subscription::query()->where('subscription_id', $subscriptionId)
             ->where('payment_method', 'paypal')
             ->first();
 
@@ -763,6 +779,19 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
             $subscription->is_suspended = true;
         } elseif (in_array($status, ['CANCELLED', 'EXPIRED'])) {
             $subscription->is_active = false;
+        }
+
+        // Get detailed subscription information
+        try {
+            $details = $this->getSubscriptionDetails($subscriptionId);
+            if (!empty($details)) {
+                $this->updateSubscriptionWithPayPalDetails($subscription, $details);
+            }
+        } catch (\Exception $e) {
+            Log::error('Failed to get PayPal subscription details', [
+                'subscriptionId' => $subscriptionId,
+                'error' => $e->getMessage()
+            ]);
         }
 
         $subscription->save();
@@ -964,5 +993,57 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
         ]);
 
         return false;
+    }
+
+    /**
+     * Update subscription with PayPal details
+     *
+     * @param Subscription $subscription
+     * @param array $details
+     * @return void
+     */
+    public function updateSubscriptionWithPayPalDetails(Subscription $subscription, array $details): void
+    {
+        // Store subscriber information if available
+        if (isset($details['subscriber'])) {
+            $subscriber = $details['subscriber'];
+            $subscription->subscriber_info = [
+                'email_address' => $subscriber['email_address'] ?? null,
+                'payer_id' => $subscriber['payer_id'] ?? null,
+                'name' => $subscriber['name'] ?? null,
+                'tenant' => $subscriber['tenant'] ?? null
+            ];
+        }
+
+        // Store billing information if available
+        if (isset($details['billing_info'])) {
+            $billingInfo = $details['billing_info'];
+            $subscription->billing_info = [
+                'outstanding_balance' => $billingInfo['outstanding_balance'] ?? null,
+                'cycle_executions' => $billingInfo['cycle_executions'] ?? null,
+                'next_billing_time' => $billingInfo['next_billing_time'] ?? null,
+                'final_payment_time' => $billingInfo['final_payment_time'] ?? null,
+                'failed_payments_count' => $billingInfo['failed_payments_count'] ?? null
+            ];
+
+            // Update subscription end date based on final payment time if available
+            if (isset($billingInfo['final_payment_time'])) {
+                $subscription->end_date = Carbon::parse($billingInfo['final_payment_time']);
+            }
+
+            // Update next billing date if available
+            if (isset($billingInfo['next_billing_time'])) {
+                $subscription->next_billing_date = Carbon::parse($billingInfo['next_billing_time']);
+            }
+        }
+
+        // Store status and status update time if available
+        if (isset($details['status'])) {
+            $subscription->external_status = $details['status'];
+        }
+
+        if (isset($details['status_update_time'])) {
+            $subscription->status_update_time = Carbon::parse($details['status_update_time']);
+        }
     }
 }
