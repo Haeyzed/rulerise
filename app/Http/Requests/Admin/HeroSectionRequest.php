@@ -47,8 +47,7 @@ class HeroSectionRequest extends BaseRequest
             'image' => [
                 'nullable',
                 'image',
-                'mimes:jpeg,png,jpg,gif',
-                'max:2048'
+                'mimes:jpeg,png,jpg,gif'
             ],
 
             /**
