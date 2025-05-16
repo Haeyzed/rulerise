@@ -462,6 +462,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
 
         if ($response->successful()) {
             $subscription->is_active = false;
+            $subscription->is_suspended = true;
             $subscription->save();
             return true;
         }

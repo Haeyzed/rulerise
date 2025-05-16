@@ -57,6 +57,7 @@ class Subscription extends Model
         'featured_jobs_left',
         'cv_downloads_left',
         'is_active',
+        'is_suspended',
     ];
 
     /**
@@ -72,6 +73,7 @@ class Subscription extends Model
         'featured_jobs_left' => 'integer',
         'cv_downloads_left' => 'integer',
         'is_active' => 'boolean',
+        'is_suspended' => 'boolean',
     ];
 
     /**
