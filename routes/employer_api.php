@@ -130,13 +130,13 @@ Route::middleware(['auth:api', 'role:employer,employer_staff'])->group(function 
     });
 
     // Subscriptions
-    Route::prefix('cv-packages')->group(function () {
+//    Route::prefix('cv-packages')->group(function () {
 //        Route::get('/', [SubscriptionPaymentController::class, 'subscriptionList']);
 //        Route::post('{id}/subscribe', [SubscriptionPaymentController::class, 'createPaymentLink']);
 //        Route::get('subscription-detail', [SubscriptionsController::class, 'subscriptionInformation']);
-        Route::post('update-download-usage', [SubscriptionsController::class, 'updateCVDownloadUsage']);
+//        Route::post('update-download-usage', [SubscriptionsController::class, 'updateCVDownloadUsage']);
 //        Route::post('verifySubscription', [SubscriptionPaymentController::class, 'verifySubscription']);
-    });
+//    });
 
     // Job notification templates
     Route::prefix('job-notification-template')->group(function () {
