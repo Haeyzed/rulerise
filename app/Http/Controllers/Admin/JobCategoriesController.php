@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\JobCategoryRequest;
 use App\Models\JobCategory;
 use App\Services\AdminService;
+use App\Services\JobCategoryService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
@@ -22,6 +23,7 @@ class JobCategoriesController extends Controller implements HasMiddleware
      * @var AdminService
      */
     protected AdminService $adminService;
+    protected JobCategoryService $jobCategoryService;
 
     /**
      * Create a new controller instance.
@@ -29,9 +31,10 @@ class JobCategoriesController extends Controller implements HasMiddleware
      * @param AdminService $adminService
      * @return void
      */
-    public function __construct(AdminService $adminService)
+    public function __construct(AdminService $adminService, JobCategoryService $jobCategoryService)
     {
         $this->adminService = $adminService;
+        $this->jobCategoryService = $jobCategoryService;
     }
 
     /**
@@ -66,7 +69,7 @@ class JobCategoriesController extends Controller implements HasMiddleware
     {
         $data = $request->validated();
 
-        $category = $this->adminService->saveJobCategory($data);
+        $category = $this->jobCategoryService->createCategory($data);
 
         return response()->success($category, 'Job category created successfully');
     }
@@ -95,7 +98,7 @@ class JobCategoriesController extends Controller implements HasMiddleware
     {
         $data = $request->validated();
 
-        $category = $this->adminService->saveJobCategory($data, $jobCategory);
+        $category = $this->jobCategoryService->updateCategory($jobCategory, $data);
 
         return response()->success($category, 'Job category updated successfully');
     }
@@ -108,7 +111,7 @@ class JobCategoriesController extends Controller implements HasMiddleware
      */
     public function destroy(JobCategory $jobCategory): JsonResponse
     {
-        $jobCategory->delete();
+        $this->jobCategoryService->deleteCategory($jobCategory);
 
         return response()->success(null, 'Job category deleted successfully');
     }

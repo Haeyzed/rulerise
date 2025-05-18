@@ -22,31 +22,33 @@ class JobCategoryRequest extends FormRequest
      */
     public function rules(): array
     {
-        $rules = [
+        $jobCategoryId = $this->route('id');
+
+        return [
             'name' => [
                 'required',
                 'string',
-                'max:100',
+                Rule::unique('job_categories', 'name')->ignore($jobCategoryId),
             ],
             'description' => 'nullable|string|max:500',
             'icon' => 'nullable|string|max:50',
             'is_active' => 'boolean',
         ];
-
-        // If this is an update request (PUT/PATCH), add the unique rule with the current record excluded
-        if ($this->isMethod('put') || $this->isMethod('patch') || $this->route('jobCategory')) {
-            $jobCategoryId = $this->route('jobCategory') ? $this->route('jobCategory')->id : null;
-
-            if (!$jobCategoryId && $this->route('id')) {
-                $jobCategoryId = $this->route('id');
-            }
-
-            $rules['name'][] = Rule::unique('job_categories', 'name')->ignore($jobCategoryId);
-        } else {
-            // For new records, simply check uniqueness
-            $rules['name'][] = 'unique:job_categories,name';
-        }
-
-        return $rules;
+//
+//        // If this is an update request (PUT/PATCH), add the unique rule with the current record excluded
+//        if ($this->isMethod('put') || $this->isMethod('patch') || $this->route('jobCategory')) {
+//            $jobCategoryId = $this->route('jobCategory') ? $this->route('jobCategory')->id : null;
+//
+//            if (!$jobCategoryId && $this->route('id')) {
+//                $jobCategoryId = $this->route('id');
+//            }
+//
+//            $rules['name'][] = Rule::unique('job_categories', 'name')->ignore($jobCategoryId);
+//        } else {
+//            // For new records, simply check uniqueness
+//            $rules['name'][] = 'unique:job_categories,name';
+//        }
+//
+//        return $rules;
     }
 }

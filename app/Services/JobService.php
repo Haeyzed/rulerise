@@ -239,7 +239,7 @@ class JobService
             $candidateUser->notify(new CandidateApplicationReceived($application, $job));
         }
 
-// Notify the employer
+        // Notify the employer
         if ($employerUser) {
             // Get the employer's application notification template if available
             $applicationTemplate = $employer->notificationTemplates()
