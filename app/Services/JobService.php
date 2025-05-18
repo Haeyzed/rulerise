@@ -226,52 +226,8 @@ class JobService
         ]);
 
         // Send notifications
-        $this->sendApplicationNotifications($application);
 
         return $application;
-    }
-
-
-    /**
-     * Send notifications for a new job application
-     *
-     * @param JobApplication $application
-     * @return void
-     */
-    private function sendApplicationNotifications(JobApplication $application): void
-    {
-        $candidate = $application->candidate;
-        $candidateUser = $candidate->user;
-        $job = $application->job;
-        $employer = $job->employer;
-        $employerUser = $employer->user;
-
-        // Notify the candidate
-        $candidateUser?->notify(new CandidateApplicationReceived($application, $job));
-
-        // Notify the employer using their template
-        if ($employerUser) {
-            // Get the employer's application received notification template
-            $applicationTemplate = $employer->notificationTemplates()
-                ->where('type', JobNotificationTemplateTypeEnum::APPLICATION_RECEIVED->value)
-                ->first();
-
-            // Use the template if available, otherwise use default notification
-            if ($applicationTemplate) {
-                $employerUser->notify(new EmployerApplicationReceived(
-                    $application,
-                    $candidate,
-                    $job,
-                    $applicationTemplate
-                ));
-            } else {
-                $employerUser->notify(new EmployerApplicationReceived(
-                    $application,
-                    $candidate,
-                    $job
-                ));
-            }
-        }
     }
 
     /**

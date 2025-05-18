@@ -103,13 +103,12 @@ class JobCategoriesController extends Controller implements HasMiddleware
     /**
      * Delete job category
      *
-     * @param int $id
+     * @param JobCategory $jobCategory
      * @return JsonResponse
      */
-    public function delete(int $id): JsonResponse
+    public function delete(JobCategory $jobCategory): JsonResponse
     {
-        $category = JobCategory::query()->findOrFail($id);
-        $category->delete();
+        $jobCategory->delete();
 
         return response()->success(null, 'Job category deleted successfully');
     }
