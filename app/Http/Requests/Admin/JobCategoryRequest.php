@@ -22,13 +22,11 @@ class JobCategoryRequest extends FormRequest
      */
     public function rules(): array
     {
-        $id = $this->job_category->id;
-
         return [
             'name' => [
                 'required',
                 'string',
-                Rule::unique('job_categories', 'name')->ignore($id),
+                Rule::unique('job_categories', 'name')->ignore($this->job_category->id),
             ],
             'description' => 'nullable|string|max:500',
             'icon' => 'nullable|string|max:50',
