@@ -22,7 +22,7 @@ class JobCategoryRequest extends FormRequest
      */
     public function rules(): array
     {
-        $id = $this->route('id') ?? $this->route('jobCategory');
+        $id = $this->jobCategory;
 
         return [
             'name' => [
