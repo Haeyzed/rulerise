@@ -22,7 +22,7 @@ class JobCategoryRequest extends FormRequest
      */
     public function rules(): array
     {
-        $id = $this->jobCategory;
+        $id = $this->jobCategory->id;
 
         return [
             'name' => [
