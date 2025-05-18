@@ -100,12 +100,13 @@ class JobService
      */
     public function getApplicantByJobs(
         Employer $employer,
-        int $jobId,
-        array $filters = [],
-        string $sortBy = 'created_at',
-        string $sortOrder = 'desc',
-        int $perPage = 15
-    ): array {
+        int      $jobId,
+        array    $filters = [],
+        string   $sortBy = 'created_at',
+        string   $sortOrder = 'desc',
+        int      $perPage = 15
+    ): array
+    {
         // Find the job and ensure it belongs to the employer
         $job = $employer->jobs()->findOrFail($jobId);
 
@@ -127,7 +128,7 @@ class JobService
 
         // Eager load relationships
         $query->with([
-            'candidate' => function($query) {
+            'candidate' => function ($query) {
                 $query->with([
                     'user',
                     'qualification',
@@ -226,9 +227,36 @@ class JobService
         ]);
 
         // Send notifications
+        // Get the candidate user
+        $candidateUser = $candidate->user;
+
+        // Get the employer and employer user
+        $employer = $job->employer;
+        $employerUser = $employer->user;
+
+        // Notify the candidate
+        if ($candidateUser) {
+            $candidateUser->notify(new CandidateApplicationReceived($application, $job));
+        }
+
+// Notify the employer
+        if ($employerUser) {
+            // Get the employer's application notification template if available
+            $applicationTemplate = $employer->notificationTemplates()
+                ->where('type', 'application_received')
+                ->first();
+
+            $employerUser->notify(new EmployerApplicationReceived(
+                $application,
+                $candidate,
+                $job,
+                $applicationTemplate ?? null
+            ));
+        }
 
         return $application;
     }
+
 
     /**
      * Change job application status
@@ -353,11 +381,12 @@ class JobService
      */
     public function getEmployerJobs(
         Employer $employer,
-        array $filters = [],
-        string $sortBy = 'created_at',
-        string $sortOrder = 'desc',
-        int $perPage = 15
-    ): LengthAwarePaginator {
+        array    $filters = [],
+        string   $sortBy = 'created_at',
+        string   $sortOrder = 'desc',
+        int      $perPage = 15
+    ): LengthAwarePaginator
+    {
         $query = $employer->jobs();
 
         // Apply filters if provided
@@ -599,8 +628,7 @@ class JobService
                 if (!isset($data['is_active'])) {
                     $data['is_active'] = true;
                 }
-            }
-            // If changing from published to draft
+            } // If changing from published to draft
             else if (!$job->is_draft && $data['is_draft']) {
                 // When converting to draft, make it inactive by default
                 if (!isset($data['is_active'])) {
@@ -846,7 +874,7 @@ class JobService
         // Apply filters
         if (!empty($filters['keyword'])) {
             $keyword = $filters['keyword'];
-            $query->where(function($q) use ($keyword) {
+            $query->where(function ($q) use ($keyword) {
                 $q->where('title', 'like', "%{$keyword}%")
                     ->orWhere('description', 'like', "%{$keyword}%")
                     ->orWhere('short_description', 'like', "%{$keyword}%");
@@ -854,7 +882,7 @@ class JobService
         }
 
         if (!empty($filters['location'])) {
-            $query->where(function($q) use ($filters) {
+            $query->where(function ($q) use ($filters) {
                 $q->where('location', 'like', "%{$filters['location']}%");
             });
         }
@@ -879,7 +907,7 @@ class JobService
                 $query->where('job_category_id', $category->id);
             } else {
                 // If not found by exact name, try to search by similar name
-                $query->whereHas('category', function($q) use ($filters) {
+                $query->whereHas('category', function ($q) use ($filters) {
                     $q->where('name', 'like', "%{$filters['job_industry']}%");
                 });
             }
@@ -928,7 +956,7 @@ class JobService
         return $query->with(['employer', 'category'])->paginate($perPage);
     }
 
-/**
+    /**
      * Get latest jobs
      *
      * @param int $perPage
