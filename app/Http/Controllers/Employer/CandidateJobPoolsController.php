@@ -14,7 +14,6 @@ use App\Http\Resources\CandidatePoolResource;
 use App\Http\Resources\CandidateResource;
 use App\Http\Resources\PoolCandidateResource;
 use App\Models\Candidate;
-use App\Models\Pool;
 use App\Services\EmployerService;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -310,10 +309,26 @@ class CandidateJobPoolsController extends Controller implements HasMiddleware
                 ->withCount('candidates')
                 ->get();
 
+            // Check if there were any failures due to candidates not having applied
+            $notAppliedFailures = collect($results['failed'])
+                ->filter(function ($failure) {
+                    return isset($failure['reason']) &&
+                        strpos($failure['reason'], 'not applied') !== false;
+                })
+                ->count();
+
+            $message = 'Candidates added to multiple pools';
+
+            if ($notAppliedFailures > 0) {
+                $message = $notAppliedFailures === count($data['candidate_ids'])
+                    ? 'No candidates were added. Candidates can only be added if they have applied to one of your jobs.'
+                    : 'Some candidates were not added because they have not applied to any of your jobs.';
+            }
+
             return response()->success([
                 'pools' => CandidatePoolResource::collection($updatedPools),
                 'results' => $results
-            ], 'Candidates added to multiple pools');
+            ], $message);
         } catch (Exception $e) {
             return response()->badRequest($e->getMessage());
         }

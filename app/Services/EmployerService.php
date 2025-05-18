@@ -574,49 +574,62 @@ class EmployerService
     }
 
     /**
-     * Add candidates to multiple pools
+     * Add multiple candidates to pool
      *
-     * @param array $poolIds
+     * @param CandidatePool $pool
      * @param array $candidateIds
      * @param string|null $notes
-     * @param Employer $employer
      * @return array
      * @throws Exception
      */
-    public function addCandidatesToMultiplePools(array $poolIds, array $candidateIds, ?string $notes = null, Employer $employer): array
+    public function addCandidatesToPool(CandidatePool $pool, array $candidateIds, ?string $notes = null): array
     {
         $results = [
             'success' => [],
-            'failed' => [],
-            'pools' => []
+            'failed' => []
         ];
 
-        // Verify all pools belong to the employer
-        $pools = $employer->candidatePools()->whereIn('id', $poolIds)->get();
+        // Get employer
+        $employer = $pool->employer;
 
-        if ($pools->count() !== count($poolIds)) {
-            throw new Exception('One or more pools do not belong to this employer');
+        // Get all job IDs for this employer
+        $employerJobIds = $employer->jobs()->pluck('id')->toArray();
+
+        foreach ($candidateIds as $candidateId) {
+            try {
+                $candidate = Candidate::query()->findOrFail($candidateId);
+
+                // Check if candidate is already in the pool
+                if ($pool->candidates()->where('candidate_id', $candidate->id)->exists()) {
+                    $results['failed'][] = [
+                        'candidate_id' => $candidate->id,
+                        'reason' => 'Candidate is already in this pool'
+                    ];
+                    continue;
+                }
+
+                // Check if candidate has applied to any of the employer's jobs
+                $hasApplied = JobApplication::whereIn('job_id', $employerJobIds)
+                    ->where('candidate_id', $candidate->id)
+                    ->exists();
+
+                if (!$hasApplied) {
+                    $results['failed'][] = [
+                        'candidate_id' => $candidate->id,
+                        'reason' => 'Candidate has not applied to any of your job postings'
+                    ];
+                    continue;
+                }
+
+                $pool->candidates()->attach($candidate->id, ['notes' => $notes]);
+                $results['success'][] = $candidate->id;
+            } catch (Exception $e) {
+                $results['failed'][] = [
+                    'candidate_id' => $candidateId,
+                    'reason' => $e->getMessage()
+                ];
+            }
         }
-
-        // Process each pool
-        foreach ($pools as $pool) {
-            $poolResult = $this->addCandidatesToPool($pool, $candidateIds, $notes);
-
-            // Track results for this pool
-            $results['pools'][] = [
-                'pool_id' => $pool->id,
-                'pool_name' => $pool->name,
-                'success_count' => count($poolResult['success']),
-                'failed_count' => count($poolResult['failed'])
-            ];
-
-            // Merge success and failed results
-            $results['success'] = array_merge($results['success'], $poolResult['success']);
-            $results['failed'] = array_merge($results['failed'], $poolResult['failed']);
-        }
-
-        // Remove duplicates from success array
-        $results['success'] = array_unique($results['success']);
 
         return $results;
     }
