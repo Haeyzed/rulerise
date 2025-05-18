@@ -72,5 +72,6 @@ return [
         'hero_images' => config('app.name') . '/' . env('FILESTORAGE_HERO_IMAGES_PATH', config('app.name') . '/website/hero/images'),
         'about_us_images' => config('app.name') . '/' . env('FILESTORAGE_ABOUT_US_IMAGES_PATH', config('app.name') . '/website/about/images'),
         'ad_banner_images' => config('app.name') . '/' . env('FILESTORAGE_AD_BANNER_IMAGES_PATH', config('app.name') . '/website/ad-banner/images'),
+        'website_customization' => config('app.name') . '/' . env('FILESTORAGE_WEBSITE_CUSTOMIZATION_IMAGES_PATH', config('app.name') . '/website/customization/images'),
     ],
 ];

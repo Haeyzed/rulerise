@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\AccountSettingsController;
 use App\Http\Controllers\Admin\BlogPostCategoryController;
 use App\Http\Controllers\Admin\BlogPostController;
 use App\Http\Controllers\Admin\FaqController;
@@ -15,8 +16,8 @@ use App\Http\Controllers\Admin\JobCategoriesController;
 use App\Http\Controllers\Admin\WebsiteCustomizationsController;
 use App\Http\Controllers\Admin\GeneralSettingsController;
 use App\Http\Controllers\Admin\RolesController;
-use App\Http\Controllers\Admin\UsersController;
-use App\Http\Controllers\Admin\PermissionController;
+use App\Http\Controllers\Admin\PermissionsController;
+use App\Http\Controllers\Admin\UserManagementController;
 
 /*
 |--------------------------------------------------------------------------
@@ -98,30 +99,56 @@ Route::middleware(['auth:api', 'role:admin'])->group(function () {
         Route::post('uploadImage', [WebsiteCustomizationsController::class, 'uploadImage']);
     });
 
-// General settings
+    // General settings
     Route::prefix('general-setting')->group(function () {
         Route::get('/', [GeneralSettingsController::class, 'index']);
         Route::post('/', [GeneralSettingsController::class, 'store']);
     });
 
-// User management - Roles
-    Route::prefix('user-management/role')->group(function () {
+    // Account settings
+    Route::prefix('account-settings')->group(function () {
+        Route::get('/', [AccountSettingsController::class, 'index']);
+        Route::post('/', [AccountSettingsController::class, 'update']);
+        Route::get('/user-configuration', [AccountSettingsController::class, 'getUserConfiguration']);
+        Route::post('/user-configuration', [AccountSettingsController::class, 'updateUserConfiguration']);
+        Route::get('/currency-configuration', [AccountSettingsController::class, 'getCurrencyConfiguration']);
+        Route::post('/currency-configuration', [AccountSettingsController::class, 'updateCurrencyConfiguration']);
+    });
+
+    // User management - Roles
+    Route::prefix('roles')->group(function () {
         Route::get('/', [RolesController::class, 'index']);
-        Route::get('{roleName}', [RolesController::class, 'show']);
         Route::post('/', [RolesController::class, 'store']);
-        Route::post('update', [RolesController::class, 'update']);
-        Route::post('{roleName}/delete', [RolesController::class, 'delete']);
+        Route::get('{id}', [RolesController::class, 'show']);
+        Route::put('{id}', [RolesController::class, 'update']);
+        Route::delete('{id}', [RolesController::class, 'destroy']);
+        Route::get('/all-permissions', [RolesController::class, 'getAllPermissions']);
+        Route::post('/assign-to-user', [RolesController::class, 'assignRoleToUser']);
+        Route::post('/assign-permissions-to-user', [RolesController::class, 'assignPermissionsToUser']);
     });
 
-// User management - Users
-    Route::prefix('user-management')->group(function () {
-        Route::apiResource('user', UsersController::class);
+    // User management - Permissions
+    Route::prefix('permissions')->group(function () {
+        Route::get('/', [PermissionsController::class, 'index']);
+        Route::post('/', [PermissionsController::class, 'store']);
+        Route::get('{id}', [PermissionsController::class, 'show']);
+        Route::put('{id}', [PermissionsController::class, 'update']);
+        Route::delete('{id}', [PermissionsController::class, 'destroy']);
     });
 
-// User management - Permissions
-    Route::get('user-management/permissions', [PermissionController::class, 'index']);
+    // User management - Users
+    Route::prefix('users')->group(function () {
+        Route::get('/', [UserManagementController::class, 'index']);
+        Route::post('/', [UserManagementController::class, 'store']);
+        Route::get('{id}', [UserManagementController::class, 'show']);
+        Route::put('{id}', [UserManagementController::class, 'update']);
+        Route::delete('{id}', [UserManagementController::class, 'destroy']);
+        Route::patch('{id}/status', [UserManagementController::class, 'updateStatus']);
+        Route::get('/roles', [UserManagementController::class, 'getRoles']);
+        Route::get('/permissions', [UserManagementController::class, 'getPermissions']);
+    });
 
-// Blog Posts
+    // Blog Posts
     Route::apiResource('blog-posts', BlogPostController::class);
     Route::prefix('blog-posts')->name('blog-posts.')->group(function () {
         // Soft delete management
@@ -133,7 +160,7 @@ Route::middleware(['auth:api', 'role:admin'])->group(function () {
             ->withTrashed();
     });
 
-// Blog Post Categories
+    // Blog Post Categories
     Route::apiResource('blog-post-categories', BlogPostCategoryController::class);
     Route::prefix('blog-post-categories')->name('blog-post-categories.')->group(function () {
         // Soft delete management
@@ -148,7 +175,7 @@ Route::middleware(['auth:api', 'role:admin'])->group(function () {
             ->name('reorder');
     });
 
-// Website Content Management
+    // Website Content Management
     Route::prefix('website')->group(function () {
         // Hero Section
         Route::get('/hero-section', [WebsiteController::class, 'getHeroSection']);
@@ -199,8 +226,7 @@ Route::middleware(['auth:api', 'role:admin'])->group(function () {
         Route::post('/reorder', [FaqController::class, 'reorderFaqs']);
     });
 
-
-// Upload routes
+    // Upload routes
     Route::post('uploads', [UploadController::class, 'upload'])->name('uploads.upload');
     Route::post('uploads/multiple', [UploadController::class, 'uploadMultiple'])->name('uploads.upload-multiple');
     Route::get('uploads', [UploadController::class, 'index'])->name('uploads.index');

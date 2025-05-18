@@ -12,9 +12,11 @@ use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
 use App\Models\WebsiteCustomization;
+use App\Services\Storage\StorageService;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
@@ -23,6 +25,21 @@ use Spatie\Permission\Models\Role;
  */
 class AdminService
 {
+    /**
+     * @var StorageService
+     */
+    protected StorageService $storageService;
+
+    /**
+     * BlogPostService constructor.
+     *
+     * @param StorageService $storageService
+     */
+    public function __construct(StorageService $storageService)
+    {
+        $this->storageService = $storageService;
+    }
+
     /**
      * Get dashboard metrics
      *
@@ -177,20 +194,24 @@ class AdminService
     public function uploadWebsiteImage(string $type, string $key, UploadedFile $file): WebsiteCustomization
     {
         // Check if image already exists
-        $customization = WebsiteCustomization::query()->where('type', $type)
+        $customization = WebsiteCustomization::query()
+            ->where('type', $type)
             ->where('key', $key)
             ->first();
 
         // Delete old image if exists
         if ($customization && $customization->value) {
-            Storage::disk('public')->delete($customization->value);
+            $this->storageService->delete($customization->value);
         }
 
-        // Store new image
-        $path = $file->store('website-images/' . $type, 'public');
+        // Upload new image
+        $uploadedPath = $this->upload(
+            $file,
+            config('filestorage.paths.website_customization'),
+        );
 
         // Save customization
-        return $this->saveWebsiteCustomization($type, $key, $path);
+        return $this->saveWebsiteCustomization($type, $key, $uploadedPath);
     }
 
     /**
@@ -304,4 +325,21 @@ class AdminService
     {
         return Permission::all();
     }
+
+    /**
+     * Upload an image to storage.
+     *
+     * @param UploadedFile $image The image file to upload.
+     * @param string $path The storage path.
+     * @param string|null $fileName The name to store the file as.
+     * @param array $options Additional options for the upload.
+     * @return string The path to the uploaded image.
+     */
+    private function upload(UploadedFile $image, string $path, string &$fileName = null, array $options = []): string
+    {
+        $fileName = time() . '-' . Str::slug(pathinfo($image->getClientOriginalName(), PATHINFO_FILENAME)) . '.' . $image->getClientOriginalExtension();
+
+        return $this->storageService->upload($image, $path, $fileName, $options);
+    }
+
 }
