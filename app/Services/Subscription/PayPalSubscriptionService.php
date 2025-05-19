@@ -110,7 +110,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
                     [
                         'frequency' => [
                             'interval_unit' => 'DAY',
-                            'interval_count' => 7
+                            'interval_count' => 1
                         ],
                         'tenure_type' => 'TRIAL',
                         'sequence' => 1,
