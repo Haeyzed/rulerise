@@ -110,7 +110,10 @@ class ApplicationStatusChanged extends Notification// implements ShouldQueue
                     ->line('You can check your application details in your dashboard.');
         }
 
-        return $mail->action('View Application', url('/candidate/applications/' . $this->application->id));
+        return $mail->action(
+            'View Application',
+            config('app.frontend_url') . '/candidate/applications/' . $this->application->id
+        );
     }
 
     /**
