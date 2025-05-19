@@ -46,19 +46,19 @@ class ResumeService
                     ->where('is_shadow_banned', false);
             });
 
-//        // Apply keyword search
-//        if (!empty($filters['keyword'])) {
-//            $keyword = $filters['keyword'];
-//            $query->where(function ($q) use ($keyword) {
-//                $q->where('current_position', 'like', "%{$keyword}%")
-//                    ->orWhere('current_company', 'like', "%{$keyword}%")
-//                    ->orWhere('bio', 'like', "%{$keyword}%")
-//                    ->orWhereJsonContains('skills', $keyword)
-//                    ->orWhereHas('user', function (Builder $q) use ($keyword) {
-//                        $q->where(DB::raw("CONCAT(first_name, ' ', last_name)"), 'like', "%{$keyword}%");
-//                    });
-//            });
-//        }
+        // Apply keyword search
+        if (!empty($filters['keyword'])) {
+            $keyword = $filters['keyword'];
+            $query->where(function ($q) use ($keyword) {
+                $q->whereLike('current_position', "%{$keyword}%")
+                    ->orWhereLike('current_company', "%{$keyword}%")
+                    ->orWhereLike('bio', "%{$keyword}%")
+                    ->orWhereJsonContains('skills', $keyword)
+                    ->orWhereHas('user', function (Builder $q) use ($keyword) {
+                        $q->where(DB::raw("CONCAT(first_name, ' ', last_name)"), 'like', "%{$keyword}%");
+                    });
+            });
+        }
 //
 //        // Filter by location
 //        if (!empty($filters['location'])) {
