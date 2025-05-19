@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Admin;
 
 use App\Http\Requests\BaseRequest;
+use Illuminate\Validation\Rule;
 
 /**
  * Request for creating or updating a subscription plan.
@@ -19,7 +20,12 @@ class SubscriptionPlanRequest extends BaseRequest
     public function rules(): array
     {
         $rules = [
-            'name' => 'required|string|max:255|unique:subscription_plans,name',
+            'name' => [
+                'required',
+                'string',
+                Rule::unique('subscription_plans', 'name')->ignore($this->subscription_plan->id),
+            ],
+//            'name' => 'required|string|max:255|unique:subscription_plans,name',
             'description' => 'nullable|string|max:1000',
             'price' => 'required|numeric|min:0',
             'currency' => 'required|string|size:3',
