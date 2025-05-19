@@ -704,17 +704,17 @@ class EmployerService
                 }
 
                 // Check if candidate has applied to any of the employer's jobs
-                $hasApplied = JobApplication::whereIn('job_id', $employerJobIds)
-                    ->where('candidate_id', $candidate->id)
-                    ->exists();
-
-                if (!$hasApplied) {
-                    $results['failed'][] = [
-                        'candidate_id' => $candidate->id,
-                        'reason' => 'Candidate has not applied to any of your job postings'
-                    ];
-                    continue;
-                }
+//                $hasApplied = JobApplication::whereIn('job_id', $employerJobIds)
+//                    ->where('candidate_id', $candidate->id)
+//                    ->exists();
+//
+//                if (!$hasApplied) {
+//                    $results['failed'][] = [
+//                        'candidate_id' => $candidate->id,
+//                        'reason' => 'Candidate has not applied to any of your job postings'
+//                    ];
+//                    continue;
+//                }
 
                 $pool->candidates()->attach($candidate->id, ['notes' => $notes]);
                 $results['success'][] = $candidate->id;
