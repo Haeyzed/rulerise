@@ -46,81 +46,81 @@ class ResumeService
                     ->where('is_shadow_banned', false);
             });
 
-        // Apply keyword search
-        if (!empty($filters['keyword'])) {
-            $keyword = $filters['keyword'];
-            $query->where(function ($q) use ($keyword) {
-                $q->where('current_position', 'like', "%{$keyword}%")
-                    ->orWhere('current_company', 'like', "%{$keyword}%")
-                    ->orWhere('bio', 'like', "%{$keyword}%")
-                    ->orWhereJsonContains('skills', $keyword)
-                    ->orWhereHas('user', function (Builder $q) use ($keyword) {
-                        $q->where(DB::raw("CONCAT(first_name, ' ', last_name)"), 'like', "%{$keyword}%");
-                    });
-            });
-        }
-
-        // Filter by location
-        if (!empty($filters['location'])) {
-            $location = $filters['location'];
-            $query->where(function ($q) use ($location) {
-                $q->where('location', 'like', "%{$location}%")
-                    ->orWhereHas('user', function (Builder $q) use ($location) {
-                        $q->where('country', 'like', "%{$location}%")
-                            ->orWhere('state', 'like', "%{$location}%")
-                            ->orWhere('city', 'like', "%{$location}%");
-                    });
-            });
-        }
-
-        // Filter by province/city
-        if (!empty($filters['province'])) {
-            $province = $filters['province'];
-            $query->whereHas('user', function (Builder $q) use ($province) {
-                $q->where('state', $province);
-            });
-        }
-
-        // Filter by education level
-        if (!empty($filters['education'])) {
-            $educationId = $filters['education'];
-            $query->whereHas('educationHistories', function (Builder $q) use ($educationId) {
-                $q->where('degree_id', $educationId);
-            });
-        }
-
-        // Filter by industry
-        if (!empty($filters['industry'])) {
-            $industry = $filters['industry'];
-            $query->where('prefer_job_industry', $industry);
-        }
-
-        // Filter by experience level
-        if (!empty($filters['experience'])) {
-            $experienceLevel = $filters['experience'];
-
-            // Map the frontend values to appropriate database queries
-            switch ($experienceLevel) {
-                case '0_1':
-                    $query->where('year_of_experience', '<=', 1);
-                    break;
-                case '1_3':
-                    $query->where('year_of_experience', '>', 1)
-                        ->where('year_of_experience', '<=', 3);
-                    break;
-                case '3_5':
-                    $query->where('year_of_experience', '>', 3)
-                        ->where('year_of_experience', '<=', 5);
-                    break;
-                case '5_10':
-                    $query->where('year_of_experience', '>', 5)
-                        ->where('year_of_experience', '<=', 10);
-                    break;
-                case '10_plus':
-                    $query->where('year_of_experience', '>', 10);
-                    break;
-            }
-        }
+//        // Apply keyword search
+//        if (!empty($filters['keyword'])) {
+//            $keyword = $filters['keyword'];
+//            $query->where(function ($q) use ($keyword) {
+//                $q->where('current_position', 'like', "%{$keyword}%")
+//                    ->orWhere('current_company', 'like', "%{$keyword}%")
+//                    ->orWhere('bio', 'like', "%{$keyword}%")
+//                    ->orWhereJsonContains('skills', $keyword)
+//                    ->orWhereHas('user', function (Builder $q) use ($keyword) {
+//                        $q->where(DB::raw("CONCAT(first_name, ' ', last_name)"), 'like', "%{$keyword}%");
+//                    });
+//            });
+//        }
+//
+//        // Filter by location
+//        if (!empty($filters['location'])) {
+//            $location = $filters['location'];
+//            $query->where(function ($q) use ($location) {
+//                $q->where('location', 'like', "%{$location}%")
+//                    ->orWhereHas('user', function (Builder $q) use ($location) {
+//                        $q->where('country', 'like', "%{$location}%")
+//                            ->orWhere('state', 'like', "%{$location}%")
+//                            ->orWhere('city', 'like', "%{$location}%");
+//                    });
+//            });
+//        }
+//
+//        // Filter by province/city
+//        if (!empty($filters['province'])) {
+//            $province = $filters['province'];
+//            $query->whereHas('user', function (Builder $q) use ($province) {
+//                $q->where('state', $province);
+//            });
+//        }
+//
+//        // Filter by education level
+//        if (!empty($filters['education'])) {
+//            $educationId = $filters['education'];
+//            $query->whereHas('educationHistories', function (Builder $q) use ($educationId) {
+//                $q->where('degree_id', $educationId);
+//            });
+//        }
+//
+//        // Filter by industry
+//        if (!empty($filters['industry'])) {
+//            $industry = $filters['industry'];
+//            $query->where('prefer_job_industry', $industry);
+//        }
+//
+//        // Filter by experience level
+//        if (!empty($filters['experience'])) {
+//            $experienceLevel = $filters['experience'];
+//
+//            // Map the frontend values to appropriate database queries
+//            switch ($experienceLevel) {
+//                case '0_1':
+//                    $query->where('year_of_experience', '<=', 1);
+//                    break;
+//                case '1_3':
+//                    $query->where('year_of_experience', '>', 1)
+//                        ->where('year_of_experience', '<=', 3);
+//                    break;
+//                case '3_5':
+//                    $query->where('year_of_experience', '>', 3)
+//                        ->where('year_of_experience', '<=', 5);
+//                    break;
+//                case '5_10':
+//                    $query->where('year_of_experience', '>', 5)
+//                        ->where('year_of_experience', '<=', 10);
+//                    break;
+//                case '10_plus':
+//                    $query->where('year_of_experience', '>', 10);
+//                    break;
+//            }
+//        }
 
         // Sort by relevance, date, etc.
         $sortBy = $filters['sort_by'] ?? 'created_at';
