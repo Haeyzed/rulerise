@@ -73,7 +73,7 @@ class ApplicationStatusNotification extends Notification
      *
      * @return string
      */
-    protected function getSubjectForStatus()
+    protected function getSubjectForStatus(): string
     {
         switch ($this->status) {
             case 'shortlisted':
