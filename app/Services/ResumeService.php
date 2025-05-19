@@ -89,12 +89,12 @@ class ResumeService
 //            });
             $query->where('highest_qualification', $educationId);
         }
-//
-//        // Filter by industry
-//        if (!empty($filters['industry'])) {
-//            $industry = $filters['industry'];
-//            $query->where('prefer_job_industry', $industry);
-//        }
+
+        // Filter by industry
+        if (!empty($filters['industry'])) {
+            $industry = $filters['industry'];
+            $query->where('prefer_job_industry', $industry);
+        }
 //
 //        // Filter by experience level
 //        if (!empty($filters['experience'])) {
