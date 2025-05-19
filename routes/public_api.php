@@ -7,7 +7,7 @@ use App\Http\Controllers\Public\JobCategoriesController;
 use App\Http\Controllers\Public\JobsController;
 use App\Http\Controllers\Public\WebsiteController;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Public\FrontPagesController;
+use App\Http\Controllers\Public\ResumeController;
 use App\Http\Controllers\Public\MetaInformationController;
 use App\Http\Controllers\Public\EmployersController;
 
@@ -32,6 +32,11 @@ Route::prefix('website')->group(function () {
     Route::get('/about-us', [WebsiteController::class, 'getAboutUs']);
     Route::get('/contact', [WebsiteController::class, 'getContact']);
     Route::get('/contacts', [WebsiteController::class, 'getAllContacts']);
+});
+
+// CV Search
+Route::prefix('cv-search')->group(function () {
+    Route::get('/degrees', [ResumeController::class, 'getDegrees']);
 });
 
 // Jobs
