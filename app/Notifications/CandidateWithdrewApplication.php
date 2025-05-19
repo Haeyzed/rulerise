@@ -11,7 +11,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class CandidateWithdrewApplication extends Notification implements ShouldQueue
+class CandidateWithdrewApplication extends Notification// implements ShouldQueue
 {
     use Queueable;
 
@@ -24,8 +24,8 @@ class CandidateWithdrewApplication extends Notification implements ShouldQueue
      * Create a new notification instance.
      */
     public function __construct(
-        JobApplication $application, 
-        Candidate $candidate, 
+        JobApplication $application,
+        Candidate $candidate,
         Job $job,
         ?JobNotificationTemplate $template = null
     ) {
@@ -54,26 +54,26 @@ class CandidateWithdrewApplication extends Notification implements ShouldQueue
         $candidateName = $candidateUser->first_name . ' ' . $candidateUser->last_name;
         $withdrawalReason = $this->application->withdrawal_reason ?: 'No reason provided';
         $employer = $this->job->employer;
-        
+
         // If we have a template, use it
         if ($this->template) {
             $subject = $this->replaceTemplatePlaceholders($this->template->subject);
             $content = $this->replaceTemplatePlaceholders($this->template->content);
-            
+
             $mail = (new MailMessage)
                 ->subject($subject)
                 ->greeting('Hello ' . $notifiable->first_name . ',');
-            
+
             // Split content by newlines and add each line
             foreach (explode("\n", $content) as $line) {
                 if (!empty(trim($line))) {
                     $mail->line(trim($line));
                 }
             }
-            
+
             return $mail->action('View Applications', url('/employer/applications'));
         }
-        
+
         // Default notification if no template is available
         return (new MailMessage)
             ->subject('Candidate Withdrew Application: ' . $this->job->title)
@@ -94,7 +94,7 @@ class CandidateWithdrewApplication extends Notification implements ShouldQueue
     {
         $candidateUser = $this->candidate->user;
         $candidateName = $candidateUser->first_name . ' ' . $candidateUser->last_name;
-        
+
         return [
             'application_id' => $this->application->id,
             'job_id' => $this->job->id,
@@ -105,7 +105,7 @@ class CandidateWithdrewApplication extends Notification implements ShouldQueue
             'type' => 'candidate_withdrew_application',
         ];
     }
-    
+
     /**
      * Replace placeholders in template with actual values.
      *
@@ -117,7 +117,7 @@ class CandidateWithdrewApplication extends Notification implements ShouldQueue
         $candidateUser = $this->candidate->user;
         $employer = $this->job->employer;
         $employerUser = $employer->user;
-        
+
         $replacements = [
             '{JOB_TITLE}' => $this->job->title,
             '{COMPANY_NAME}' => $employer->company_name,
@@ -127,7 +127,7 @@ class CandidateWithdrewApplication extends Notification implements ShouldQueue
             '{WITHDRAWAL_DATE}' => $this->application->withdrawn_at->format('F j, Y'),
             '{APPLICATION_DATE}' => $this->application->created_at->format('F j, Y'),
         ];
-        
+
         return str_replace(array_keys($replacements), array_values($replacements), $text);
     }
 }
