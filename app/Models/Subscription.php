@@ -14,7 +14,7 @@ use Illuminate\Support\Carbon;
  * @property int $employer_id
  * @property int $subscription_plan_id
  * @property Carbon $start_date
- * @property Carbon $end_date
+ * @property Carbon|null $end_date
  * @property float $amount_paid
  * @property string $currency
  * @property string|null $payment_method
@@ -26,6 +26,13 @@ use Illuminate\Support\Carbon;
  * @property int $featured_jobs_left
  * @property int $cv_downloads_left
  * @property bool $is_active
+ * @property string $payment_type
+ * @property bool $is_suspended
+ * @property array|null $subscriber_info
+ * @property array|null $billing_info
+ * @property string|null $external_status
+ * @property Carbon|null $status_update_time
+ * @property Carbon|null $next_billing_date
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  *
@@ -63,6 +70,7 @@ class Subscription extends Model
         'external_status',
         'status_update_time',
         'next_billing_date',
+        'payment_type',
     ];
 
     /**
@@ -102,12 +110,42 @@ class Subscription extends Model
     }
 
     /**
+     * Check if the subscription is a one-time payment
+     *
+     * @return bool
+     */
+    public function isOneTime(): bool
+    {
+        return $this->payment_type === SubscriptionPlan::PAYMENT_TYPE_ONE_TIME;
+    }
+
+    /**
+     * Check if the subscription is a recurring payment
+     *
+     * @return bool
+     */
+    public function isRecurring(): bool
+    {
+        return $this->payment_type === SubscriptionPlan::PAYMENT_TYPE_RECURRING;
+    }
+
+    /**
      * Check if the subscription is expired.
      *
      * @return bool
      */
     public function isExpired(): bool
     {
+        // One-time payments don't expire
+        if ($this->isOneTime()) {
+            return false;
+        }
+
+        // If end_date is null, it doesn't expire
+        if ($this->end_date === null) {
+            return false;
+        }
+
         return $this->end_date < now();
     }
 
@@ -148,6 +186,11 @@ class Subscription extends Model
      */
     public function daysRemaining(): int
     {
+        // One-time payments don't have a remaining days count
+        if ($this->isOneTime()) {
+            return PHP_INT_MAX; // Effectively infinite
+        }
+
         if ($this->isExpired()) {
             return 0;
         }
@@ -166,7 +209,11 @@ class Subscription extends Model
             return 'Cancelled';
         }
 
-        if ($this->isExpired()) {
+        if ($this->is_suspended) {
+            return 'Suspended';
+        }
+
+        if ($this->isExpired() && !$this->isOneTime()) {
             return 'Expired';
         }
 

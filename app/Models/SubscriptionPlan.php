@@ -14,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string|null $description
  * @property float $price
  * @property string $currency
- * @property int $duration_days
+ * @property int|null $duration_days
  * @property int $job_posts_limit
  * @property int $featured_jobs_limit
  * @property int $resume_views_limit
@@ -25,7 +25,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $support_level
  * @property bool $is_active
  * @property bool $is_featured
+ * @property string $payment_type
  * @property array|null $features
+ * @property string|null $external_paypal_id
+ * @property string|null $external_stripe_id
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  *
@@ -34,6 +37,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class SubscriptionPlan extends Model
 {
     use HasFactory;
+
+    /**
+     * Payment type constants
+     */
+    const PAYMENT_TYPE_ONE_TIME = 'one_time';
+    const PAYMENT_TYPE_RECURRING = 'recurring';
 
     /**
      * The attributes that are mass assignable.
@@ -57,6 +66,9 @@ class SubscriptionPlan extends Model
         'is_active',
         'is_featured',
         'features',
+        'payment_type',
+        'external_paypal_id',
+        'external_stripe_id',
     ];
 
     /**
@@ -88,12 +100,40 @@ class SubscriptionPlan extends Model
     }
 
     /**
+     * Check if the plan is a one-time payment plan
+     *
+     * @return bool
+     */
+    public function isOneTime(): bool
+    {
+        return $this->payment_type === self::PAYMENT_TYPE_ONE_TIME;
+    }
+
+    /**
+     * Check if the plan is a recurring payment plan
+     *
+     * @return bool
+     */
+    public function isRecurring(): bool
+    {
+        return $this->payment_type === self::PAYMENT_TYPE_RECURRING;
+    }
+
+    /**
      * Get formatted duration.
      *
      * @return string
      */
     public function getFormattedDuration(): string
     {
+        if ($this->isOneTime()) {
+            return 'No expiration';
+        }
+
+        if (!$this->duration_days) {
+            return 'N/A';
+        }
+
         if ($this->duration_days % 30 === 0) {
             $months = $this->duration_days / 30;
             return $months === 1 ? '1 month' : "$months months";

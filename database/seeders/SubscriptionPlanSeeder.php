@@ -15,38 +15,13 @@ class SubscriptionPlanSeeder extends Seeder
         // Clear existing plans if needed
         SubscriptionPlan::query()->delete();
 
-        // Create 7-Day Free Trial
-        SubscriptionPlan::query()->create([
-            'name' => 'Free Trial',
-            'description' => 'Try our platform for 7 days with limited features',
-            'price' => 0.00,
-            'currency' => 'USD',
-            'duration_days' => 7, // 7 days
-            'job_posts_limit' => 1,
-            'featured_jobs_limit' => 0,
-            'resume_views_limit' => 3,
-            'job_alerts' => false,
-            'candidate_search' => true,
-            'resume_access' => true,
-            'company_profile' => true,
-            'support_level' => 'basic',
-            'is_active' => true,
-            'is_featured' => false,
-            'features' => json_encode([
-                'Limited job posting',
-                'Basic candidate search',
-                'Preview of resume access',
-                'Company profile creation'
-            ])
-        ]);
-
         // Create 20 Resume Package (One-time)
         SubscriptionPlan::query()->create([
             'name' => '20 Resume Package',
             'description' => 'One-time purchase of 20 resume views, no expiration',
             'price' => 200.00,
             'currency' => 'USD',
-            'duration_days' => 365, // Set to a year, but it's a one-time purchase
+            'duration_days' => null, // No expiration for one-time purchases
             'job_posts_limit' => 5,
             'featured_jobs_limit' => 1,
             'resume_views_limit' => 20,
@@ -57,6 +32,7 @@ class SubscriptionPlanSeeder extends Seeder
             'support_level' => 'standard',
             'is_active' => true,
             'is_featured' => false,
+            'payment_type' => SubscriptionPlan::PAYMENT_TYPE_ONE_TIME,
             'features' => json_encode([
                 'Access to 20 full resumes',
                 'Basic job posting (5 posts)',
@@ -84,6 +60,7 @@ class SubscriptionPlanSeeder extends Seeder
             'support_level' => 'premium',
             'is_active' => true,
             'is_featured' => true,
+            'payment_type' => SubscriptionPlan::PAYMENT_TYPE_RECURRING,
             'features' => json_encode([
                 'Unlimited resume access',
                 'Advanced candidate search filters',
@@ -96,86 +73,89 @@ class SubscriptionPlanSeeder extends Seeder
             ])
         ]);
 
-        // Create Basic CV Package (keeping from original but updated)
-        SubscriptionPlan::query()->create([
-            'name' => 'Basic CV Package',
-            'description' => 'Access to basic CV search and candidate profiles',
-            'price' => 19.99,
-            'currency' => 'USD',
-            'duration_days' => 30, // 1 month
-            'job_posts_limit' => 5,
-            'featured_jobs_limit' => 1,
-            'resume_views_limit' => 20,
-            'job_alerts' => false,
-            'candidate_search' => true,
-            'resume_access' => true,
-            'company_profile' => true,
-            'support_level' => 'basic',
-            'is_active' => true,
-            'is_featured' => false,
-            'features' => json_encode([
-                'Basic CV search',
-                'Limited candidate profiles',
-                'Standard job listings',
-                'Email support'
-            ])
-        ]);
-
-        // Create Pro CV Package (keeping from original but updated)
-        SubscriptionPlan::query()->create([
-            'name' => 'Pro CV Package',
-            'description' => 'Enhanced access to premium CV search and candidate profiles',
-            'price' => 49.99,
-            'currency' => 'USD',
-            'duration_days' => 30, // 1 month
-            'job_posts_limit' => 15,
-            'featured_jobs_limit' => 5,
-            'resume_views_limit' => 50,
-            'job_alerts' => true,
-            'candidate_search' => true,
-            'resume_access' => true,
-            'company_profile' => true,
-            'support_level' => 'standard',
-            'is_active' => true,
-            'is_featured' => true,
-            'features' => json_encode([
-                'Advanced CV search',
-                'Full candidate profiles',
-                'Featured job listings',
-                'Priority email support',
-                'Basic analytics',
-                'Candidate pools'
-            ])
-        ]);
-
-        // Create Enterprise CV Package (keeping from original but updated)
-        SubscriptionPlan::query()->create([
-            'name' => 'Enterprise CV Package',
-            'description' => 'Unlimited access to all CV search features and candidate profiles',
-            'price' => 99.99,
-            'currency' => 'USD',
-            'duration_days' => 365, // 1 year
-            'job_posts_limit' => 50,
-            'featured_jobs_limit' => 20,
-            'resume_views_limit' => 200,
-            'job_alerts' => true,
-            'candidate_search' => true,
-            'resume_access' => true,
-            'company_profile' => true,
-            'support_level' => 'premium',
-            'is_active' => true,
-            'is_featured' => true,
-            'features' => json_encode([
-                'Unlimited CV search',
-                'Premium candidate profiles',
-                'Priority job listings',
-                'Dedicated account manager',
-                'Advanced analytics',
-                'Custom reporting',
-                'API access',
-                'Bulk actions',
-                'Team collaboration tools'
-            ])
-        ]);
+//        // Create Basic CV Package (keeping from original but updated)
+//        SubscriptionPlan::query()->create([
+//            'name' => 'Basic CV Package',
+//            'description' => 'Access to basic CV search and candidate profiles',
+//            'price' => 19.99,
+//            'currency' => 'USD',
+//            'duration_days' => 30, // 1 month
+//            'job_posts_limit' => 5,
+//            'featured_jobs_limit' => 1,
+//            'resume_views_limit' => 20,
+//            'job_alerts' => false,
+//            'candidate_search' => true,
+//            'resume_access' => true,
+//            'company_profile' => true,
+//            'support_level' => 'basic',
+//            'is_active' => true,
+//            'is_featured' => false,
+//            'payment_type' => SubscriptionPlan::PAYMENT_TYPE_RECURRING,
+//            'features' => json_encode([
+//                'Basic CV search',
+//                'Limited candidate profiles',
+//                'Standard job listings',
+//                'Email support'
+//            ])
+//        ]);
+//
+//        // Create Pro CV Package (keeping from original but updated)
+//        SubscriptionPlan::query()->create([
+//            'name' => 'Pro CV Package',
+//            'description' => 'Enhanced access to premium CV search and candidate profiles',
+//            'price' => 49.99,
+//            'currency' => 'USD',
+//            'duration_days' => 30, // 1 month
+//            'job_posts_limit' => 15,
+//            'featured_jobs_limit' => 5,
+//            'resume_views_limit' => 50,
+//            'job_alerts' => true,
+//            'candidate_search' => true,
+//            'resume_access' => true,
+//            'company_profile' => true,
+//            'support_level' => 'standard',
+//            'is_active' => true,
+//            'is_featured' => true,
+//            'payment_type' => SubscriptionPlan::PAYMENT_TYPE_RECURRING,
+//            'features' => json_encode([
+//                'Advanced CV search',
+//                'Full candidate profiles',
+//                'Featured job listings',
+//                'Priority email support',
+//                'Basic analytics',
+//                'Candidate pools'
+//            ])
+//        ]);
+//
+//        // Create Enterprise CV Package (one-time annual package)
+//        SubscriptionPlan::query()->create([
+//            'name' => 'Enterprise CV Package',
+//            'description' => 'Unlimited access to all CV search features and candidate profiles',
+//            'price' => 999.99,
+//            'currency' => 'USD',
+//            'duration_days' => 365, // 1 year
+//            'job_posts_limit' => 50,
+//            'featured_jobs_limit' => 20,
+//            'resume_views_limit' => 200,
+//            'job_alerts' => true,
+//            'candidate_search' => true,
+//            'resume_access' => true,
+//            'company_profile' => true,
+//            'support_level' => 'premium',
+//            'is_active' => true,
+//            'is_featured' => true,
+//            'payment_type' => SubscriptionPlan::PAYMENT_TYPE_ONE_TIME,
+//            'features' => json_encode([
+//                'Unlimited CV search',
+//                'Premium candidate profiles',
+//                'Priority job listings',
+//                'Dedicated account manager',
+//                'Advanced analytics',
+//                'Custom reporting',
+//                'API access',
+//                'Bulk actions',
+//                'Team collaboration tools'
+//            ])
+//        ]);
     }
 }
