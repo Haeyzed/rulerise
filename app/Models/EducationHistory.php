@@ -5,24 +5,26 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
 /**
  * EducationHistory model representing a candidate's education background
  *
  * @property int $id
  * @property int $candidate_id
- * @property string $degree
+ * @property int|null $degree_id
+ * @property string|null $degree
  * @property string $institution
  * @property string|null $field_of_study
- * @property \Illuminate\Support\Carbon $start_date
- * @property \Illuminate\Support\Carbon|null $end_date
+ * @property Carbon $start_date
+ * @property Carbon|null $end_date
  * @property bool $is_current
  * @property float|null $grade
  * @property string|null $description
- * @property \Illuminate\Support\Carbon|null $created_at
- * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
  *
- * @property-read \App\Models\Candidate $candidate
+ * @property-read Candidate $candidate
  */
 class EducationHistory extends Model
 {
@@ -35,6 +37,7 @@ class EducationHistory extends Model
      */
     protected $fillable = [
         'candidate_id',
+        'degree_id',
         'degree',
         'institution',
         'field_of_study',
@@ -63,5 +66,13 @@ class EducationHistory extends Model
     public function candidate(): BelongsTo
     {
         return $this->belongsTo(Candidate::class);
+    }
+
+    /**
+     * Get the degree associated with this education history.
+     */
+    public function degree(): BelongsTo
+    {
+        return $this->belongsTo(Degree::class);
     }
 }

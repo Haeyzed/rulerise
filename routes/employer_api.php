@@ -4,6 +4,7 @@ use App\Http\Controllers\API\Webhooks\PayPalWebhookController;
 use App\Http\Controllers\API\Webhooks\StripeWebhookController;
 use App\Http\Controllers\Employer\CandidatesController;
 use App\Http\Controllers\Employer\PaymentController;
+use App\Http\Controllers\Employer\ResumeController;
 use App\Http\Controllers\Employer\SubscriptionController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Auth\AuthController;
@@ -66,6 +67,16 @@ Route::middleware(['auth:api', 'role:employer,employer_staff'])->group(function 
         // New multi-pool endpoints
         Route::post('attach-candidates-multi-pool', [CandidateJobPoolsController::class, 'attachCandidatesMultiPool']);
         Route::post('detach-candidates-multi-pool', [CandidateJobPoolsController::class, 'detachCandidatesMultiPool']);
+    });
+
+    // CV Search
+    Route::prefix('cv-search')->group(function () {
+        Route::get('/', [ResumeController::class, 'searchCandidates']);
+        Route::get('/recommended', [ResumeController::class, 'recommendedCandidates']);
+        Route::get('/degrees', [ResumeController::class, 'getDegrees']);
+        Route::get('/candidate/{id}', [ResumeController::class, 'showCandidate']);
+        Route::get('/download/{id}', [ResumeController::class, 'downloadResume']);
+        Route::get('/subscription-usage', [ResumeController::class, 'getSubscriptionUsage']);
     });
 
     // Candidates

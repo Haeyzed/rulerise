@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\Degree;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
@@ -15,6 +16,7 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             GeneralSettingsSeeder::class,
+            DegreeSeeder::class,
             WebsiteSeeder::class,
             PermissionSeeder::class,
             RoleSeeder::class,

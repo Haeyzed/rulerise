@@ -16,7 +16,9 @@ class EducationHistoryResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'degree' => $this->degree,
+//            'degree' => $this->degree,
+//            'degree_id' => $this->degree_id,
+            'degree_details' => $this->when($this->relationLoaded('degree'), new DegreeResource($this->degree)),
             'institution' => $this->institution,
             'field_of_study' => $this->field_of_study,
             'start_date' => $this->start_date,

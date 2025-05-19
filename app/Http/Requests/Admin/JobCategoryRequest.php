@@ -32,21 +32,5 @@ class JobCategoryRequest extends FormRequest
             'icon' => 'nullable|string|max:50',
             'is_active' => 'boolean',
         ];
-//
-//        // If this is an update request (PUT/PATCH), add the unique rule with the current record excluded
-//        if ($this->isMethod('put') || $this->isMethod('patch') || $this->route('jobCategory')) {
-//            $jobCategoryId = $this->route('jobCategory') ? $this->route('jobCategory')->id : null;
-//
-//            if (!$jobCategoryId && $this->route('id')) {
-//                $jobCategoryId = $this->route('id');
-//            }
-//
-//            $rules['name'][] = Rule::unique('job_categories', 'name')->ignore($jobCategoryId);
-//        } else {
-//            // For new records, simply check uniqueness
-//            $rules['name'][] = 'unique:job_categories,name';
-//        }
-//
-//        return $rules;
     }
 }
