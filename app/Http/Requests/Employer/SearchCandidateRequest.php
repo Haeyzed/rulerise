@@ -27,7 +27,7 @@ class SearchCandidateRequest extends FormRequest
             'keyword' => 'nullable|string|max:255',
             'location' => 'nullable|string|max:255',
             'province' => 'nullable|string|max:255',
-            'education' => 'nullable|integer|exists:degrees,id',
+            'education' => 'nullable|string|exists:degrees,name',
             'industry' => 'nullable|string|max:255',
             'experience' => 'nullable|string|in:0_1,1_3,3_5,5_10,10_plus',
             'sort_by' => 'nullable|string|in:created_at,updated_at,year_of_experience',
