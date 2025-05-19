@@ -61,25 +61,25 @@ class ResumeService
         }
 
         // Filter by location
-        if (!empty($filters['location'])) {
-            $location = $filters['location'];
-            $query->where(function ($q) use ($location) {
-                $q->whereLike('location', "%{$location}%")
-                    ->orWhereHas('user', function (Builder $q) use ($location) {
-                        $q->whereLike('country',  "%{$location}%")
-                            ->orWhereLike('state', "%{$location}%")
-                            ->orWhereLike('city', "%{$location}%");
-                    });
-            });
-        }
-
-        // Filter by province/city
-        if (!empty($filters['province'])) {
-            $province = $filters['province'];
-            $query->whereHas('user', function (Builder $q) use ($province) {
-                $q->where('state', $province);
-            });
-        }
+//        if (!empty($filters['location'])) {
+//            $location = $filters['location'];
+//            $query->where(function ($q) use ($location) {
+//                $q->whereLike('location', "%{$location}%")
+//                    ->orWhereHas('user', function (Builder $q) use ($location) {
+//                        $q->whereLike('country',  "%{$location}%")
+//                            ->orWhereLike('state', "%{$location}%")
+//                            ->orWhereLike('city', "%{$location}%");
+//                    });
+//            });
+//        }
+//
+//        // Filter by province/city
+//        if (!empty($filters['province'])) {
+//            $province = $filters['province'];
+//            $query->whereHas('user', function (Builder $q) use ($province) {
+//                $q->where('state', $province);
+//            });
+//        }
 
         // Filter by education level
         if (!empty($filters['education'])) {
