@@ -19,7 +19,7 @@ return new class extends Migration
             $table->text('description')->nullable();
             $table->decimal('price', 10, 2);
             $table->string('currency')->default('USD');
-            $table->integer('duration_days');
+            $table->integer('duration_days')->nullable();
             $table->integer('job_posts')->default(0);
             $table->integer('featured_jobs')->default(0);
             $table->integer('cv_downloads')->default(0);
