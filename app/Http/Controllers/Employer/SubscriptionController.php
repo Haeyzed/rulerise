@@ -20,7 +20,7 @@ class SubscriptionController extends Controller
      *
      * @return JsonResponse
      */
-    public function getPlans()
+    public function getPlans(): JsonResponse
     {
         $plans = SubscriptionPlan::where('is_active', true)->get();
 
@@ -35,7 +35,7 @@ class SubscriptionController extends Controller
      *
      * @return JsonResponse
      */
-    public function getActiveSubscription()
+    public function getActiveSubscription(): JsonResponse
     {
         $employer = Auth::user()->employer;
         $subscription = $employer->activeSubscription;
@@ -57,7 +57,7 @@ class SubscriptionController extends Controller
      * @param SubscriptionPlan $plan
      * @return JsonResponse
      */
-    public function subscribe(Request $request, SubscriptionPlan $plan)
+    public function subscribe(Request $request, SubscriptionPlan $plan): JsonResponse
     {
         $employer = Auth::user()->employer;
         $provider = $request->input('payment_provider', 'stripe');
@@ -78,7 +78,7 @@ class SubscriptionController extends Controller
      * @param Request $request
      * @return JsonResponse
      */
-    public function cancel(Request $request)
+    public function cancel(Request $request): JsonResponse
     {
         $employer = Auth::user()->employer;
         $subscription = $employer->activeSubscription;
@@ -91,19 +91,16 @@ class SubscriptionController extends Controller
             $service = SubscriptionServiceFactory::create($subscription->payment_method);
             $success = $service->cancelSubscription($subscription);
 
-            if ($success) {
+//            if ($success) {
                 return response()->success(null, 'Subscription cancelled successfully');
-            } else {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Failed to cancel subscription'
-                ], 500);
-            }
+//            } else {
+//                return response()->json([
+//                    'success' => false,
+//                    'message' => 'Failed to cancel subscription'
+//                ], 500);
+//            }
         } catch (Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage()
-            ], 500);
+            return response()->serverError($e->getMessage());
         }
     }
 
