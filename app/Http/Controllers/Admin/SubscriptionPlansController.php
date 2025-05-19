@@ -90,11 +90,11 @@ class SubscriptionPlansController extends Controller implements HasMiddleware
      * @param SubscriptionPlanRequest $request
      * @return JsonResponse
      */
-    public function update(SubscriptionPlanRequest $request): JsonResponse
+    public function update(SubscriptionPlanRequest $request, SubscriptionPlan $subscriptionPlan): JsonResponse
     {
         $data = $request->validated();
 
-        $plan = $this->adminService->saveSubscriptionPlan($data, $data['id']);
+        $plan = $this->adminService->saveSubscriptionPlan($data, $subscriptionPlan);
 
         return response()->success($plan, 'Subscription plan updated successfully');
     }

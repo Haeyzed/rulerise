@@ -76,13 +76,9 @@ Route::middleware(['auth:api', 'role:admin'])->group(function () {
     });
 
     // Subscription plans
+    Route::apiResource('plan', SubscriptionPlansController::class);
     Route::prefix('plan')->group(function () {
-        Route::get('/', [SubscriptionPlansController::class, 'index']);
-        Route::post('/', [SubscriptionPlansController::class, 'store']);
-        Route::get('{id}', [SubscriptionPlansController::class, 'show']);
-        Route::post('update', [SubscriptionPlansController::class, 'update']);
-        Route::post('{id}/delete', [SubscriptionPlansController::class, 'destroy']);
-        Route::post('setActive', [SubscriptionPlansController::class, 'setActive']);
+        Route::post('{id}/set-active', [SubscriptionPlansController::class, 'setActive']);
     });
 
     // Job categories
