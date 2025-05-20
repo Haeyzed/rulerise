@@ -50,6 +50,7 @@ return [
         'client_secret' => env('PAYPAL_CLIENT_SECRET'),
         'webhook_id' => env('PAYPAL_WEBHOOK_ID'),
         'sandbox' => env('PAYPAL_SANDBOX', true),
+        'verify_webhook_signature' => env('PAYPAL_VERIFY_WEBHOOK_SIGNATURE', true),
     ],
 
     'subscription' => [
