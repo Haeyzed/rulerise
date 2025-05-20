@@ -323,9 +323,9 @@ class SubscriptionController extends Controller
 
             if ($success) {
                 return response()->success([
-                        'subscription' => $subscription->fresh(),
-                        'plan' => $newPlan
-                    ],'Subscription plan updated successfully');
+                    'subscription' => $subscription->fresh(),
+                    'plan' => $newPlan
+                ],'Subscription plan updated successfully');
             } else {
                 return response()->serverError('Failed to update subscription plan');
             }
@@ -349,7 +349,6 @@ class SubscriptionController extends Controller
 
         // The subscription is updated via webhook, but we can check status here
         $subscriptionId = $request->get('subscription_id');
-        $orderId = $request->get('order_id'); // For one-time payments
 
         if ($subscriptionId) {
             // Find the subscription in our database
@@ -367,27 +366,9 @@ class SubscriptionController extends Controller
                 // We don't update the status here as it should be done by the webhook
                 // But we can return the current status
                 return response()->success([
-                        'subscription_id' => $subscription->id,
-                        'is_active' => $subscription->is_active
-                    ], 'Subscription process completed');
-            }
-        } elseif ($orderId) {
-            // Find the one-time payment subscription
-            $subscription = Subscription::where('payment_reference', $orderId)
-                ->where('payment_method', 'paypal')
-                ->where('payment_type', SubscriptionPlan::PAYMENT_TYPE_ONE_TIME)
-                ->first();
-
-            if ($subscription) {
-                Log::info('Found one-time subscription for PayPal callback', [
                     'subscription_id' => $subscription->id,
                     'is_active' => $subscription->is_active
-                ]);
-
-                return response()->success([
-                        'subscription_id' => $subscription->id,
-                        'is_active' => $subscription->is_active
-                    ],'One-time payment process completed');
+                ], 'Subscription process completed');
             }
         }
 
@@ -477,166 +458,86 @@ class SubscriptionController extends Controller
     public function verifyPayPalSubscription(Request $request): JsonResponse
     {
         $subscriptionId = $request->input('subscription_id');
-        $orderId = $request->input('order_id'); // For one-time payments
 
-        if (!$subscriptionId && !$orderId) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Subscription ID or Order ID is required'
-            ], 400);
+        if (!$subscriptionId) {
+            return response()->badRequest('Subscription ID is required');
         }
 
         try {
             $employer = Auth::user()->employer;
             $service = SubscriptionServiceFactory::create('paypal');
 
-            if ($subscriptionId) {
-                // Find the subscription
+            // Find the subscription
+            $subscription = Subscription::where('subscription_id', $subscriptionId)
+                ->where('employer_id', $employer->id)
+                ->where('payment_method', 'paypal')
+                ->first();
+
+            if (!$subscription) {
+                // Try to find by subscription_id only, in case it was created for this employer
                 $subscription = Subscription::where('subscription_id', $subscriptionId)
-                    ->where('employer_id', $employer->id)
                     ->where('payment_method', 'paypal')
                     ->first();
 
-                if (!$subscription) {
-                    // Try to find by subscription_id only, in case it was created for this employer
-                    $subscription = Subscription::where('subscription_id', $subscriptionId)
-                        ->where('payment_method', 'paypal')
-                        ->first();
-
-                    if (!$subscription || ($subscription->employer_id !== $employer->id)) {
-                        return response()->json([
-                            'success' => false,
-                            'message' => 'Subscription not found'
-                        ], 404);
-                    }
+                if (!$subscription || ($subscription->employer_id !== $employer->id)) {
+                    return response()->notFound('Subscription not found');
                 }
-
-                // Get subscription details from PayPal
-                $details = $service->getSubscriptionDetails($subscriptionId);
-
-                // Log the details for debugging
-                Log::info('PayPal subscription details', [
-                    'subscription_id' => $subscriptionId,
-                    'details' => $details
-                ]);
-
-                // Update subscription with PayPal details
-                $service->updateSubscriptionWithPayPalDetails($subscription, $details);
-
-                // If subscription is active in PayPal but not in our database
-                if (isset($details['status']) && ($details['status'] === 'ACTIVE' || $details['status'] === 'APPROVED') && !$subscription->is_active) {
-                    $subscription->is_active = true;
-                    $subscription->save();
-
-                    // Send notification
-                    try {
-                        $employer = $subscription->employer;
-                        if ($employer && $employer->user) {
-                            $employer->user->notify(new SubscriptionActivatedNotification($subscription));
-                        }
-                    } catch (\Exception $e) {
-                        Log::error('Failed to send subscription activation notification during verification', [
-                            'subscription_id' => $subscription->id,
-                            'error' => $e->getMessage()
-                        ]);
-                    }
-
-                    Log::info('Subscription activated via manual verification', [
-                        'subscription_id' => $subscription->id,
-                        'paypal_id' => $subscriptionId
-                    ]);
-
-                    return response()->success([
-                        'subscription' => $subscription->fresh(),
-                        'plan' => $subscription->plan
-                    ],'Subscription activated successfully');
-                }
-
-                return response()->success([
-                    'subscription' => $subscription,
-                    'plan' => $subscription->plan,
-                    'paypal_status' => $details['status'] ?? 'UNKNOWN'
-                ],'Subscription status checked');
-            } elseif ($orderId) {
-                // Find the one-time payment subscription
-                $subscription = Subscription::where('payment_reference', $orderId)
-                    ->where('employer_id', $employer->id)
-                    ->where('payment_method', 'paypal')
-                    ->where('payment_type', SubscriptionPlan::PAYMENT_TYPE_ONE_TIME)
-                    ->first();
-
-                if (!$subscription) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'One-time subscription not found'
-                    ], 404);
-                }
-
-                // Get order details from PayPal
-                $response = Http::withToken($service->getAccessToken())
-                    ->get("{$service->baseUrl}/v2/checkout/orders/{$orderId}");
-
-                if (!$response->successful()) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Failed to get order details from PayPal'
-                    ], 500);
-                }
-
-                $orderDetails = $response->json();
-
-                // Log the details for debugging
-                Log::info('PayPal order details', [
-                    'order_id' => $orderId,
-                    'details' => $orderDetails
-                ]);
-
-                // If order is completed but subscription is not active
-                if (isset($orderDetails['status']) && $orderDetails['status'] === 'COMPLETED' && !$subscription->is_active) {
-                    $subscription->is_active = true;
-                    $subscription->external_status = 'COMPLETED';
-                    $subscription->save();
-
-                    // Send notification
-                    try {
-                        $employer = $subscription->employer;
-                        if ($employer && $employer->user) {
-                            $employer->user->notify(new SubscriptionActivatedNotification($subscription));
-                        }
-                    } catch (\Exception $e) {
-                        Log::error('Failed to send one-time subscription activation notification during verification', [
-                            'subscription_id' => $subscription->id,
-                            'error' => $e->getMessage()
-                        ]);
-                    }
-
-                    Log::info('One-time subscription activated via manual verification', [
-                        'subscription_id' => $subscription->id,
-                        'order_id' => $orderId
-                    ]);
-
-                    return response()->success([
-                        'subscription' => $subscription->fresh(),
-                        'plan' => $subscription->plan
-                    ],'One-time subscription activated successfully');
-                }
-
-                return response()->success([
-                    'subscription' => $subscription,
-                    'plan' => $subscription->plan,
-                    'paypal_status' => $orderDetails['status'] ?? 'UNKNOWN'
-                ],'One-time subscription status checked');
             }
+
+            // Get subscription details from PayPal
+            $details = $service->getSubscriptionDetails($subscriptionId);
+
+            // Log the details for debugging
+            Log::info('PayPal subscription details', [
+                'subscription_id' => $subscriptionId,
+                'details' => $details
+            ]);
+
+            // Update subscription with PayPal details
+            $service->updateSubscriptionWithPayPalDetails($subscription, $details);
+
+            // If subscription is active in PayPal but not in our database
+            if (isset($details['status']) && ($details['status'] === 'ACTIVE' || $details['status'] === 'APPROVED') && !$subscription->is_active) {
+                $subscription->is_active = true;
+                $subscription->save();
+
+                // Send notification
+                try {
+                    $employer = $subscription->employer;
+                    if ($employer && $employer->user) {
+                        $employer->user->notify(new SubscriptionActivatedNotification($subscription));
+                    }
+                } catch (\Exception $e) {
+                    Log::error('Failed to send subscription activation notification during verification', [
+                        'subscription_id' => $subscription->id,
+                        'error' => $e->getMessage()
+                    ]);
+                }
+
+                Log::info('Subscription activated via manual verification', [
+                    'subscription_id' => $subscription->id,
+                    'paypal_id' => $subscriptionId
+                ]);
+
+                return response()->success([
+                    'subscription' => $subscription->fresh(),
+                    'plan' => $subscription->plan
+                ],'Subscription activated successfully');
+            }
+
+            return response()->success([
+                'subscription' => $subscription,
+                'plan' => $subscription->plan,
+                'paypal_status' => $details['status'] ?? 'UNKNOWN'
+            ],'Subscription status checked');
         } catch (Exception $e) {
             Log::error('Error verifying PayPal subscription', [
-                'subscription_id' => $subscriptionId ?? null,
-                'order_id' => $orderId ?? null,
+                'subscription_id' => $subscriptionId,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
 
             return response()->serverError('Error verifying subscription: ' . $e->getMessage());
         }
-        return response()->badRequest('Unable to verify subscription');
     }
 }
