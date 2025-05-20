@@ -18,7 +18,7 @@ class SubscriptionPlanSeeder extends Seeder
         // Create 20 Resume Package (One-time)
         SubscriptionPlan::query()->create([
             'name' => '20 Resume Package',
-            'description' => 'One-time purchase of 20 resume views, no expiration',
+            'description' => 'One-time purchase of 20 resume views with 7-day free trial, no expiration',
             'price' => 200.00,
             'currency' => 'USD',
             'duration_days' => null, // No expiration for one-time purchases
@@ -39,14 +39,15 @@ class SubscriptionPlanSeeder extends Seeder
                 '1 featured job posting',
                 'Standard candidate search',
                 'Email support',
-                'Job alerts'
+                'Job alerts',
+                '7-day free trial'
             ])
         ]);
 
         // Create Monthly Unlimited Resumes Subscription
         SubscriptionPlan::query()->create([
             'name' => 'Unlimited Resume Access',
-            'description' => 'Monthly subscription with unlimited resume views and enhanced features',
+            'description' => 'Monthly subscription with unlimited resume views, 7-day free trial, and enhanced features',
             'price' => 300.00,
             'currency' => 'USD',
             'duration_days' => 30, // Monthly
@@ -69,7 +70,8 @@ class SubscriptionPlanSeeder extends Seeder
                 'Priority support',
                 'Advanced analytics',
                 'Candidate recommendations',
-                'Custom job alerts'
+                'Custom job alerts',
+                '7-day free trial'
             ])
         ]);
 
