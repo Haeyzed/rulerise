@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\CreateUserRequest;
 use App\Http\Requests\Admin\UpdateUserRequest;
+use App\Http\Resources\UserResource;
 use App\Models\User;
 use App\Services\ACLService;
 use App\Services\AdminService;
@@ -93,7 +94,7 @@ class UserManagementController extends Controller implements HasMiddleware
                 ->orderBy($sortBy, $sortOrder)
                 ->paginate($perPage);
 
-            return response()->paginatedSuccess($users, 'Users retrieved successfully');
+            return response()->paginatedSuccess(new UserResource($users) 'Users retrieved successfully');
         } catch (Exception $e) {
             return response()->internalServerError($e->getMessage());
         }
@@ -111,7 +112,7 @@ class UserManagementController extends Controller implements HasMiddleware
             DB::beginTransaction();
 
             $data = $request->validated();
-            
+
             // Create user
             $user = User::create([
                 'first_name' => $data['first_name'],
@@ -135,7 +136,7 @@ class UserManagementController extends Controller implements HasMiddleware
             DB::commit();
 
             return response()->created(
-                $user->load(['roles', 'permissions']), 
+                $user->load(['roles', 'permissions']),
                 'User created successfully'
             );
         } catch (Exception $e) {
@@ -204,7 +205,7 @@ class UserManagementController extends Controller implements HasMiddleware
             DB::commit();
 
             return response()->success(
-                $user->load(['roles', 'permissions']), 
+                $user->load(['roles', 'permissions']),
                 'User updated successfully'
             );
         } catch (Exception $e) {
@@ -223,12 +224,12 @@ class UserManagementController extends Controller implements HasMiddleware
     {
         try {
             $user = User::findOrFail($id);
-            
+
             // Prevent deleting yourself
             if (auth()->id() === $user->id) {
                 return response()->badRequest('You cannot delete your own account');
             }
-            
+
             $user->delete();
 
             return response()->success(null, 'User deleted successfully');
@@ -252,12 +253,12 @@ class UserManagementController extends Controller implements HasMiddleware
             ]);
 
             $user = User::findOrFail($id);
-            
+
             // Prevent deactivating yourself
             if (auth()->id() === $user->id && !$request->is_active) {
                 return response()->badRequest('You cannot deactivate your own account');
             }
-            
+
             $user->is_active = $request->is_active;
             $user->save();
 

@@ -2,6 +2,8 @@
 
 namespace App\Services\Subscription;
 
+use InvalidArgumentException;
+
 class SubscriptionServiceFactory
 {
     /**
@@ -12,15 +14,10 @@ class SubscriptionServiceFactory
      */
     public static function create(string $provider): SubscriptionServiceInterface
     {
-        switch (strtolower($provider)) {
-            case 'paypal':
-                return app(PayPalSubscriptionService::class);
-
-            case 'stripe':
-                return app(StripeSubscriptionService::class);
-
-            default:
-                throw new \InvalidArgumentException("Unsupported payment provider: {$provider}");
-        }
+        return match (strtolower($provider)) {
+            'paypal' => app(PayPalSubscriptionService::class),
+            'stripe' => app(StripeSubscriptionService::class),
+            default => throw new InvalidArgumentException("Unsupported payment provider: {$provider}"),
+        };
     }
 }
