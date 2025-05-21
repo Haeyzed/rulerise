@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\RoleRequest;
+use App\Http\Resources\RoleResource;
 use App\Models\User;
 use App\Services\ACLService;
 use Illuminate\Http\Request;
@@ -72,7 +73,7 @@ class RolesController extends Controller implements HasMiddleware
                 ->orderBy($sortBy, $sortOrder)
                 ->paginate($perPage);
 
-            return response()->paginatedSuccess($roles,'Roles retrieved successfully');
+            return response()->paginatedSuccess(RoleResource::collection($roles),'Roles retrieved successfully');
         } catch (Exception $e) {
             return response()->internalServerError($e->getMessage());
         }
@@ -89,7 +90,7 @@ class RolesController extends Controller implements HasMiddleware
         try {
             $role = Role::with('permissions')->findOrFail($id);
 
-            return response()->success($role, 'Role retrieved successfully');
+            return response()->success(new RoleResource($role), 'Role retrieved successfully');
         } catch (Exception $e) {
             return response()->internalServerError($e->getMessage());
         }
@@ -115,7 +116,7 @@ class RolesController extends Controller implements HasMiddleware
 
             DB::commit();
 
-            return response()->created($role->load('permissions'), 'Role created successfully');
+            return response()->created(new RoleResource($role->load('permissions')), 'Role created successfully');
         } catch (Exception $e) {
             DB::rollBack();
             return response()->internalServerError($e->getMessage());
@@ -149,7 +150,7 @@ class RolesController extends Controller implements HasMiddleware
 
             DB::commit();
 
-            return response()->success($role->load('permissions'), 'Role updated successfully');
+            return response()->success(new RoleResource($role->load('permissions')), 'Role updated successfully');
         } catch (Exception $e) {
             DB::rollBack();
             return response()->internalServerError($e->getMessage());
@@ -217,7 +218,7 @@ class RolesController extends Controller implements HasMiddleware
             ]);
 
             $user = User::findOrFail($request->user_id);
-            
+
             // Use ACL service to assign role (ensuring only one role per user)
             $this->aclService->assignRole($user, $request->role_name);
 
@@ -243,7 +244,7 @@ class RolesController extends Controller implements HasMiddleware
             ]);
 
             $user = User::findOrFail($request->user_id);
-            
+
             // Use ACL service to assign permissions
             $this->aclService->syncPermissions($user, $request->permissions);
 
