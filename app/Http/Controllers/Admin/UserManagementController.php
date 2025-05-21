@@ -93,8 +93,7 @@ class UserManagementController extends Controller implements HasMiddleware
                 })
                 ->orderBy($sortBy, $sortOrder)
                 ->paginate($perPage);
-
-            return response()->paginatedSuccess(new UserResource($users), 'Users retrieved successfully');
+            return response()->paginatedSuccess(UserResource::collection($users), 'Users retrieved successfully');
         } catch (Exception $e) {
             return response()->internalServerError($e->getMessage());
         }
