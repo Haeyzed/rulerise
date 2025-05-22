@@ -23,30 +23,19 @@ class RoleRequest extends BaseRequest
      */
     public function rules(): array
     {
-        $rules = [
+        $roleId = $this->route('role'); // or $this->role if you have route model binding
+
+        return [
             'name' => [
                 'required',
                 'string',
                 'max:255',
+                Rule::unique('roles', 'name')->ignore($roleId),
             ],
             'description' => 'nullable|string|max:1000',
             'permissions' => 'nullable|array',
             'permissions.*' => 'exists:permissions,id',
         ];
-
-        // Add unique rule for name when creating a new role
-        if ($this->isMethod('post')) {
-            $rules['name'][] = Rule::unique('roles', 'name')->where('guard_name', 'api');
-        }
-        // Add unique rule for name when updating a role, excluding the current role
-        elseif ($this->isMethod('put') || $this->isMethod('patch')) {
-            $rules['id'] = 'required|exists:roles,id';
-            $rules['name'][] = Rule::unique('roles', 'name')
-                ->where('guard_name', 'api')
-                ->ignore($this->id);
-        }
-
-        return $rules;
     }
 
     /**
