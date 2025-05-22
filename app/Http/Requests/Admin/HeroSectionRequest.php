@@ -80,7 +80,7 @@ class HeroSectionRequest extends BaseRequest
              * @var string|null $images.*
              * @example "image1.jpg"
              */
-            'images.*' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif', 'max:2048'],
+            'images.*' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif'],
         ];
     }
 
