@@ -125,6 +125,7 @@ class UserManagementController extends Controller implements HasMiddleware
                 'password' => Hash::make($plainPassword),
                 'user_type' => 'admin',
                 'is_active' => $data['is_active'] ?? true,
+                'email_verified_at' => now()
             ]);
 
             // Assign role if provided
