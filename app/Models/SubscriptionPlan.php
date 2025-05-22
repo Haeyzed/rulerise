@@ -45,6 +45,20 @@ class SubscriptionPlan extends Model
     const PAYMENT_TYPE_RECURRING = 'recurring';
 
     /**
+     * Tenure type constants
+     */
+    const TENURE_TYPE_TRIAL = 'TRIAL';
+    const TENURE_TYPE_REGULAR = 'REGULAR';
+
+    /**
+     * Interval unit constants
+     */
+    const INTERVAL_UNIT_DAY = 'DAY';
+    const INTERVAL_UNIT_WEEK = 'WEEK';
+    const INTERVAL_UNIT_MONTH = 'MONTH';
+    const INTERVAL_UNIT_YEAR = 'YEAR';
+
+    /**
      * The attributes that are mass assignable.
      *
      * @var array<string>
@@ -67,6 +81,14 @@ class SubscriptionPlan extends Model
         'is_featured',
         'features',
         'payment_type',
+
+//        'is_trial_period',
+//        'trial_period_days',
+//        'tenure_type',
+//        'interval_unit',
+//        'interval_count',
+//        'total_cycles',
+
         'external_paypal_id',
         'external_stripe_id',
     ];
@@ -120,6 +142,16 @@ class SubscriptionPlan extends Model
     }
 
     /**
+     * Check if the plan has a trial period
+     *
+     * @return bool
+     */
+    public function hasTrial(): bool
+    {
+        return $this->is_trial_period && $this->trial_period_days > 0;
+    }
+
+    /**
      * Get formatted duration.
      *
      * @return string
@@ -145,6 +177,78 @@ class SubscriptionPlan extends Model
         }
 
         return $this->duration_days === 1 ? '1 day' : "{$this->duration_days} days";
+    }
+
+    /**
+     * Get formatted trial period.
+     *
+     * @return string|null
+     */
+    public function getFormattedTrialPeriod(): ?string
+    {
+        if (!$this->hasTrial()) {
+            return null;
+        }
+
+        if ($this->trial_period_days % 30 === 0) {
+            $months = $this->trial_period_days / 30;
+            return $months === 1 ? '1 month trial' : "$months months trial";
+        }
+
+        if ($this->trial_period_days % 7 === 0) {
+            $weeks = $this->trial_period_days / 7;
+            return $weeks === 1 ? '1 week trial' : "$weeks weeks trial";
+        }
+
+        return $this->trial_period_days === 1 ? '1 day trial' : "{$this->trial_period_days} days trial";
+    }
+
+    /**
+     * Get PayPal billing cycles configuration
+     *
+     * @return array
+     */
+    public function getPayPalBillingCycles(): array
+    {
+        $billingCycles = [];
+
+        // Add trial period if enabled
+        if ($this->hasTrial()) {
+            $billingCycles[] = [
+                'frequency' => [
+                    'interval_unit' => 'DAY',
+                    'interval_count' => $this->trial_period_days
+                ],
+                'tenure_type' => 'TRIAL',
+                'sequence' => 1,
+                'total_cycles' => 1,
+                'pricing_scheme' => [
+                    'fixed_price' => [
+                        'value' => '0',
+                        'currency_code' => strtoupper($this->currency)
+                    ]
+                ]
+            ];
+        }
+
+        // Add regular billing cycle
+        $billingCycles[] = [
+            'frequency' => [
+                'interval_unit' => $this->interval_unit ?: 'DAY',
+                'interval_count' => $this->interval_count ?: $this->duration_days
+            ],
+            'tenure_type' => 'REGULAR',
+            'sequence' => $this->hasTrial() ? 2 : 1,
+            'total_cycles' => $this->total_cycles ?: 0, // 0 means infinite cycles
+            'pricing_scheme' => [
+                'fixed_price' => [
+                    'value' => (string) $this->price,
+                    'currency_code' => strtoupper($this->currency)
+                ]
+            ]
+        ];
+
+        return $billingCycles;
     }
 
     /**

@@ -20,7 +20,7 @@ class SubscriptionPlanSeeder extends Seeder
             'name' => '20 Resume Package',
             'description' => 'One-time purchase of 20 resume views with 7-day free trial, no expiration',
             'price' => 200.00,
-            'currency' => 'USD',
+            'currency' => 'CAD',
             'duration_days' => null, // No expiration for one-time purchases
             'job_posts_limit' => 5,
             'featured_jobs_limit' => 1,
@@ -49,7 +49,7 @@ class SubscriptionPlanSeeder extends Seeder
             'name' => 'Unlimited Resume Access',
             'description' => 'Monthly subscription with unlimited resume views, 7-day free trial, and enhanced features',
             'price' => 300.00,
-            'currency' => 'USD',
+            'currency' => 'CAD',
             'duration_days' => 30, // Monthly
             'job_posts_limit' => 15,
             'featured_jobs_limit' => 5,
@@ -80,7 +80,7 @@ class SubscriptionPlanSeeder extends Seeder
 //            'name' => 'Basic CV Package',
 //            'description' => 'Access to basic CV search and candidate profiles',
 //            'price' => 19.99,
-//            'currency' => 'USD',
+//            'currency' => 'CAD',
 //            'duration_days' => 30, // 1 month
 //            'job_posts_limit' => 5,
 //            'featured_jobs_limit' => 1,
@@ -106,7 +106,7 @@ class SubscriptionPlanSeeder extends Seeder
 //            'name' => 'Pro CV Package',
 //            'description' => 'Enhanced access to premium CV search and candidate profiles',
 //            'price' => 49.99,
-//            'currency' => 'USD',
+//            'currency' => 'CAD',
 //            'duration_days' => 30, // 1 month
 //            'job_posts_limit' => 15,
 //            'featured_jobs_limit' => 5,
@@ -134,7 +134,7 @@ class SubscriptionPlanSeeder extends Seeder
 //            'name' => 'Enterprise CV Package',
 //            'description' => 'Unlimited access to all CV search features and candidate profiles',
 //            'price' => 999.99,
-//            'currency' => 'USD',
+//            'currency' => 'CAD',
 //            'duration_days' => 365, // 1 year
 //            'job_posts_limit' => 50,
 //            'featured_jobs_limit' => 20,
