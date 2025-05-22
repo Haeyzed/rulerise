@@ -66,14 +66,17 @@ class RolesController extends Controller implements HasMiddleware
             $sortOrder = $request->input('sort_order', 'asc');
 
             $roles = Role::with('permissions')
+                ->whereNot('name', 'super_admin') // Exclude super_admin
                 ->when($search, function ($query, $search) {
-                    return $query->where('name', 'like', "%{$search}%")
-                        ->orWhere('description', 'like', "%{$search}%");
+                    return $query->where(function ($query) use ($search) {
+                        $query->whereLike('name',"%{$search}%")
+                            ->orWhereLike('description',"%{$search}%");
+                    });
                 })
                 ->orderBy($sortBy, $sortOrder)
                 ->paginate($perPage);
 
-            return response()->paginatedSuccess(RoleResource::collection($roles),'Roles retrieved successfully');
+            return response()->paginatedSuccess(RoleResource::collection($roles), 'Roles retrieved successfully');
         } catch (Exception $e) {
             return response()->serverError($e->getMessage());
         }
