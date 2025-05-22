@@ -131,11 +131,6 @@ class UserManagementController extends Controller implements HasMiddleware
                 $this->aclService->assignRole($user, $data['role']);
             }
 
-            // Assign permissions if provided
-            if (!empty($data['permissions'])) {
-                $this->aclService->assignPermissions($user, $data['permissions']);
-            }
-
             // Send password notification with plaintext password
             $user->notify(new SendPasswordNotification($plainPassword));
 
@@ -201,11 +196,6 @@ class UserManagementController extends Controller implements HasMiddleware
             // Update role if provided
             if (isset($data['role'])) {
                 $this->aclService->assignRole($user, $data['role']);
-            }
-
-            // Update permissions if provided
-            if (isset($data['permissions'])) {
-                $this->aclService->syncPermissions($user, $data['permissions']);
             }
 
             DB::commit();

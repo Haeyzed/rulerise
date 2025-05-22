@@ -26,15 +26,22 @@ class UpdateUserRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'first_name' => 'sometimes|string|max:255',
-            'last_name' => 'sometimes|string|max:255',
+            'first_name' => 'required|string|max:255',
+            'last_name' => 'required|string|max:255',
             'email' => [
-                'sometimes',
-                'string',
+                'required',
                 'email',
-                'max:255',
-                Rule::unique('users', 'email')->ignore($this->id),
+                Rule::unique('users', 'email')->where(function ($query) {
+                    return $query->where('user_type', $this->input('admin'));
+                }),
             ],
+//            'email' => [
+//                'sometimes',
+//                'string',
+//                'email',
+//                'max:255',
+//                Rule::unique('users', 'email')->ignore($this->id),
+//            ],
 //            'password' => ['nullable', Password::defaults()],
             'role' => 'nullable|string|exists:roles,name',
 //            'permissions' => 'nullable|array',

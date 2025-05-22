@@ -29,6 +29,7 @@ class CreateUserRequest extends FormRequest
             'last_name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
             'role' => 'nullable|string|exists:roles,name',
+
 //            'permissions' => 'nullable|array',
 //            'permissions.*' => 'exists:permissions,name',
 //            'is_active' => 'boolean',
