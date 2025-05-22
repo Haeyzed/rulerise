@@ -198,7 +198,7 @@ class FaqService
      */
     public function updateCategory(int $id, array $data): FaqCategory
     {
-        $category = FaqCategory::query()->find($id);
+        $category = FaqCategory::query()->findOrFail($id);
 
         if (!$category) {
             throw new Exception('FAQ category not found');
@@ -210,7 +210,7 @@ class FaqService
 
         $category->update($data);
 
-        return $category->fresh();
+        return $category;
     }
 
     /**

@@ -18,7 +18,7 @@ class FaqCategoryRequest extends BaseRequest
             'name' => [
                 'required',
                 'string',
-                Rule::unique('faq_categories', 'name')->ignore($this->faq_category->name),
+                Rule::unique('faq_categories', 'name')->ignore($this->faq_category->id),
             ],
             'description' => 'nullable|string',
             'order' => 'nullable|integer|min:0',

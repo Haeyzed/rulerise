@@ -117,7 +117,7 @@ class FaqController extends Controller implements HasMiddleware
                 'FAQ category updated successfully'
             );
         } catch (Exception $e) {
-            return response()->error($e->getMessage(), 404);
+            return response()->serverError($e->getMessage());
         }
     }
 
