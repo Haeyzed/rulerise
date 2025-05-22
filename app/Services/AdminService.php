@@ -100,20 +100,26 @@ class AdminService
     }
 
     /**
-     * Create or update a subscription plan.
+     * Create a new subscription plan.
      *
      * @param array $data
-     * @param SubscriptionPlan|null $subscriptionPlan
      * @return SubscriptionPlan
      */
-    public function saveSubscriptionPlan(array $data, ?SubscriptionPlan $subscriptionPlan = null): SubscriptionPlan
+    public function createSubscriptionPlan(array $data): SubscriptionPlan
     {
-        if ($subscriptionPlan) {
-            $subscriptionPlan->update($data);
-        } else {
-            $subscriptionPlan = SubscriptionPlan::create($data);
-        }
+        return SubscriptionPlan::create($data);
+    }
 
+    /**
+     * Update an existing subscription plan.
+     *
+     * @param SubscriptionPlan $subscriptionPlan
+     * @param array $data
+     * @return SubscriptionPlan
+     */
+    public function updateSubscriptionPlan(SubscriptionPlan $subscriptionPlan, array $data): SubscriptionPlan
+    {
+        $subscriptionPlan->update($data);
         return $subscriptionPlan;
     }
 

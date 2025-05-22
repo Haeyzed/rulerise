@@ -66,7 +66,7 @@ class SubscriptionPlansController extends Controller implements HasMiddleware
     {
         $data = $request->validated();
 
-        $plan = $this->adminService->saveSubscriptionPlan($data);
+        $plan = $this->adminService->createSubscriptionPlan($data);
 
         return response()->created($plan, 'Subscription plan created successfully');
     }
@@ -94,7 +94,7 @@ class SubscriptionPlansController extends Controller implements HasMiddleware
     {
         $data = $request->validated();
 
-        $plan = $this->adminService->saveSubscriptionPlan($data, $subscriptionPlan);
+        $plan = $this->adminService->updateSubscriptionPlan($subscriptionPlan, $data);
 
         return response()->success($plan, 'Subscription plan updated successfully');
     }
