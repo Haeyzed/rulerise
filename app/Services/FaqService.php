@@ -181,10 +181,6 @@ class FaqService
      */
     public function createCategory(array $data): FaqCategory
     {
-        if (empty($data['slug']) && !empty($data['name'])) {
-            $data['slug'] = Str::slug($data['name']);
-        }
-
         return FaqCategory::query()->create($data);
     }
 
@@ -202,10 +198,6 @@ class FaqService
 
         if (!$category) {
             throw new Exception('FAQ category not found');
-        }
-
-        if (empty($data['slug']) && !empty($data['name']) && $data['name'] !== $category->name) {
-            $data['slug'] = Str::slug($data['name']);
         }
 
         $category->update($data);

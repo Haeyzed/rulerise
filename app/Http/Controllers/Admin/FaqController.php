@@ -78,7 +78,7 @@ class FaqController extends Controller implements HasMiddleware
                 'FAQ category retrieved successfully'
             );
         } catch (Exception $e) {
-            return response()->error($e->getMessage(), 404);
+            return response()->serverError($e->getMessage());
         }
     }
 
@@ -90,8 +90,7 @@ class FaqController extends Controller implements HasMiddleware
      */
     public function createCategory(FaqCategoryRequest $request): JsonResponse
     {
-        $data = $request->validated();
-        $category = $this->faqService->createCategory($data);
+        $category = $this->faqService->createCategory($request->validated());
 
         return response()->created(
             new FaqCategoryResource($category),
@@ -134,7 +133,7 @@ class FaqController extends Controller implements HasMiddleware
 
             return response()->success(null, 'FAQ category deleted successfully');
         } catch (Exception $e) {
-            return response()->error($e->getMessage(), 404);
+            return response()->serverError($e->getMessage());
         }
     }
 
@@ -173,7 +172,7 @@ class FaqController extends Controller implements HasMiddleware
                 'FAQ retrieved successfully'
             );
         } catch (Exception $e) {
-            return response()->error($e->getMessage(), 404);
+            return response()->serverError($e->getMessage());
         }
     }
 
@@ -212,7 +211,7 @@ class FaqController extends Controller implements HasMiddleware
                 'FAQ updated successfully'
             );
         } catch (Exception $e) {
-            return response()->error($e->getMessage(), 404);
+            return response()->serverError($e->getMessage());
         }
     }
 
@@ -229,7 +228,7 @@ class FaqController extends Controller implements HasMiddleware
 
             return response()->success(null, 'FAQ deleted successfully');
         } catch (Exception $e) {
-            return response()->error($e->getMessage(), 404);
+            return response()->serverError($e->getMessage());
         }
     }
 

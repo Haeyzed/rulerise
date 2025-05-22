@@ -35,7 +35,6 @@ class FaqCategory extends Model
      */
     protected $fillable = [
         'name',
-        'slug',
         'description',
         'order',
         'is_active',
@@ -50,28 +49,6 @@ class FaqCategory extends Model
         'is_active' => 'boolean',
         'order' => 'integer',
     ];
-
-    /**
-     * Boot the model.
-     *
-     * @return void
-     */
-    protected static function boot()
-    {
-        parent::boot();
-
-        static::creating(function ($category) {
-            if (empty($category->slug)) {
-                $category->slug = Str::slug($category->name);
-            }
-        });
-
-        static::updating(function ($category) {
-            if ($category->isDirty('name') && empty($category->slug)) {
-                $category->slug = Str::slug($category->name);
-            }
-        });
-    }
 
     /**
      * Get the FAQs for the category.
