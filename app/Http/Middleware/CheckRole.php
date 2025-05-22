@@ -32,17 +32,29 @@ class CheckRole
 
         $user = Auth::user();
 
-        // If no specific roles are required, just proceed
         if (empty($roles)) {
             return $next($request);
         }
 
-        // Check if user has any of the required roles
-        foreach ($roles as $role) {
-            if ($user->hasRole($role)) {
-                return $next($request);
-            }
+        // If no specific roles are required, just proceed
+//        if (empty($roles)) {
+//            return $next($request);
+//        }
+
+        // Normalize all types to lowercase for consistent comparison
+        $allowedTypes = array_map('strtolower', $roles);
+
+        // If user_type matches any of the allowed types, continue
+        if (in_array(strtolower($user->user_type), $allowedTypes, true)) {
+            return $next($request);
         }
+
+        // Check if user has any of the required roles
+//        foreach ($roles as $role) {
+//            if ($user->hasRole($role)) {
+//                return $next($request);
+//            }
+//        }
 
         return response()->forbidden('Access denied. You do not have the required permissions.');
     }
