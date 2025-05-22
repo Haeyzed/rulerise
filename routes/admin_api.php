@@ -112,12 +112,8 @@ Route::middleware(['auth:api', 'role:admin'])->group(function () {
     });
 
     // User management - Roles
+    Route::apiResource('roles', RolesController::class)->parameters(['roles' => 'id']);
     Route::prefix('roles')->group(function () {
-        Route::get('/', [RolesController::class, 'index']);
-        Route::post('/', [RolesController::class, 'store']);
-        Route::get('{id}', [RolesController::class, 'show']);
-        Route::put('{id}', [RolesController::class, 'update']);
-        Route::delete('{id}', [RolesController::class, 'destroy']);
         Route::get('/all-permissions', [RolesController::class, 'getAllPermissions']);
         Route::post('/assign-to-user', [RolesController::class, 'assignRoleToUser']);
         Route::post('/assign-permissions-to-user', [RolesController::class, 'assignPermissionsToUser']);
