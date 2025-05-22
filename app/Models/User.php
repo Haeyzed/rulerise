@@ -73,6 +73,7 @@ class User extends Authenticatable implements JWTSubject, MustVerifyEmail
         'employer_id',
         'is_active',
         'is_shadow_banned',
+        'email_verified_at '
     ];
 
     /**

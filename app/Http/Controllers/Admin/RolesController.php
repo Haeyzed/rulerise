@@ -66,7 +66,7 @@ class RolesController extends Controller implements HasMiddleware
             $sortOrder = $request->input('sort_order', 'asc');
 
             $roles = Role::with('permissions')
-                ->whereNot('name', 'super_admin') // Exclude super_admin
+//                ->whereNot('name', 'super_admin') // Exclude super_admin
                 ->when($search, function ($query, $search) {
                     return $query->where(function ($query) use ($search) {
                         $query->whereLike('name',"%{$search}%")
