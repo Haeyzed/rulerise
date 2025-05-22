@@ -41,11 +41,11 @@ enum UserTypeEnum: string
         };
     }
 
-    /**
-     * Get all enum values with their labels.
-     *
-     * @return array
-     */
+//    /**
+//     * Get all enum values with their labels.
+//     *
+//     * @return array
+//     */
 //    public static function options(): array
 //    {
 //        return array_reduce(self::cases(), function ($carry, $enum) {

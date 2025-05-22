@@ -45,7 +45,7 @@ class CheckRole
         $allowedTypes = array_map('strtolower', $roles);
 
         // If user_type matches any of the allowed types, continue
-        if (in_array(strtolower($user->user_type), $allowedTypes, true)) {
+        if (in_array(strtolower($user->user_type->value), $allowedTypes, true)) {
             return $next($request);
         }
 
