@@ -10,68 +10,42 @@ class RoleSeeder extends Seeder
 {
     /**
      * Run the database seeds.
-     *
-     * @return void
      */
     public function run(): void
     {
+        // Clear existing permissions and roles
+        Role::query()->delete();
+
         // Create roles
-        $adminRole = Role::create([
+        $superAdmin = Role::create([
+            'name' => 'super_admin',
+            'description' => 'Super Administrator with all permissions',
+            'guard_name' => 'api',
+        ]);
+
+        $admin = Role::create([
             'name' => 'admin',
             'description' => 'Administrator with full access',
-            'guard_name' => 'api'
+            'guard_name' => 'api',
         ]);
 
-        $candidateRole = Role::create([
-            'name' => 'candidate',
-            'description' => 'Job seeker',
-            'guard_name' => 'api'
+        $manager = Role::create([
+            'name' => 'manager',
+            'description' => 'Manager with limited access',
+            'guard_name' => 'api',
         ]);
 
-        $employerRole = Role::create([
-            'name' => 'employer',
-            'description' => 'Employer who can post jobs',
-            'guard_name' => 'api'
+        $recruiter = Role::create([
+            'name' => 'recruiter',
+            'description' => 'Recruiter for hiring operations',
+            'guard_name' => 'api',
         ]);
 
-        $moderatorRole = Role::create([
-            'name' => 'moderator',
-            'description' => 'Content moderator',
-            'guard_name' => 'api'
-        ]);
+        // Assign all permissions to super admin and admin
+        $allPermissions = Permission::all();
+        $superAdmin->syncPermissions($allPermissions);
+        $admin->syncPermissions($allPermissions);
 
-        $employerStaffRole = Role::create([
-            'name' => 'employer_staff',
-            'description' => 'Employer staff',
-            'guard_name' => 'api'
-        ]);
-
-        // Get all employer permissions
-        $employerRole = Role::query()->where('name', 'employer')->first();
-        if ($employerRole) {
-            $permissions = $employerRole->permissions;
-
-            // Assign the same permissions to employer_staff
-            $employerStaffRole->syncPermissions($permissions);
-        }
-
-        // Assign permissions to roles
-
-        // Admin gets all permissions
-        $adminRole->givePermissionTo(Permission::all());
-
-        // Moderator permissions
-        $moderatorRole->givePermissionTo([
-            'view_candidates',
-            'moderate_candidates',
-            'view_employers',
-            'moderate_employers',
-            'view_jobs',
-            'moderate_jobs',
-            'view_job_categories',
-        ]);
-
-        // Candidate and Employer roles don't need explicit permissions
-        // as they will be handled by middleware and policies
+        // Manager and recruiter can have customized permissions assigned later
     }
 }
