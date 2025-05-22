@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\UserTypeEnum;
 use App\Notifications\ResetPasswordNotification;
 use App\Notifications\VerifyEmailNotification;
 use App\Services\Storage\StorageService;
@@ -98,6 +99,7 @@ class User extends Authenticatable implements JWTSubject, MustVerifyEmail
             'password' => 'hashed',
             'is_active' => 'boolean',
             'is_shadow_banned' => 'boolean',
+            'user_type' => UserTypeEnum::class
         ];
     }
 
