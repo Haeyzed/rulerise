@@ -75,7 +75,7 @@ class RolesController extends Controller implements HasMiddleware
 
             return response()->paginatedSuccess(RoleResource::collection($roles),'Roles retrieved successfully');
         } catch (Exception $e) {
-            return response()->internalServerError($e->getMessage());
+            return response()->serverError($e->getMessage());
         }
     }
 
@@ -92,7 +92,7 @@ class RolesController extends Controller implements HasMiddleware
 
             return response()->success(new RoleResource($role), 'Role retrieved successfully');
         } catch (Exception $e) {
-            return response()->internalServerError($e->getMessage());
+            return response()->serverError($e->getMessage());
         }
     }
 
@@ -119,7 +119,7 @@ class RolesController extends Controller implements HasMiddleware
             return response()->created(new RoleResource($role->load('permissions')), 'Role created successfully');
         } catch (Exception $e) {
             DB::rollBack();
-            return response()->internalServerError($e->getMessage());
+            return response()->serverError($e->getMessage());
         }
     }
 
@@ -153,7 +153,7 @@ class RolesController extends Controller implements HasMiddleware
             return response()->success(new RoleResource($role->load('permissions')), 'Role updated successfully');
         } catch (Exception $e) {
             DB::rollBack();
-            return response()->internalServerError($e->getMessage());
+            return response()->serverError($e->getMessage());
         }
     }
 
@@ -183,7 +183,7 @@ class RolesController extends Controller implements HasMiddleware
             return response()->success(null, 'Role deleted successfully');
         } catch (Exception $e) {
             DB::rollBack();
-            return response()->internalServerError($e->getMessage());
+            return response()->serverError($e->getMessage());
         }
     }
 
@@ -199,7 +199,7 @@ class RolesController extends Controller implements HasMiddleware
 
             return response()->success($permissions, 'Permissions retrieved successfully');
         } catch (Exception $e) {
-            return response()->internalServerError($e->getMessage());
+            return response()->serverError($e->getMessage());
         }
     }
 
@@ -224,7 +224,7 @@ class RolesController extends Controller implements HasMiddleware
 
             return response()->success($user->load('roles'), 'Role assigned successfully');
         } catch (Exception $e) {
-            return response()->internalServerError($e->getMessage());
+            return response()->serverError($e->getMessage());
         }
     }
 
@@ -250,7 +250,7 @@ class RolesController extends Controller implements HasMiddleware
 
             return response()->success($user->load('permissions'), 'Permissions assigned successfully');
         } catch (Exception $e) {
-            return response()->internalServerError($e->getMessage());
+            return response()->serverError($e->getMessage());
         }
     }
 }

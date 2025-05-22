@@ -71,7 +71,7 @@ class PermissionsController extends Controller implements HasMiddleware
 
             return response()->paginatedSuccess($permissions, 'Permissions retrieved successfully');
         } catch (Exception $e) {
-            return response()->internalServerError($e->getMessage());
+            return response()->serverError($e->getMessage());
         }
     }
 
@@ -91,7 +91,7 @@ class PermissionsController extends Controller implements HasMiddleware
 
             return response()->created($permission, 'Permission created successfully');
         } catch (Exception $e) {
-            return response()->internalServerError($e->getMessage());
+            return response()->serverError($e->getMessage());
         }
     }
 
@@ -108,7 +108,7 @@ class PermissionsController extends Controller implements HasMiddleware
 
             return response()->success($permission, 'Permission retrieved successfully');
         } catch (Exception $e) {
-            return response()->internalServerError($e->getMessage());
+            return response()->serverError($e->getMessage());
         }
     }
 
@@ -123,7 +123,7 @@ class PermissionsController extends Controller implements HasMiddleware
     {
         try {
             $permission = Permission::findOrFail($id);
-            
+
             $permission->update([
                 'name' => $request->name,
                 'description' => $request->description ?? null
@@ -131,7 +131,7 @@ class PermissionsController extends Controller implements HasMiddleware
 
             return response()->success($permission, 'Permission updated successfully');
         } catch (Exception $e) {
-            return response()->internalServerError($e->getMessage());
+            return response()->serverError($e->getMessage());
         }
     }
 
@@ -145,17 +145,17 @@ class PermissionsController extends Controller implements HasMiddleware
     {
         try {
             $permission = Permission::findOrFail($id);
-            
+
             // Check if the permission is assigned to any roles
             if ($permission->roles()->count() > 0) {
                 return response()->badRequest('Permission cannot be deleted as it is assigned to one or more roles');
             }
-            
+
             $permission->delete();
 
             return response()->success(null, 'Permission deleted successfully');
         } catch (Exception $e) {
-            return response()->internalServerError($e->getMessage());
+            return response()->serverError($e->getMessage());
         }
     }
 }
