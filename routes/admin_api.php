@@ -123,7 +123,7 @@ Route::middleware(['auth:api', 'role:admin'])->group(function () {
     Route::apiResource('permissions', PermissionsController::class)->parameters(['permissions' => 'id']);
 
     // User management - Users
-    Route::apiResource('users', PermissionsController::class)->parameters(['users' => 'id']);
+    Route::apiResource('users', UserManagementController::class)->parameters(['users' => 'id']);
     Route::prefix('users')->group(function () {
         Route::patch('{id}/status', [UserManagementController::class, 'updateStatus']);
         Route::get('/roles', [UserManagementController::class, 'getRoles']);
