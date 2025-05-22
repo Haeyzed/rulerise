@@ -190,7 +190,7 @@ Route::middleware(['auth:api', 'role:admin'])->group(function () {
         Route::delete('/ad-banner/{adBannerId}/image/{imageId}', [WebsiteController::class, 'deleteAdBannerImage']);
     });
 
-    Route::prefix('admin/faqs')->group(function () {
+    Route::prefix('faqs')->group(function () {
         // FAQ Categories
         Route::get('/categories', [FaqController::class, 'getAllCategories']);
         Route::get('/categories/{id}', [FaqController::class, 'getCategory']);
