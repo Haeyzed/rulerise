@@ -23,7 +23,7 @@ class RoleRequest extends BaseRequest
      */
     public function rules(): array
     {
-        $roleId = $this->route('role'); // or $this->role if you have route model binding
+        $roleId = $this->role->id; // or $this->role if you have route model binding
 
         return [
             'name' => [
