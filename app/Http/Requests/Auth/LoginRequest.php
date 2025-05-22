@@ -22,7 +22,7 @@ class LoginRequest extends BaseRequest
             'email' => 'required|string|email',
             'password' => 'required|string',
             'remember_me' => 'boolean',
-            'user_type' => 'nullable|string|in:candidate,employer,admin',
+            'user_type' => 'nullable|string|in:candidate,employer,admin,employer_staff',
         ];
     }
 

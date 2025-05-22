@@ -245,7 +245,7 @@ class AuthService
 
         // Add user_type to credentials if provided
         if ($userType) {
-            $credentials['user_type']->value = $userType;
+            $credentials['user_type'] = $userType;
         }
 
         // Set token expiration to 7 days (10080 minutes)
