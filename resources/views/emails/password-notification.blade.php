@@ -3,7 +3,7 @@
 
 Hello {{ $user->first_name }},
 
-You have been added as a staff member to **{{ $employer->company_name }}** on {{ config('app.name') }}.
+You have been added as an admin member on {{ config('app.name') }}.
 
 Here are your login credentials:
 

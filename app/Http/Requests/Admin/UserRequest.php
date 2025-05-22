@@ -21,7 +21,7 @@ class UserRequest extends BaseRequest
         $rules = [
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users,email',
-            'password' => 'required|string|min:8|confirmed',
+//            'password' => 'required|string|min:8|confirmed',
             'roles' => 'required|array',
             'roles.*' => 'exists:roles,id',
             'is_active' => 'boolean',

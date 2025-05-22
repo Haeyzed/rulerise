@@ -57,7 +57,7 @@ class NewUserCredentials extends Notification// implements ShouldQueue
      */
     public function toMail(object $notifiable): MailMessage
     {
-        $loginUrl = config('app.url') . '/login';
+        $loginUrl = config('app.frontend_url') . '/employer/login';
 
         return (new MailMessage)
             ->subject('Your Staff Account Credentials')

@@ -7,6 +7,7 @@ use App\Http\Requests\Admin\CreateUserRequest;
 use App\Http\Requests\Admin\UpdateUserRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
+use App\Notifications\SendPasswordNotification;
 use App\Services\ACLService;
 use App\Services\AdminService;
 use Exception;
@@ -95,7 +96,7 @@ class UserManagementController extends Controller implements HasMiddleware
                 ->paginate($perPage);
             return response()->paginatedSuccess(UserResource::collection($users), 'Users retrieved successfully');
         } catch (Exception $e) {
-            return response()->internalServerError($e->getMessage());
+            return response()->serverError($e->getMessage());
         }
     }
 
@@ -112,12 +113,15 @@ class UserManagementController extends Controller implements HasMiddleware
 
             $data = $request->validated();
 
-            // Create user
+            // Capture the plain password before hashing
+            $plainPassword = $data['password'];
+
+            // Create user with hashed password
             $user = User::create([
                 'first_name' => $data['first_name'],
                 'last_name' => $data['last_name'],
                 'email' => $data['email'],
-                'password' => Hash::make($data['password']),
+                'password' => Hash::make($plainPassword),
                 'user_type' => $data['user_type'] ?? 'admin',
                 'is_active' => $data['is_active'] ?? true,
             ]);
@@ -132,6 +136,9 @@ class UserManagementController extends Controller implements HasMiddleware
                 $this->aclService->assignPermissions($user, $data['permissions']);
             }
 
+            // Send password notification with plaintext password
+            $user->notify(new SendPasswordNotification($plainPassword));
+
             DB::commit();
 
             return response()->created(
@@ -140,7 +147,7 @@ class UserManagementController extends Controller implements HasMiddleware
             );
         } catch (Exception $e) {
             DB::rollBack();
-            return response()->internalServerError($e->getMessage());
+            return response()->serverError($e->getMessage());
         }
     }
 
@@ -157,7 +164,7 @@ class UserManagementController extends Controller implements HasMiddleware
 
             return response()->success($user, 'User retrieved successfully');
         } catch (Exception $e) {
-            return response()->internalServerError($e->getMessage());
+            return response()->serverError($e->getMessage());
         }
     }
 
@@ -185,9 +192,9 @@ class UserManagementController extends Controller implements HasMiddleware
             ]);
 
             // Update password if provided
-            if (!empty($data['password'])) {
-                $user->password = Hash::make($data['password']);
-            }
+//            if (!empty($data['password'])) {
+//                $user->password = Hash::make($data['password']);
+//            }
 
             $user->save();
 
@@ -209,7 +216,7 @@ class UserManagementController extends Controller implements HasMiddleware
             );
         } catch (Exception $e) {
             DB::rollBack();
-            return response()->internalServerError($e->getMessage());
+            return response()->serverError($e->getMessage());
         }
     }
 
@@ -233,7 +240,7 @@ class UserManagementController extends Controller implements HasMiddleware
 
             return response()->success(null, 'User deleted successfully');
         } catch (Exception $e) {
-            return response()->internalServerError($e->getMessage());
+            return response()->serverError($e->getMessage());
         }
     }
 
@@ -264,7 +271,7 @@ class UserManagementController extends Controller implements HasMiddleware
             $status = $request->is_active ? 'activated' : 'deactivated';
             return response()->success($user, "User {$status} successfully");
         } catch (Exception $e) {
-            return response()->internalServerError($e->getMessage());
+            return response()->serverError($e->getMessage());
         }
     }
 
@@ -279,7 +286,7 @@ class UserManagementController extends Controller implements HasMiddleware
             $roles = $this->aclService->getAllRoles();
             return response()->success($roles, 'Roles retrieved successfully');
         } catch (Exception $e) {
-            return response()->internalServerError($e->getMessage());
+            return response()->serverError($e->getMessage());
         }
     }
 
@@ -294,7 +301,7 @@ class UserManagementController extends Controller implements HasMiddleware
             $permissions = $this->aclService->getAllPermissions();
             return response()->success($permissions, 'Permissions retrieved successfully');
         } catch (Exception $e) {
-            return response()->internalServerError($e->getMessage());
+            return response()->serverError($e->getMessage());
         }
     }
 }
