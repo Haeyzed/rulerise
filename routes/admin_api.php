@@ -120,21 +120,11 @@ Route::middleware(['auth:api', 'role:admin'])->group(function () {
     });
 
     // User management - Permissions
-    Route::prefix('permissions')->group(function () {
-        Route::get('/', [PermissionsController::class, 'index']);
-        Route::post('/', [PermissionsController::class, 'store']);
-        Route::get('{id}', [PermissionsController::class, 'show']);
-        Route::put('{id}', [PermissionsController::class, 'update']);
-        Route::delete('{id}', [PermissionsController::class, 'destroy']);
-    });
+    Route::apiResource('permissions', PermissionsController::class)->parameters(['permissions' => 'id']);
 
     // User management - Users
+    Route::apiResource('users', PermissionsController::class)->parameters(['users' => 'id']);
     Route::prefix('users')->group(function () {
-        Route::get('/', [UserManagementController::class, 'index']);
-        Route::post('/', [UserManagementController::class, 'store']);
-        Route::get('{id}', [UserManagementController::class, 'show']);
-        Route::put('{id}', [UserManagementController::class, 'update']);
-        Route::delete('{id}', [UserManagementController::class, 'destroy']);
         Route::patch('{id}/status', [UserManagementController::class, 'updateStatus']);
         Route::get('/roles', [UserManagementController::class, 'getRoles']);
         Route::get('/permissions', [UserManagementController::class, 'getPermissions']);
