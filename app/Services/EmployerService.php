@@ -224,7 +224,7 @@ class EmployerService
         $query = JobApplication::whereHas('job', function (Builder $query) use ($employerId) {
             $query->where('employer_id', $employerId);
         })
-            ->where('status', 'hired')
+            ->where('status', 'offer_sent')
             ->with(['candidate.user', 'job']);
 
         // Apply search filter
