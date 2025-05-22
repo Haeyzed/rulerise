@@ -115,12 +115,14 @@ class AdminService
      *
      * @param SubscriptionPlan $subscriptionPlan
      * @param array $data
-     * @return bool
+     * @return SubscriptionPlan
      */
-    public function updateSubscriptionPlan(SubscriptionPlan $subscriptionPlan, array $data): bool
+    public function updateSubscriptionPlan(SubscriptionPlan $subscriptionPlan, array $data): SubscriptionPlan
     {
-        return $subscriptionPlan->update($data);
+        $subscriptionPlan->update($data);
+        return $subscriptionPlan;
     }
+
 
     /**
      * Set subscription plan active status

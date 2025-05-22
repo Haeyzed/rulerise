@@ -76,7 +76,7 @@ Route::middleware(['auth:api', 'role:admin'])->group(function () {
     });
 
     // Subscription plans
-    Route::apiResource('plan', SubscriptionPlansController::class);
+    Route::apiResource('plan', SubscriptionPlansController::class)->parameters(['plan' => 'id']);
     Route::prefix('plan')->group(function () {
         Route::post('{id}/set-active', [SubscriptionPlansController::class, 'setActive']);
     });
