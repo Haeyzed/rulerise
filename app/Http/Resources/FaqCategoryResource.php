@@ -18,7 +18,6 @@ class FaqCategoryResource extends JsonResource
         return [
             'id' => $this->id,
             'name' => $this->name,
-            'slug' => $this->slug,
             'description' => $this->description,
             'order' => $this->order,
             'is_active' => $this->is_active,
