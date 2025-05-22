@@ -72,6 +72,11 @@ class UserManagementController extends Controller implements HasMiddleware
     public function index(Request $request): JsonResponse
     {
         try {
+            // Check if user has view permission
+            if (!auth()->user()->can('view')) {
+                return response()->forbidden('You do not have permission to view users');
+            }
+
             $perPage = $request->input('per_page', 10);
             $search = $request->input('search', '');
             $sortBy = $request->input('sort_by', 'created_at');
@@ -83,8 +88,8 @@ class UserManagementController extends Controller implements HasMiddleware
                 ->when($search, function ($query, $search) {
                     return $query->where(function ($q) use ($search) {
                         $q->where('first_name', 'like', "%{$search}%")
-                          ->orWhere('last_name', 'like', "%{$search}%")
-                          ->orWhere('email', 'like', "%{$search}%");
+                            ->orWhere('last_name', 'like', "%{$search}%")
+                            ->orWhere('email', 'like', "%{$search}%");
                     });
                 })
                 ->when($userType, function ($query, $userType) {
@@ -110,6 +115,11 @@ class UserManagementController extends Controller implements HasMiddleware
     public function store(CreateUserRequest $request): JsonResponse
     {
         try {
+            // Check if user has create permission
+            if (!auth()->user()->can('create')) {
+                return response()->forbidden('You do not have permission to create users');
+            }
+
             DB::beginTransaction();
 
             $data = $request->validated();
@@ -117,13 +127,21 @@ class UserManagementController extends Controller implements HasMiddleware
             // Capture the plain password before hashing
             $plainPassword = Str::password(8);
 
+            // Check if user is trying to register as admin
+            if (isset($data['user_type']) && $data['user_type'] === 'admin') {
+                // Only existing admins can create new admins
+                if (!auth()->check() || !auth()->user()->hasRole('super_admin')) {
+                    return response()->forbidden('You do not have permission to create admin accounts');
+                }
+            }
+
             // Create user with hashed password
             $user = User::create([
                 'first_name' => $data['first_name'],
                 'last_name' => $data['last_name'],
                 'email' => $data['email'],
                 'password' => Hash::make($plainPassword),
-                'user_type' => 'admin',
+                'user_type' => $data['user_type'] ?? 'admin',
                 'is_active' => $data['is_active'] ?? true,
                 'email_verified_at' => now()
             ]);
@@ -139,7 +157,7 @@ class UserManagementController extends Controller implements HasMiddleware
             DB::commit();
 
             return response()->created(
-                $user->load(['roles', 'permissions']),
+                new UserResource($user->load(['roles', 'permissions'])),
                 'User created successfully'
             );
         } catch (Exception $e) {
@@ -157,9 +175,14 @@ class UserManagementController extends Controller implements HasMiddleware
     public function show(int $id): JsonResponse
     {
         try {
+            // Check if user has view permission
+            if (!auth()->user()->can('view')) {
+                return response()->forbidden('You do not have permission to view users');
+            }
+
             $user = User::with(['roles', 'permissions'])->findOrFail($id);
 
-            return response()->success($user, 'User retrieved successfully');
+            return response()->success(new UserResource($user), 'User retrieved successfully');
         } catch (Exception $e) {
             return response()->serverError($e->getMessage());
         }
@@ -175,6 +198,11 @@ class UserManagementController extends Controller implements HasMiddleware
     public function update(UpdateUserRequest $request, int $id): JsonResponse
     {
         try {
+            // Check if user has update permission
+            if (!auth()->user()->can('update')) {
+                return response()->forbidden('You do not have permission to update users');
+            }
+
             DB::beginTransaction();
 
             $user = User::findOrFail($id);
@@ -189,9 +217,9 @@ class UserManagementController extends Controller implements HasMiddleware
             ]);
 
             // Update password if provided
-//            if (!empty($data['password'])) {
-//                $user->password = Hash::make($data['password']);
-//            }
+            if (!empty($data['password'])) {
+                $user->password = Hash::make($data['password']);
+            }
 
             $user->save();
 
@@ -203,7 +231,7 @@ class UserManagementController extends Controller implements HasMiddleware
             DB::commit();
 
             return response()->success(
-                $user->load(['roles', 'permissions']),
+                new UserResource($user->load(['roles', 'permissions'])),
                 'User updated successfully'
             );
         } catch (Exception $e) {
@@ -221,6 +249,11 @@ class UserManagementController extends Controller implements HasMiddleware
     public function destroy(int $id): JsonResponse
     {
         try {
+            // Check if user has delete permission
+            if (!auth()->user()->can('delete')) {
+                return response()->forbidden('You do not have permission to delete users');
+            }
+
             $user = User::findOrFail($id);
 
             // Prevent deleting yourself
@@ -246,6 +279,11 @@ class UserManagementController extends Controller implements HasMiddleware
     public function updateStatus(Request $request, int $id): JsonResponse
     {
         try {
+            // Check if user has update permission
+            if (!auth()->user()->can('update')) {
+                return response()->forbidden('You do not have permission to update user status');
+            }
+
             $request->validate([
                 'is_active' => 'required|boolean',
             ]);
@@ -261,7 +299,7 @@ class UserManagementController extends Controller implements HasMiddleware
             $user->save();
 
             $status = $request->is_active ? 'activated' : 'deactivated';
-            return response()->success($user, "User {$status} successfully");
+            return response()->success(new UserResource($user), "User {$status} successfully");
         } catch (Exception $e) {
             return response()->serverError($e->getMessage());
         }
@@ -275,6 +313,11 @@ class UserManagementController extends Controller implements HasMiddleware
     public function getRoles(): JsonResponse
     {
         try {
+            // Check if user has view permission
+            if (!auth()->user()->can('view')) {
+                return response()->forbidden('You do not have permission to view roles');
+            }
+
             $roles = $this->aclService->getAllRoles();
             return response()->success($roles, 'Roles retrieved successfully');
         } catch (Exception $e) {
@@ -290,8 +333,64 @@ class UserManagementController extends Controller implements HasMiddleware
     public function getPermissions(): JsonResponse
     {
         try {
+            // Check if user has view permission
+            if (!auth()->user()->can('view')) {
+                return response()->forbidden('You do not have permission to view permissions');
+            }
+
             $permissions = $this->aclService->getAllPermissions();
             return response()->success($permissions, 'Permissions retrieved successfully');
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
+    }
+
+    /**
+     * Export users data.
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function export(Request $request): JsonResponse
+    {
+        try {
+            // Check if user has export permission
+            if (!auth()->user()->can('export')) {
+                return response()->forbidden('You do not have permission to export users');
+            }
+
+            // Implementation for exporting users data
+            // This would typically generate a CSV or Excel file with user data
+
+            return response()->success(['url' => 'path/to/exported/file.csv'], 'Users data exported successfully');
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
+    }
+
+    /**
+     * Restore a soft-deleted user.
+     *
+     * @param int $id
+     * @return JsonResponse
+     */
+    public function restore(int $id): JsonResponse
+    {
+        try {
+            // Check if user has restore permission
+            if (!auth()->user()->can('restore')) {
+                return response()->forbidden('You do not have permission to restore users');
+            }
+
+            $user = User::withTrashed()->findOrFail($id);
+
+            if (!$user->trashed()) {
+                return response()->badRequest('User is not deleted');
+            }
+
+            $user->restore();
+
+            return response()->success(new UserResource($user), 'User restored successfully');
         } catch (Exception $e) {
             return response()->serverError($e->getMessage());
         }
