@@ -28,12 +28,10 @@ class CreateUserRequest extends FormRequest
             'first_name' => 'required|string|max:255',
             'last_name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
-            'password' => ['required', Password::defaults()],
-            'user_type' => 'required|string|in:admin,employer,candidate,employer_staff',
             'role' => 'nullable|string|exists:roles,name',
-            'permissions' => 'nullable|array',
-            'permissions.*' => 'exists:permissions,name',
-            'is_active' => 'boolean',
+//            'permissions' => 'nullable|array',
+//            'permissions.*' => 'exists:permissions,name',
+//            'is_active' => 'boolean',
         ];
     }
 }

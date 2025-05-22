@@ -33,13 +33,13 @@ class UpdateUserRequest extends FormRequest
                 'string',
                 'email',
                 'max:255',
-                Rule::unique('users')->ignore($this->route('id')),
+                Rule::unique('users', 'email')->ignore($this->id),
             ],
-            'password' => ['nullable', Password::defaults()],
+//            'password' => ['nullable', Password::defaults()],
             'role' => 'nullable|string|exists:roles,name',
-            'permissions' => 'nullable|array',
-            'permissions.*' => 'exists:permissions,name',
-            'is_active' => 'boolean',
+//            'permissions' => 'nullable|array',
+//            'permissions.*' => 'exists:permissions,name',
+//            'is_active' => 'boolean',
         ];
     }
 }

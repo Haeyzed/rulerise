@@ -122,7 +122,7 @@ class UserManagementController extends Controller implements HasMiddleware
                 'last_name' => $data['last_name'],
                 'email' => $data['email'],
                 'password' => Hash::make($plainPassword),
-                'user_type' => $data['user_type'] ?? 'admin',
+                'user_type' => 'admin',
                 'is_active' => $data['is_active'] ?? true,
             ]);
 

@@ -47,13 +47,13 @@ class ACLService
     {
         // Remove all existing roles first
         $user->roles()->detach();
-        
+
         // Assign the new role
         $user->assignRole($roleName);
-        
+
         // Clear user permissions cache
         $this->clearUserPermissionsCache($user);
-        
+
         return $user;
     }
 
@@ -67,10 +67,10 @@ class ACLService
     public function assignPermissions(User $user, array $permissionNames): User
     {
         $user->givePermissionTo($permissionNames);
-        
+
         // Clear user permissions cache
         $this->clearUserPermissionsCache($user);
-        
+
         return $user;
     }
 
@@ -84,10 +84,10 @@ class ACLService
     public function removePermissions(User $user, array $permissionNames): User
     {
         $user->revokePermissionTo($permissionNames);
-        
+
         // Clear user permissions cache
         $this->clearUserPermissionsCache($user);
-        
+
         return $user;
     }
 
@@ -101,10 +101,10 @@ class ACLService
     public function syncPermissions(User $user, array $permissionNames): User
     {
         $user->syncPermissions($permissionNames);
-        
+
         // Clear user permissions cache
         $this->clearUserPermissionsCache($user);
-        
+
         return $user;
     }
 
@@ -119,10 +119,10 @@ class ACLService
     {
         $role = Role::findByName($roleName, 'api');
         $role->syncPermissions($permissionNames);
-        
+
         // Clear role permissions cache
         $this->clearRolePermissionsCache($role);
-        
+
         return $role;
     }
 
@@ -164,13 +164,21 @@ class ACLService
             'description' => $description,
             'guard_name' => 'api'
         ]);
-        
+
         // Clear permissions cache
         Cache::forget('all_permissions');
-        
+
         return $permission;
     }
 
+    /**
+     * Create a new role
+     *
+     * @param string $name
+     * @param string|null $description
+     * @param array $permissions
+     * @return Role
+     */
     /**
      * Create a new role
      *
@@ -184,18 +192,53 @@ class ACLService
         $role = Role::create([
             'name' => $name,
             'description' => $description,
-            'guard_name' => 'api'
+            'guard_name' => 'api',
         ]);
-        
+
+        // Assign permissions
         if (!empty($permissions)) {
             $role->syncPermissions($permissions);
+            $this->clearRolePermissionsCache($role);
         }
-        
-        // Clear roles cache
+
+        // Clear cached roles
         Cache::forget('all_roles');
-        
+
         return $role;
     }
+
+    /**
+     * Update an existing role's name, description, and permissions
+     *
+     * @param Role $role
+     * @param string|null $name
+     * @param string|null $description
+     * @param array|null $permissions
+     * @return Role
+     */
+    public function updateRole(Role $role, ?string $name = null, ?string $description = null, ?array $permissions = null): Role
+    {
+        if ($name !== null) {
+            $role->name = $name;
+        }
+
+        if ($description !== null) {
+            $role->description = $description;
+        }
+
+        $role->save();
+
+        if (is_array($permissions)) {
+            $role->syncPermissions($permissions);
+            $this->clearRolePermissionsCache($role);
+        }
+
+        // Clear cached roles
+        Cache::forget('all_roles');
+
+        return $role;
+    }
+
 
     /**
      * Clear user permissions cache
