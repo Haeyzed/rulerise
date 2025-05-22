@@ -17,6 +17,7 @@ use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 /**
  * Controller for managing users.
@@ -114,7 +115,7 @@ class UserManagementController extends Controller implements HasMiddleware
             $data = $request->validated();
 
             // Capture the plain password before hashing
-            $plainPassword = $data['password'];
+            $plainPassword = Str::password(8);
 
             // Create user with hashed password
             $user = User::create([
