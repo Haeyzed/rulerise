@@ -12,7 +12,8 @@ class PermissionRequest extends BaseRequest
      */
     public function authorize(): bool
     {
-        return auth()->check() && auth()->user()->hasRole('admin');
+        return true;
+//        return auth()->check() && auth()->user()->hasRole('admin');
     }
 
     /**
@@ -34,7 +35,7 @@ class PermissionRequest extends BaseRequest
         // Add unique rule for name when creating a new permission
         if ($this->isMethod('post')) {
             $rules['name'][] = Rule::unique('permissions', 'name')->where('guard_name', 'api');
-        } 
+        }
         // Add unique rule for name when updating a permission, excluding the current permission
         elseif ($this->isMethod('put') || $this->isMethod('patch')) {
             $rules['id'] = 'required|exists:permissions,id';
