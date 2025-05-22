@@ -23,28 +23,17 @@ class PermissionRequest extends BaseRequest
      */
     public function rules(): array
     {
-        $rules = [
+        $permissionId = $this->id;
+
+        return [
             'name' => [
                 'required',
                 'string',
                 'max:255',
+                Rule::unique('roles', 'name')->ignore($permissionId),
             ],
             'description' => 'nullable|string|max:1000',
         ];
-
-        // Add unique rule for name when creating a new permission
-        if ($this->isMethod('post')) {
-            $rules['name'][] = Rule::unique('permissions', 'name')->where('guard_name', 'api');
-        }
-        // Add unique rule for name when updating a permission, excluding the current permission
-        elseif ($this->isMethod('put') || $this->isMethod('patch')) {
-            $rules['id'] = 'required|exists:permissions,id';
-            $rules['name'][] = Rule::unique('permissions', 'name')
-                ->where('guard_name', 'api')
-                ->ignore($this->id);
-        }
-
-        return $rules;
     }
 
     /**
