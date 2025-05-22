@@ -14,7 +14,10 @@ class PermissionSeeder extends Seeder
      */
     public function run(): void
     {
-        // Define generic permissions without any module prefix
+        // Delete all existing permissions
+        Permission::query()->delete();
+
+        // Define generic permissions
         $permissions = [
             'view',
             'create',
@@ -24,9 +27,9 @@ class PermissionSeeder extends Seeder
             'restore',
         ];
 
-        // Create permissions
+        // Create fresh permissions
         foreach ($permissions as $permission) {
-            Permission::firstOrCreate([
+            Permission::create([
                 'name' => $permission,
                 'guard_name' => 'api',
             ]);

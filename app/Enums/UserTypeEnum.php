@@ -46,11 +46,11 @@ enum UserTypeEnum: string
      *
      * @return array
      */
-    public static function options(): array
-    {
-        return array_reduce(self::cases(), function ($carry, $enum) {
-            $carry[$enum->value] = $enum->label();
-            return $carry;
-        }, []);
-    }
+//    public static function options(): array
+//    {
+//        return array_reduce(self::cases(), function ($carry, $enum) {
+//            $carry[$enum->value] = $enum->label();
+//            return $carry;
+//        }, []);
+//    }
 }
