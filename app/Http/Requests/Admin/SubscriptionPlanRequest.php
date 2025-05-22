@@ -13,7 +13,8 @@ class SubscriptionPlanRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return $this->user()->hasRole('admin');
+        return true;
+//        return $this->user()->hasRole('admin');
     }
 
     /**
