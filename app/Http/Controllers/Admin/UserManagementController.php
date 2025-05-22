@@ -73,7 +73,7 @@ class UserManagementController extends Controller implements HasMiddleware
     {
         try {
             // Check if user has view permission
-            if (!auth()->user()->can('view')) {
+            if (!auth()->user()->hasPermissionTo('view')) {
                 return response()->forbidden('You do not have permission to view users');
             }
 
@@ -116,7 +116,7 @@ class UserManagementController extends Controller implements HasMiddleware
     {
         try {
             // Check if user has create permission
-            if (!auth()->user()->can('create')) {
+            if (!auth()->user()->hasPermissionTo('create')) {
                 return response()->forbidden('You do not have permission to create users');
             }
 
@@ -176,7 +176,7 @@ class UserManagementController extends Controller implements HasMiddleware
     {
         try {
             // Check if user has view permission
-            if (!auth()->user()->can('view')) {
+            if (!auth()->user()->hasPermissionTo('view')) {
                 return response()->forbidden('You do not have permission to view users');
             }
 
@@ -199,7 +199,7 @@ class UserManagementController extends Controller implements HasMiddleware
     {
         try {
             // Check if user has update permission
-            if (!auth()->user()->can('update')) {
+            if (!auth()->user()->hasPermissionTo('update')) {
                 return response()->forbidden('You do not have permission to update users');
             }
 
@@ -250,7 +250,7 @@ class UserManagementController extends Controller implements HasMiddleware
     {
         try {
             // Check if user has delete permission
-            if (!auth()->user()->can('delete')) {
+            if (!auth()->user()->hasPermissionTo('delete')) {
                 return response()->forbidden('You do not have permission to delete users');
             }
 
@@ -280,7 +280,7 @@ class UserManagementController extends Controller implements HasMiddleware
     {
         try {
             // Check if user has update permission
-            if (!auth()->user()->can('update')) {
+            if (!auth()->user()->hasPermissionTo('update')) {
                 return response()->forbidden('You do not have permission to update user status');
             }
 
@@ -334,7 +334,7 @@ class UserManagementController extends Controller implements HasMiddleware
     {
         try {
             // Check if user has view permission
-            if (!auth()->user()->can('view')) {
+            if (!auth()->user()->hasPermissionTo('view')) {
                 return response()->forbidden('You do not have permission to view permissions');
             }
 
@@ -355,7 +355,7 @@ class UserManagementController extends Controller implements HasMiddleware
     {
         try {
             // Check if user has export permission
-            if (!auth()->user()->can('export')) {
+            if (!auth()->user()->hasPermissionTo('export')) {
                 return response()->forbidden('You do not have permission to export users');
             }
 
@@ -378,7 +378,7 @@ class UserManagementController extends Controller implements HasMiddleware
     {
         try {
             // Check if user has restore permission
-            if (!auth()->user()->can('restore')) {
+            if (!auth()->user()->hasPermissionTo('restore')) {
                 return response()->forbidden('You do not have permission to restore users');
             }
 
