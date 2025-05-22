@@ -18,26 +18,12 @@ class FaqCategoryRequest extends BaseRequest
             'name' => [
                 'required',
                 'string',
-                Rule::unique('faq_categories', 'name')->ignore($this->faq_category->id),
+                Rule::unique('faq_categories', 'name')->ignore($this->faq_category->name),
             ],
             'description' => 'nullable|string',
             'order' => 'nullable|integer|min:0',
             'is_active' => 'boolean',
         ];
-
-//        // If slug is provided, validate it
-//        if ($this->has('slug')) {
-//            $slugRule = Rule::unique('faq_categories', 'slug');
-//
-//            // If updating, exclude the current category
-//            if ($this->route('id')) {
-//                $slugRule->ignore($this->route('id'));
-//            }
-//
-//            $rules['slug'] = ['nullable', 'string', 'max:255', $slugRule];
-//        }
-//
-//        return $rules;
     }
 
     /**
