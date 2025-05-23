@@ -9,6 +9,7 @@ use App\Http\Resources\UserResource;
 use App\Models\User;
 use App\Notifications\SendPasswordNotification;
 use App\Services\ACLService;
+use App\Services\AdminAclService;
 use App\Services\AdminService;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -41,16 +42,28 @@ class UserManagementController extends Controller implements HasMiddleware
     protected ACLService $aclService;
 
     /**
+     * The Admin ACL service instance.
+     *
+     * @var AdminAclService
+     */
+    protected AdminAclService $adminAclService;
+
+    /**
      * Create a new controller instance.
      *
      * @param AdminService $adminService
      * @param ACLService $aclService
+     * @param AdminAclService $adminAclService
      * @return void
      */
-    public function __construct(AdminService $adminService, ACLService $aclService)
-    {
+    public function __construct(
+        AdminService $adminService,
+        ACLService $aclService,
+        AdminAclService $adminAclService
+    ) {
         $this->adminService = $adminService;
         $this->aclService = $aclService;
+        $this->adminAclService = $adminAclService;
     }
 
     /**
@@ -72,9 +85,10 @@ class UserManagementController extends Controller implements HasMiddleware
     public function index(Request $request): JsonResponse
     {
         try {
-            // Check if user has view permission
-            if (!auth()->user()->hasPermissionTo('view')) {
-                return response()->forbidden('You do not have permission to view users');
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('view');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
             }
 
             $perPage = $request->input('per_page', 10);
@@ -115,9 +129,10 @@ class UserManagementController extends Controller implements HasMiddleware
     public function store(CreateUserRequest $request): JsonResponse
     {
         try {
-            // Check if user has create permission
-            if (!auth()->user()->hasPermissionTo('create')) {
-                return response()->forbidden('You do not have permission to create users');
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('create');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
             }
 
             DB::beginTransaction();
@@ -130,7 +145,7 @@ class UserManagementController extends Controller implements HasMiddleware
             // Check if user is trying to register as admin
             if (isset($data['user_type']) && $data['user_type'] === 'admin') {
                 // Only existing admins can create new admins
-                if (!auth()->check() || !auth()->user()->hasRole('super_admin')) {
+                if (!auth()->check() || !auth()->user()->hasRole('admin')) {
                     return response()->forbidden('You do not have permission to create admin accounts');
                 }
             }
@@ -146,8 +161,13 @@ class UserManagementController extends Controller implements HasMiddleware
                 'email_verified_at' => now()
             ]);
 
-            // Assign role if provided
+            // Assign role if provided, but prevent super admin role assignment
             if (!empty($data['role'])) {
+                if (!$this->adminAclService->canAssignRole($data['role'])) {
+                    DB::rollBack();
+                    return response()->forbidden('The super admin role cannot be assigned');
+                }
+
                 $this->aclService->assignRole($user, $data['role']);
             }
 
@@ -175,9 +195,10 @@ class UserManagementController extends Controller implements HasMiddleware
     public function show(int $id): JsonResponse
     {
         try {
-            // Check if user has view permission
-            if (!auth()->user()->hasPermissionTo('view')) {
-                return response()->forbidden('You do not have permission to view users');
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('view');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
             }
 
             $user = User::with(['roles', 'permissions'])->findOrFail($id);
@@ -198,9 +219,10 @@ class UserManagementController extends Controller implements HasMiddleware
     public function update(UpdateUserRequest $request, int $id): JsonResponse
     {
         try {
-            // Check if user has update permission
-            if (!auth()->user()->hasPermissionTo('update')) {
-                return response()->forbidden('You do not have permission to update users');
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('update');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
             }
 
             DB::beginTransaction();
@@ -223,8 +245,13 @@ class UserManagementController extends Controller implements HasMiddleware
 
             $user->save();
 
-            // Update role if provided
+            // Update role if provided, but prevent super admin role assignment
             if (isset($data['role'])) {
+                if (!$this->adminAclService->canAssignRole($data['role'])) {
+                    DB::rollBack();
+                    return response()->forbidden('The super admin role cannot be assigned');
+                }
+
                 $this->aclService->assignRole($user, $data['role']);
             }
 
@@ -249,9 +276,10 @@ class UserManagementController extends Controller implements HasMiddleware
     public function destroy(int $id): JsonResponse
     {
         try {
-            // Check if user has delete permission
-            if (!auth()->user()->hasPermissionTo('delete')) {
-                return response()->forbidden('You do not have permission to delete users');
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('delete');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
             }
 
             $user = User::findOrFail($id);
@@ -279,9 +307,10 @@ class UserManagementController extends Controller implements HasMiddleware
     public function updateStatus(Request $request, int $id): JsonResponse
     {
         try {
-            // Check if user has update permission
-            if (!auth()->user()->hasPermissionTo('update')) {
-                return response()->forbidden('You do not have permission to update user status');
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('update');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
             }
 
             $request->validate([
@@ -313,9 +342,10 @@ class UserManagementController extends Controller implements HasMiddleware
     public function getRoles(): JsonResponse
     {
         try {
-            // Check if user has view permission
-            if (!auth()->user()->can('view')) {
-                return response()->forbidden('You do not have permission to view roles');
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('view');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
             }
 
             $roles = $this->aclService->getAllRoles();
@@ -333,9 +363,10 @@ class UserManagementController extends Controller implements HasMiddleware
     public function getPermissions(): JsonResponse
     {
         try {
-            // Check if user has view permission
-            if (!auth()->user()->hasPermissionTo('view')) {
-                return response()->forbidden('You do not have permission to view permissions');
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('view');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
             }
 
             $permissions = $this->aclService->getAllPermissions();
@@ -354,9 +385,10 @@ class UserManagementController extends Controller implements HasMiddleware
     public function export(Request $request): JsonResponse
     {
         try {
-            // Check if user has export permission
-            if (!auth()->user()->hasPermissionTo('export')) {
-                return response()->forbidden('You do not have permission to export users');
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('export');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
             }
 
             // Implementation for exporting users data
@@ -377,9 +409,10 @@ class UserManagementController extends Controller implements HasMiddleware
     public function restore(int $id): JsonResponse
     {
         try {
-            // Check if user has restore permission
-            if (!auth()->user()->hasPermissionTo('restore')) {
-                return response()->forbidden('You do not have permission to restore users');
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('restore');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
             }
 
             $user = User::withTrashed()->findOrFail($id);
