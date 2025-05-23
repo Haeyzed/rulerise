@@ -33,7 +33,7 @@ class CreateUserRequest extends FormRequest
                 'required',
                 'email',
                 Rule::unique('users')->where(function ($query) {
-                    return $query->where('user_type', $this->input('user_type') ?? 'admin');
+                    return $query->where('user_type', 'admin');
                 }),
             ],
             'role' => 'nullable|string|exists:roles,name',
