@@ -32,7 +32,7 @@ class UpdateUserRequest extends FormRequest
                 'required',
                 'email',
                 Rule::unique('users', 'email')->where(function ($query) {
-                    return $query->where('user_type', 'admin');
+                    return $query->where('user_type', 'admin')->ignore($this->id);
                 }),
             ],
 //            'email' => [
