@@ -143,12 +143,12 @@ class UserManagementController extends Controller implements HasMiddleware
             $plainPassword = Str::password(8);
 
             // Check if user is trying to register as admin
-            if (isset($data['user_type']) && $data['user_type'] === 'admin') {
-                // Only existing admins can create new admins
-                if (!auth()->check() || !auth()->user()->hasRole('admin')) {
-                    return response()->forbidden('You do not have permission to create admin accounts');
-                }
-            }
+//            if (isset($data['user_type']) && $data['user_type'] === 'admin') {
+//                // Only existing admins can create new admins
+//                if (!auth()->check() || !auth()->user()->hasRole('admin')) {
+//                    return response()->forbidden('You do not have permission to create admin accounts');
+//                }
+//            }
 
             // Create user with hashed password
             $user = User::create([
