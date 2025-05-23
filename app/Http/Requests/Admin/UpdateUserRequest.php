@@ -31,9 +31,9 @@ class UpdateUserRequest extends FormRequest
             'email' => [
                 'required',
                 'email',
-                Rule::unique('users', 'email')->where(function ($query) {
-                    return $query->where('user_type', 'admin')->ignore($this->route('id'));
-                }),
+                Rule::unique('users', 'email')
+                    ->where(fn ($query) => $query->where('user_type', 'admin'))
+                    ->ignore($this->id),
             ],
 //            'email' => [
 //                'sometimes',
