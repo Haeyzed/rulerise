@@ -198,7 +198,7 @@ class CandidatesController extends Controller implements HasMiddleware
     {
         try {
             // Check permission using AdminAclService
-            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('moderate');
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('update');
             if (!$hasPermission) {
                 return response()->forbidden($errorMessage);
             }
@@ -227,7 +227,7 @@ class CandidatesController extends Controller implements HasMiddleware
     {
         try {
             // Check permission using AdminAclService
-            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('moderate');
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('update');
             if (!$hasPermission) {
                 return response()->forbidden($errorMessage);
             }

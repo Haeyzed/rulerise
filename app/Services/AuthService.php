@@ -91,7 +91,7 @@ class AuthService
             $user = User::query()->create($userData);
 
             // Assign role based on user type
-            $user->assignRole($userType);
+//            $user->assignRole($userType);
 
             // Create profile based on user type
             if ($userType === 'candidate') {
