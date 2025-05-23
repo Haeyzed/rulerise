@@ -11,8 +11,10 @@ use App\Http\Resources\AboutUsResource;
 use App\Http\Resources\AdBannerResource;
 use App\Http\Resources\ContactResource;
 use App\Http\Resources\HeroSectionResource;
+use App\Services\AdminAclService;
 use App\Services\Storage\StorageService;
 use App\Services\WebsiteService;
+use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
@@ -28,14 +30,23 @@ class WebsiteController extends Controller implements HasMiddleware
     protected WebsiteService $websiteService;
 
     /**
+     * The Admin ACL service instance.
+     *
+     * @var AdminAclService
+     */
+    protected AdminAclService $adminAclService;
+
+    /**
      * Create a new controller instance.
      *
      * @param WebsiteService $websiteService
+     * @param AdminAclService $adminAclService
      * @return void
      */
-    public function __construct(WebsiteService $websiteService)
+    public function __construct(WebsiteService $websiteService, AdminAclService $adminAclService)
     {
         $this->websiteService = $websiteService;
+        $this->adminAclService = $adminAclService;
     }
 
     /**
@@ -55,11 +66,21 @@ class WebsiteController extends Controller implements HasMiddleware
      */
     public function getHeroSection(): JsonResponse
     {
-        $heroSection = $this->websiteService->getHeroSection();
+        try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('view');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
 
-        return response()->success(new HeroSectionResource($heroSection),
-            'Hero section retrieved successfully'
-        );
+            $heroSection = $this->websiteService->getHeroSection();
+
+            return response()->success(new HeroSectionResource($heroSection),
+                'Hero section retrieved successfully'
+            );
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
     }
 
     /**
@@ -71,12 +92,22 @@ class WebsiteController extends Controller implements HasMiddleware
      */
     public function createOrUpdateHeroSection(HeroSectionRequest $request): JsonResponse
     {
-        $heroSection = $this->websiteService->createOrUpdateHeroSection($request->validated());
+        try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('update');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
 
-        return response()->success(
-            new HeroSectionResource($heroSection),
-            'Hero section updated successfully'
-        );
+            $heroSection = $this->websiteService->createOrUpdateHeroSection($request->validated());
+
+            return response()->success(
+                new HeroSectionResource($heroSection),
+                'Hero section updated successfully'
+            );
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
     }
 
     /**
@@ -87,9 +118,19 @@ class WebsiteController extends Controller implements HasMiddleware
      */
     public function deleteHeroSectionImage(int $imageId): JsonResponse
     {
-        $this->websiteService->deleteHeroSectionImage($imageId);
+        try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('delete');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
 
-        return response()->success(null, 'Hero section image deleted successfully');
+            $this->websiteService->deleteHeroSectionImage($imageId);
+
+            return response()->success(null, 'Hero section image deleted successfully');
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
     }
 
     /**
@@ -99,12 +140,22 @@ class WebsiteController extends Controller implements HasMiddleware
      */
     public function getAboutUs(): JsonResponse
     {
-        $aboutUs = $this->websiteService->getAboutUs();
+        try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('view');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
 
-        return response()->success(
-            new AboutUsResource($aboutUs),
-            'About us section retrieved successfully'
-        );
+            $aboutUs = $this->websiteService->getAboutUs();
+
+            return response()->success(
+                new AboutUsResource($aboutUs),
+                'About us section retrieved successfully'
+            );
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
     }
 
     /**
@@ -115,12 +166,22 @@ class WebsiteController extends Controller implements HasMiddleware
      */
     public function createOrUpdateAboutUs(AboutUsRequest $request): JsonResponse
     {
-        $aboutUs = $this->websiteService->createOrUpdateAboutUs($request->validated());
+        try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('update');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
 
-        return response()->success(
-            new AboutUsResource($aboutUs),
-            'About us section updated successfully'
-        );
+            $aboutUs = $this->websiteService->createOrUpdateAboutUs($request->validated());
+
+            return response()->success(
+                new AboutUsResource($aboutUs),
+                'About us section updated successfully'
+            );
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
     }
 
     /**
@@ -131,9 +192,19 @@ class WebsiteController extends Controller implements HasMiddleware
      */
     public function deleteAboutUsImage(int $imageId): JsonResponse
     {
-        $this->websiteService->deleteAboutUsImage($imageId);
+        try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('delete');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
 
-        return response()->success(null, 'About us image deleted successfully');
+            $this->websiteService->deleteAboutUsImage($imageId);
+
+            return response()->success(null, 'About us image deleted successfully');
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
     }
 
     /**
@@ -144,12 +215,22 @@ class WebsiteController extends Controller implements HasMiddleware
      */
     public function getContact(int $id): JsonResponse
     {
-        $contact = $this->websiteService->getContact($id);
+        try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('view');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
 
-        return response()->success(
-            new ContactResource($contact),
-            'Contact retrieved successfully'
-        );
+            $contact = $this->websiteService->getContact($id);
+
+            return response()->success(
+                new ContactResource($contact),
+                'Contact retrieved successfully'
+            );
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
     }
 
     /**
@@ -159,12 +240,22 @@ class WebsiteController extends Controller implements HasMiddleware
      */
     public function getAllContacts(): JsonResponse
     {
-        $contacts = $this->websiteService->getAllContacts();
+        try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('view');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
 
-        return response()->success(
-            ContactResource::collection($contacts),
-            'Contacts retrieved successfully'
-        );
+            $contacts = $this->websiteService->getAllContacts();
+
+            return response()->success(
+                ContactResource::collection($contacts),
+                'Contacts retrieved successfully'
+            );
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
     }
 
     /**
@@ -177,12 +268,22 @@ class WebsiteController extends Controller implements HasMiddleware
      */
     public function createOrUpdateContact(ContactRequest $request, ?int $id = null): JsonResponse
     {
-        $contact = $this->websiteService->createOrUpdateContact($request->validated(), $id);
+        try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission($id ? 'update' : 'create');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
 
-        return response()->success(
-            new ContactResource($contact),
-            $id ? 'Contact updated successfully' : 'Contact created successfully'
-        );
+            $contact = $this->websiteService->createOrUpdateContact($request->validated(), $id);
+
+            return response()->success(
+                new ContactResource($contact),
+                $id ? 'Contact updated successfully' : 'Contact created successfully'
+            );
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
     }
 
     /**
@@ -193,9 +294,19 @@ class WebsiteController extends Controller implements HasMiddleware
      */
     public function deleteContact(int $id): JsonResponse
     {
-        $this->websiteService->deleteContact($id);
+        try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('delete');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
 
-        return response()->success(null, 'Contact deleted successfully');
+            $this->websiteService->deleteContact($id);
+
+            return response()->success(null, 'Contact deleted successfully');
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
     }
 
     /**
@@ -205,12 +316,22 @@ class WebsiteController extends Controller implements HasMiddleware
      */
     public function getAllAdBanners(): JsonResponse
     {
-        $adBanners = $this->websiteService->getAllAdBanners();
+        try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('view');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
 
-        return response()->success(
-            AdBannerResource::collection($adBanners),
-            'Ad banners retrieved successfully'
-        );
+            $adBanners = $this->websiteService->getAllAdBanners();
+
+            return response()->success(
+                AdBannerResource::collection($adBanners),
+                'Ad banners retrieved successfully'
+            );
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
     }
 
     /**
@@ -221,12 +342,22 @@ class WebsiteController extends Controller implements HasMiddleware
      */
     public function getAdBanner(int $id): JsonResponse
     {
-        $adBanner = $this->websiteService->getAdBanner($id);
+        try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('view');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
 
-        return response()->success(
-            new AdBannerResource($adBanner),
-            'Ad banner retrieved successfully'
-        );
+            $adBanner = $this->websiteService->getAdBanner($id);
+
+            return response()->success(
+                new AdBannerResource($adBanner),
+                'Ad banner retrieved successfully'
+            );
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
     }
 
     /**
@@ -238,12 +369,22 @@ class WebsiteController extends Controller implements HasMiddleware
      */
     public function createOrUpdateAdBanner(AdBannerRequest $request, ?int $id = null): JsonResponse
     {
-        $adBanner = $this->websiteService->createOrUpdateAdBanner($request->validated(), $id);
+        try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission($id ? 'update' : 'create');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
 
-        return response()->success(
-            new AdBannerResource($adBanner),
-            $id ? 'Ad banner updated successfully' : 'Ad banner created successfully'
-        );
+            $adBanner = $this->websiteService->createOrUpdateAdBanner($request->validated(), $id);
+
+            return response()->success(
+                new AdBannerResource($adBanner),
+                $id ? 'Ad banner updated successfully' : 'Ad banner created successfully'
+            );
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
     }
 
     /**
@@ -254,9 +395,19 @@ class WebsiteController extends Controller implements HasMiddleware
      */
     public function deleteAdBanner(int $id): JsonResponse
     {
-        $this->websiteService->deleteAdBanner($id);
+        try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('delete');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
 
-        return response()->success(null, 'Ad banner deleted successfully');
+            $this->websiteService->deleteAdBanner($id);
+
+            return response()->success(null, 'Ad banner deleted successfully');
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
     }
 
     /**
@@ -268,8 +419,18 @@ class WebsiteController extends Controller implements HasMiddleware
      */
     public function deleteAdBannerImage(int $adBannerId, int $imageId): JsonResponse
     {
-        $this->websiteService->deleteAdBannerImage($adBannerId, $imageId);
+        try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('delete');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
 
-        return response()->success(null, 'Ad banner image deleted successfully');
+            $this->websiteService->deleteAdBannerImage($adBannerId, $imageId);
+
+            return response()->success(null, 'Ad banner image deleted successfully');
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
     }
 }

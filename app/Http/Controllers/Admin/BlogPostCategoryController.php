@@ -7,6 +7,7 @@ use App\Http\Requests\Admin\BlogPostCategoryRequest;
 use App\Http\Requests\Admin\ListBlogPostCategoryRequest;
 use App\Http\Resources\BlogPostCategoryResource;
 use App\Models\BlogPostCategory;
+use App\Services\AdminAclService;
 use App\Services\BlogPostCategoryService;
 use Exception;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -32,13 +33,22 @@ class BlogPostCategoryController extends Controller implements HasMiddleware
     protected BlogPostCategoryService $categoryService;
 
     /**
+     * The Admin ACL service instance.
+     *
+     * @var AdminAclService
+     */
+    protected AdminAclService $adminAclService;
+
+    /**
      * BlogPostCategoryController constructor.
      *
      * @param BlogPostCategoryService $categoryService
+     * @param AdminAclService $adminAclService
      */
-    public function __construct(BlogPostCategoryService $categoryService)
+    public function __construct(BlogPostCategoryService $categoryService, AdminAclService $adminAclService)
     {
         $this->categoryService = $categoryService;
+        $this->adminAclService = $adminAclService;
     }
 
     /**
@@ -70,8 +80,18 @@ class BlogPostCategoryController extends Controller implements HasMiddleware
      */
     public function index(ListBlogPostCategoryRequest $request): JsonResponse
     {
-        $categories = $this->categoryService->list($request);
-        return response()->paginatedSuccess(BlogPostCategoryResource::collection($categories), 'Blog post categories retrieved successfully');
+        try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('view');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
+
+            $categories = $this->categoryService->list($request);
+            return response()->paginatedSuccess(BlogPostCategoryResource::collection($categories), 'Blog post categories retrieved successfully');
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
     }
 
     /**
@@ -88,6 +108,12 @@ class BlogPostCategoryController extends Controller implements HasMiddleware
     public function store(BlogPostCategoryRequest $request): JsonResponse
     {
         try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('create');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
+
             $category = $this->categoryService->create($request->validated());
             return response()->success(new BlogPostCategoryResource($category), 'Blog post category created successfully');
         } catch (Exception $e) {
@@ -108,7 +134,17 @@ class BlogPostCategoryController extends Controller implements HasMiddleware
      */
     public function show(BlogPostCategory $blogPostCategory): JsonResponse
     {
-        return response()->success(new BlogPostCategoryResource($blogPostCategory->loadCount('blogPosts')), 'Blog post category retrieved successfully');
+        try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('view');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
+
+            return response()->success(new BlogPostCategoryResource($blogPostCategory->loadCount('blogPosts')), 'Blog post category retrieved successfully');
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
     }
 
     /**
@@ -126,6 +162,12 @@ class BlogPostCategoryController extends Controller implements HasMiddleware
     public function update(BlogPostCategoryRequest $request, BlogPostCategory $blogPostCategory): JsonResponse
     {
         try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('update');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
+
             $updatedCategory = $this->categoryService->update($blogPostCategory, $request->validated());
             return response()->success(new BlogPostCategoryResource($updatedCategory), 'Blog post category updated successfully');
         } catch (Exception $e) {
@@ -146,6 +188,12 @@ class BlogPostCategoryController extends Controller implements HasMiddleware
     public function destroy(BlogPostCategory $blogPostCategory): JsonResponse
     {
         try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('delete');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
+
             $this->categoryService->delete($blogPostCategory);
             return response()->success(null, 'Blog post category deleted successfully');
         } catch (Exception $e) {
@@ -166,6 +214,12 @@ class BlogPostCategoryController extends Controller implements HasMiddleware
     public function forceDestroy(BlogPostCategory $blogPostCategory): JsonResponse
     {
         try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('delete');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
+
             $this->categoryService->forceDelete($blogPostCategory);
             return response()->success(null, 'Blog post category force deleted successfully');
         } catch (Exception $e) {
@@ -187,6 +241,12 @@ class BlogPostCategoryController extends Controller implements HasMiddleware
     public function restore(BlogPostCategory $blogPostCategory): JsonResponse
     {
         try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('restore');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
+
             $restoredCategory = $this->categoryService->restore($blogPostCategory);
             return response()->success(new BlogPostCategoryResource($restoredCategory), 'Blog post category restored successfully');
         } catch (ModelNotFoundException $e) {
@@ -209,6 +269,12 @@ class BlogPostCategoryController extends Controller implements HasMiddleware
     public function reorder(Request $request): JsonResponse
     {
         try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('reorder');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
+
             $request->validate([
                 'ordered_ids' => 'required|array',
                 'ordered_ids.*' => 'required|integer|exists:blog_post_categories,id',

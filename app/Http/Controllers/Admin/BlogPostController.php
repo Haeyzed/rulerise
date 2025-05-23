@@ -8,6 +8,7 @@ use App\Http\Requests\Admin\ListBlogPostRequest;
 use App\Http\Resources\BlogPostResource;
 use App\Models\BlogPost;
 use App\Services\ACLService;
+use App\Services\AdminAclService;
 use App\Services\BlogPostService;
 use Exception;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -33,15 +34,22 @@ class BlogPostController extends Controller implements HasMiddleware
     protected BlogPostService $blogPostService;
 
     /**
+     * The Admin ACL service instance.
+     *
+     * @var AdminAclService
+     */
+    protected AdminAclService $adminAclService;
+
+    /**
      * BlogPostController constructor.
      *
      * @param BlogPostService $blogPostService
-     * @param ACLService $ACLService
-     * @param Request $request
+     * @param AdminAclService $adminAclService
      */
-    public function __construct(BlogPostService $blogPostService)
+    public function __construct(BlogPostService $blogPostService, AdminAclService $adminAclService)
     {
         $this->blogPostService = $blogPostService;
+        $this->adminAclService = $adminAclService;
     }
 
     /**
@@ -73,8 +81,18 @@ class BlogPostController extends Controller implements HasMiddleware
      */
     public function index(ListBlogPostRequest $request): JsonResponse
     {
-        $blogPosts = $this->blogPostService->list($request);
-        return response()->paginatedSuccess(BlogPostResource::collection($blogPosts), 'Blog posts retrieved successfully');
+        try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('view');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
+
+            $blogPosts = $this->blogPostService->list($request);
+            return response()->paginatedSuccess(BlogPostResource::collection($blogPosts), 'Blog posts retrieved successfully');
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
     }
 
     /**
@@ -92,6 +110,12 @@ class BlogPostController extends Controller implements HasMiddleware
     public function store(BlogPostRequest $request): JsonResponse
     {
         try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('create');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
+
             $blogPost = $this->blogPostService->create($request->validated());
             return response()->success(new BlogPostResource($blogPost), 'Blog post created successfully');
         } catch (Exception $e) {
@@ -112,7 +136,17 @@ class BlogPostController extends Controller implements HasMiddleware
      */
     public function show(BlogPost $blogPost): JsonResponse
     {
-        return response()->success(new BlogPostResource($blogPost->load(['user', 'images'])), 'Blog post retrieved successfully');
+        try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('view');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
+
+            return response()->success(new BlogPostResource($blogPost->load(['user', 'images'])), 'Blog post retrieved successfully');
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
     }
 
     /**
@@ -131,6 +165,12 @@ class BlogPostController extends Controller implements HasMiddleware
     public function update(BlogPostRequest $request, BlogPost $blogPost): JsonResponse
     {
         try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('update');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
+
             $updatedBlogPost = $this->blogPostService->update($blogPost, $request->validated());
             return response()->success(new BlogPostResource($updatedBlogPost), 'Blog post updated successfully');
         } catch (Exception $e) {
@@ -151,6 +191,12 @@ class BlogPostController extends Controller implements HasMiddleware
     public function destroy(BlogPost $blogPost): JsonResponse
     {
         try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('delete');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
+
             $this->blogPostService->delete($blogPost);
             return response()->success(null, 'Blog post deleted successfully');
         } catch (Exception $e) {
@@ -171,6 +217,12 @@ class BlogPostController extends Controller implements HasMiddleware
     public function forceDestroy(BlogPost $blogPost): JsonResponse
     {
         try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('delete');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
+
             $this->blogPostService->forceDelete($blogPost);
             return response()->success(null, 'Blog post force deleted successfully');
         } catch (Exception $e) {
@@ -192,6 +244,12 @@ class BlogPostController extends Controller implements HasMiddleware
     public function restore(BlogPost $blogPost): JsonResponse
     {
         try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('restore');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
+
             $restoredBlogPost = $this->blogPostService->restore($blogPost);
             return response()->success(new BlogPostResource($restoredBlogPost), 'Blog post restored successfully');
         } catch (ModelNotFoundException $e) {

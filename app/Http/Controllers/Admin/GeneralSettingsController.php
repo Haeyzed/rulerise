@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\GeneralSettingRequest;
 use App\Models\GeneralSetting;
+use App\Services\AdminAclService;
 use App\Services\AdminService;
+use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
@@ -23,14 +25,23 @@ class GeneralSettingsController extends Controller implements HasMiddleware
     protected AdminService $adminService;
 
     /**
+     * The Admin ACL service instance.
+     *
+     * @var AdminAclService
+     */
+    protected AdminAclService $adminAclService;
+
+    /**
      * Create a new controller instance.
      *
      * @param AdminService $adminService
+     * @param AdminAclService $adminAclService
      * @return void
      */
-    public function __construct(AdminService $adminService)
+    public function __construct(AdminService $adminService, AdminAclService $adminAclService)
     {
         $this->adminService = $adminService;
+        $this->adminAclService = $adminAclService;
     }
 
     /**
@@ -50,9 +61,19 @@ class GeneralSettingsController extends Controller implements HasMiddleware
      */
     public function index(): JsonResponse
     {
-        $settings = GeneralSetting::all();
+        try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('view');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
 
-        return response()->success($settings,'Settings retrieved successfully');
+            $settings = GeneralSetting::all();
+
+            return response()->success($settings,'Settings retrieved successfully');
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
     }
 
     /**
@@ -63,13 +84,23 @@ class GeneralSettingsController extends Controller implements HasMiddleware
      */
     public function store(GeneralSettingRequest $request): JsonResponse
     {
-        $data = $request->validated();
+        try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('update');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
 
-        $setting = $this->adminService->saveGeneralSetting(
-            $data['key'],
-            $data['value']
-        );
+            $data = $request->validated();
 
-        return response()->success($setting,'Setting updated successfully');
+            $setting = $this->adminService->saveGeneralSetting(
+                $data['key'],
+                $data['value']
+            );
+
+            return response()->success($setting,'Setting updated successfully');
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
     }
 }

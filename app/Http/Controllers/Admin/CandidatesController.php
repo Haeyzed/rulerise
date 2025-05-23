@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\CandidateResource;
 use App\Http\Resources\JobApplicationResource;
 use App\Http\Resources\UserResource;
+use App\Services\AdminAclService;
 use App\Services\AdminCandidateService;
+use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
@@ -25,14 +27,23 @@ class CandidatesController extends Controller implements HasMiddleware
     protected AdminCandidateService $candidateService;
 
     /**
+     * The Admin ACL service instance.
+     *
+     * @var AdminAclService
+     */
+    protected AdminAclService $adminAclService;
+
+    /**
      * Create a new controller instance.
      *
      * @param AdminCandidateService $candidateService
+     * @param AdminAclService $adminAclService
      * @return void
      */
-    public function __construct(AdminCandidateService $candidateService)
+    public function __construct(AdminCandidateService $candidateService, AdminAclService $adminAclService)
     {
         $this->candidateService = $candidateService;
+        $this->adminAclService = $adminAclService;
     }
 
     /**
@@ -53,14 +64,23 @@ class CandidatesController extends Controller implements HasMiddleware
      */
     public function index(Request $request): JsonResponse
     {
-        $filters = $request->all();
-        $candidates = $this->candidateService->getCandidates($filters);
+        try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('view');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
 
-        return response()->paginatedSuccess(
-            $candidates,
-//            CandidateResource::collection($candidates),
-            'Candidates retrieved successfully'
-        );
+            $filters = $request->all();
+            $candidates = $this->candidateService->getCandidates($filters);
+
+            return response()->paginatedSuccess(
+                $candidates,
+                'Candidates retrieved successfully'
+            );
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
     }
 
     /**
@@ -71,12 +91,22 @@ class CandidatesController extends Controller implements HasMiddleware
      */
     public function getProfileDetails(int $id): JsonResponse
     {
-        $data = $this->candidateService->getCandidateProfile($id);
+        try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('view');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
 
-        return response()->success([
-            'candidate' => $data['candidate'],
-            'statistics' => $data['statistics'],
-        ], 'Candidate profile details retrieved successfully');
+            $data = $this->candidateService->getCandidateProfile($id);
+
+            return response()->success([
+                'candidate' => $data['candidate'],
+                'statistics' => $data['statistics'],
+            ], 'Candidate profile details retrieved successfully');
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
     }
 
     /**
@@ -88,13 +118,23 @@ class CandidatesController extends Controller implements HasMiddleware
      */
     public function getApplications(int $id, Request $request): JsonResponse
     {
-        $filters = $request->all();
-        $applications = $this->candidateService->getCandidateApplications($id, $filters);
+        try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('view');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
 
-        return response()->paginatedSuccess(
-            JobApplicationResource::collection($applications),
-            'Candidate applications retrieved successfully'
-        );
+            $filters = $request->all();
+            $applications = $this->candidateService->getCandidateApplications($id, $filters);
+
+            return response()->paginatedSuccess(
+                JobApplicationResource::collection($applications),
+                'Candidate applications retrieved successfully'
+            );
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
     }
 
     /**
@@ -105,13 +145,23 @@ class CandidatesController extends Controller implements HasMiddleware
      */
     public function show(int $id): JsonResponse
     {
-        $data = $this->candidateService->getCandidateProfile($id);
-        $candidate = $data['candidate'];
+        try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('view');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
 
-        return response()->success(
-            new CandidateResource($candidate),
-            'Candidate retrieved successfully'
-        );
+            $data = $this->candidateService->getCandidateProfile($id);
+            $candidate = $data['candidate'];
+
+            return response()->success(
+                new CandidateResource($candidate),
+                'Candidate retrieved successfully'
+            );
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
     }
 
     /**
@@ -122,9 +172,19 @@ class CandidatesController extends Controller implements HasMiddleware
      */
     public function delete(int $id): JsonResponse
     {
-        $this->candidateService->deleteCandidate($id);
+        try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('delete');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
 
-        return response()->success('Candidate deleted successfully');
+            $this->candidateService->deleteCandidate($id);
+
+            return response()->success('Candidate deleted successfully');
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
     }
 
     /**
@@ -136,14 +196,24 @@ class CandidatesController extends Controller implements HasMiddleware
      */
     public function moderateAccountStatus(int $id, Request $request): JsonResponse
     {
-        $isActive = $request->input('is_active', true);
-        $user = $this->candidateService->moderateCandidateAccountStatus($id, $isActive);
+        try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('moderate');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
 
-        $status = $isActive ? 'activated' : 'deactivated';
-        return response()->success(
-            new UserResource($user),
-            "Candidate account {$status} successfully"
-        );
+            $isActive = $request->input('is_active', true);
+            $user = $this->candidateService->moderateCandidateAccountStatus($id, $isActive);
+
+            $status = $isActive ? 'activated' : 'deactivated';
+            return response()->success(
+                new UserResource($user),
+                "Candidate account {$status} successfully"
+            );
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
     }
 
     /**
@@ -155,13 +225,23 @@ class CandidatesController extends Controller implements HasMiddleware
      */
     public function setShadowBan(int $id, Request $request): JsonResponse
     {
-        $isShadowBanned = $request->input('is_shadow_banned', false);
-        $user = $this->candidateService->setShadowBanForCandidate($id, $isShadowBanned);
+        try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('moderate');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
 
-        $status = $isShadowBanned ? 'shadow banned' : 'removed from shadow ban';
-        return response()->success(
-            new UserResource($user),
-            "Candidate account {$status} successfully"
-        );
+            $isShadowBanned = $request->input('is_shadow_banned', false);
+            $user = $this->candidateService->setShadowBanForCandidate($id, $isShadowBanned);
+
+            $status = $isShadowBanned ? 'shadow banned' : 'removed from shadow ban';
+            return response()->success(
+                new UserResource($user),
+                "Candidate account {$status} successfully"
+            );
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
     }
 }

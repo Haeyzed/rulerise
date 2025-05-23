@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\PermissionRequest;
 use App\Services\ACLService;
+use App\Services\AdminAclService;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -27,14 +28,23 @@ class PermissionsController extends Controller implements HasMiddleware
     protected ACLService $aclService;
 
     /**
+     * The Admin ACL service instance.
+     *
+     * @var AdminAclService
+     */
+    protected AdminAclService $adminAclService;
+
+    /**
      * Create a new controller instance.
      *
      * @param ACLService $aclService
+     * @param AdminAclService $adminAclService
      * @return void
      */
-    public function __construct(ACLService $aclService)
+    public function __construct(ACLService $aclService, AdminAclService $adminAclService)
     {
         $this->aclService = $aclService;
+        $this->adminAclService = $adminAclService;
     }
 
     /**
@@ -56,6 +66,12 @@ class PermissionsController extends Controller implements HasMiddleware
     public function index(Request $request): JsonResponse
     {
         try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('view');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
+
             $perPage = $request->input('per_page', 10);
             $search = $request->input('search', '');
             $sortBy = $request->input('sort_by', 'name');
@@ -84,6 +100,12 @@ class PermissionsController extends Controller implements HasMiddleware
     public function store(PermissionRequest $request): JsonResponse
     {
         try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('create');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
+
             $permission = $this->aclService->createPermission(
                 $request->name,
                 $request->description ?? null
@@ -104,6 +126,12 @@ class PermissionsController extends Controller implements HasMiddleware
     public function show(int $id): JsonResponse
     {
         try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('view');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
+
             $permission = Permission::findOrFail($id);
 
             return response()->success($permission, 'Permission retrieved successfully');
@@ -122,6 +150,12 @@ class PermissionsController extends Controller implements HasMiddleware
     public function update(PermissionRequest $request, int $id): JsonResponse
     {
         try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('update');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
+
             $permission = Permission::findOrFail($id);
 
             $permission->update([
@@ -144,6 +178,12 @@ class PermissionsController extends Controller implements HasMiddleware
     public function destroy(int $id): JsonResponse
     {
         try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('delete');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
+
             $permission = Permission::findOrFail($id);
 
             // Check if the permission is assigned to any roles

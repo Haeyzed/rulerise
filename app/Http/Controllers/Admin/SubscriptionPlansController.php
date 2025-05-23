@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\SubscriptionPlanRequest;
 use App\Models\SubscriptionPlan;
+use App\Services\AdminAclService;
 use App\Services\AdminService;
+use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
@@ -24,14 +26,23 @@ class SubscriptionPlansController extends Controller implements HasMiddleware
     protected AdminService $adminService;
 
     /**
+     * The Admin ACL service instance.
+     *
+     * @var AdminAclService
+     */
+    protected AdminAclService $adminAclService;
+
+    /**
      * Create a new controller instance.
      *
      * @param AdminService $adminService
+     * @param AdminAclService $adminAclService
      * @return void
      */
-    public function __construct(AdminService $adminService)
+    public function __construct(AdminService $adminService, AdminAclService $adminAclService)
     {
         $this->adminService = $adminService;
+        $this->adminAclService = $adminAclService;
     }
 
     /**
@@ -51,9 +62,19 @@ class SubscriptionPlansController extends Controller implements HasMiddleware
      */
     public function index(): JsonResponse
     {
-        $plans = SubscriptionPlan::all();
+        try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('view');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
 
-        return response()->success($plans, 'Subscription Plans retrieved successfully.');
+            $plans = SubscriptionPlan::all();
+
+            return response()->success($plans, 'Subscription Plans retrieved successfully.');
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
     }
 
     /**
@@ -64,11 +85,21 @@ class SubscriptionPlansController extends Controller implements HasMiddleware
      */
     public function store(SubscriptionPlanRequest $request): JsonResponse
     {
-        $data = $request->validated();
+        try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('create');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
 
-        $plan = $this->adminService->createSubscriptionPlan($data);
+            $data = $request->validated();
 
-        return response()->created($plan, 'Subscription plan created successfully');
+            $plan = $this->adminService->createSubscriptionPlan($data);
+
+            return response()->created($plan, 'Subscription plan created successfully');
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
     }
 
     /**
@@ -79,9 +110,19 @@ class SubscriptionPlansController extends Controller implements HasMiddleware
      */
     public function show(int $id): JsonResponse
     {
-        $plan = SubscriptionPlan::query()->findOrFail($id);
+        try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('view');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
 
-        return response()->success($plan, 'Subscription plan retrieved successfully');
+            $plan = SubscriptionPlan::query()->findOrFail($id);
+
+            return response()->success($plan, 'Subscription plan retrieved successfully');
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
     }
 
     /**
@@ -92,9 +133,19 @@ class SubscriptionPlansController extends Controller implements HasMiddleware
      */
     public function update(int $id, SubscriptionPlanRequest $request): JsonResponse
     {
-        $plan = SubscriptionPlan::query()->findOrFail($id);
-        $plan = $this->adminService->updateSubscriptionPlan($plan, $request->validated());
-        return response()->success($plan, 'Subscription plan updated successfully');
+        try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('update');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
+
+            $plan = SubscriptionPlan::query()->findOrFail($id);
+            $plan = $this->adminService->updateSubscriptionPlan($plan, $request->validated());
+            return response()->success($plan, 'Subscription plan updated successfully');
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
     }
 
     /**
@@ -105,10 +156,20 @@ class SubscriptionPlansController extends Controller implements HasMiddleware
      */
     public function destroy(int $id): JsonResponse
     {
-        $plan = SubscriptionPlan::query()->findOrFail($id);
-        $plan->delete();
+        try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('delete');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
 
-        return response()->success(null, 'Subscription plan deleted successfully');
+            $plan = SubscriptionPlan::query()->findOrFail($id);
+            $plan->delete();
+
+            return response()->success(null, 'Subscription plan deleted successfully');
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
     }
 
     /**
@@ -119,15 +180,25 @@ class SubscriptionPlansController extends Controller implements HasMiddleware
      */
     public function setActive(Request $request): JsonResponse
     {
-        $id = $request->input('id');
-        $isActive = $request->input('is_active', true);
+        try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('update');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
 
-        $plan = SubscriptionPlan::query()->findOrFail($id);
+            $id = $request->input('id');
+            $isActive = $request->input('is_active', true);
 
-        $plan = $this->adminService->setSubscriptionPlanStatus($plan, $isActive);
+            $plan = SubscriptionPlan::query()->findOrFail($id);
 
-        $status = $isActive ? 'activated' : 'deactivated';
+            $plan = $this->adminService->setSubscriptionPlanStatus($plan, $isActive);
 
-        return response()->success($plan,"Subscription plan {$status} successfully");
+            $status = $isActive ? 'activated' : 'deactivated';
+
+            return response()->success($plan,"Subscription plan {$status} successfully");
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
     }
 }

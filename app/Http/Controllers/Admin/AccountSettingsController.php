@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\AccountSettingRequest;
 use App\Models\GeneralSetting;
+use App\Services\AdminAclService;
 use App\Services\AdminService;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -27,14 +28,23 @@ class AccountSettingsController extends Controller implements HasMiddleware
     protected AdminService $adminService;
 
     /**
+     * The Admin ACL service instance.
+     *
+     * @var AdminAclService
+     */
+    protected AdminAclService $adminAclService;
+
+    /**
      * Create a new controller instance.
      *
      * @param AdminService $adminService
+     * @param AdminAclService $adminAclService
      * @return void
      */
-    public function __construct(AdminService $adminService)
+    public function __construct(AdminService $adminService, AdminAclService $adminAclService)
     {
         $this->adminService = $adminService;
+        $this->adminAclService = $adminAclService;
     }
 
     /**
@@ -55,8 +65,14 @@ class AccountSettingsController extends Controller implements HasMiddleware
     public function index(): JsonResponse
     {
         try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('view');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
+
             $settings = GeneralSetting::where('key', 'LIKE', 'account_%')->get();
-            
+
             // Transform to key-value format
             $formattedSettings = $settings->mapWithKeys(function ($item) {
                 $key = str_replace('account_', '', $item->key);
@@ -78,8 +94,14 @@ class AccountSettingsController extends Controller implements HasMiddleware
     public function update(AccountSettingRequest $request): JsonResponse
     {
         try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('update');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
+
             $settings = $request->validated();
-            
+
             foreach ($settings as $key => $value) {
                 $this->adminService->saveGeneralSetting('account_' . $key, $value);
             }
@@ -98,6 +120,12 @@ class AccountSettingsController extends Controller implements HasMiddleware
     public function getUserConfiguration(): JsonResponse
     {
         try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('view');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
+
             $settings = [
                 'delete_candidate_account' => (bool) GeneralSetting::where('key', 'account_delete_candidate_account')->value('value') ?? false,
                 'delete_employer_account' => (bool) GeneralSetting::where('key', 'account_delete_employer_account')->value('value') ?? false,
@@ -120,6 +148,12 @@ class AccountSettingsController extends Controller implements HasMiddleware
     public function updateUserConfiguration(Request $request): JsonResponse
     {
         try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('update');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
+
             $request->validate([
                 'delete_candidate_account' => 'boolean',
                 'delete_employer_account' => 'boolean',
@@ -157,8 +191,14 @@ class AccountSettingsController extends Controller implements HasMiddleware
     public function getCurrencyConfiguration(): JsonResponse
     {
         try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('view');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
+
             $defaultCurrency = GeneralSetting::where('key', 'default_currency')->value('value') ?? 'USD';
-            
+
             return response()->success(['default_currency' => $defaultCurrency], 'Currency configuration retrieved successfully');
         } catch (Exception $e) {
             return response()->internalServerError($e->getMessage());
@@ -174,6 +214,12 @@ class AccountSettingsController extends Controller implements HasMiddleware
     public function updateCurrencyConfiguration(Request $request): JsonResponse
     {
         try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('update');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
+
             $request->validate([
                 'default_currency' => 'required|string|max:10',
             ]);

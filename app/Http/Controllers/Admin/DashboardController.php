@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Services\AdminAclService;
 use App\Services\AdminService;
+use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
@@ -21,14 +23,23 @@ class DashboardController extends Controller implements HasMiddleware
     protected AdminService $adminService;
 
     /**
+     * The Admin ACL service instance.
+     *
+     * @var AdminAclService
+     */
+    protected AdminAclService $adminAclService;
+
+    /**
      * Create a new controller instance.
      *
      * @param AdminService $adminService
+     * @param AdminAclService $adminAclService
      * @return void
      */
-    public function __construct(AdminService $adminService)
+    public function __construct(AdminService $adminService, AdminAclService $adminAclService)
     {
         $this->adminService = $adminService;
+        $this->adminAclService = $adminAclService;
     }
 
     /**
@@ -48,8 +59,18 @@ class DashboardController extends Controller implements HasMiddleware
      */
     public function index(): JsonResponse
     {
-        $metrics = $this->adminService->getDashboardMetrics();
+        try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('view');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
 
-        return response()->success($metrics, 'Dashboard metrics retrieved successfully');
+            $metrics = $this->adminService->getDashboardMetrics();
+
+            return response()->success($metrics, 'Dashboard metrics retrieved successfully');
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
     }
 }

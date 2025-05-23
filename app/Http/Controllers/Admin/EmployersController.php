@@ -8,8 +8,10 @@ use App\Http\Resources\JobApplicationResource;
 use App\Http\Resources\JobResource;
 use App\Http\Resources\SubscriptionResource;
 use App\Models\Employer;
+use App\Services\AdminAclService;
 use App\Services\AdminService;
 use App\Services\EmployerService;
+use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
@@ -35,16 +37,28 @@ class EmployersController extends Controller implements HasMiddleware
     protected EmployerService $employerService;
 
     /**
+     * The Admin ACL service instance.
+     *
+     * @var AdminAclService
+     */
+    protected AdminAclService $adminAclService;
+
+    /**
      * Create a new controller instance.
      *
      * @param AdminService $adminService
      * @param EmployerService $employerService
+     * @param AdminAclService $adminAclService
      * @return void
      */
-    public function __construct(AdminService $adminService, EmployerService $employerService)
-    {
+    public function __construct(
+        AdminService $adminService,
+        EmployerService $employerService,
+        AdminAclService $adminAclService
+    ) {
         $this->adminService = $adminService;
         $this->employerService = $employerService;
+        $this->adminAclService = $adminAclService;
     }
 
     /**
@@ -65,44 +79,54 @@ class EmployersController extends Controller implements HasMiddleware
      */
     public function index(Request $request): JsonResponse
     {
-        $query = Employer::with(['user', 'activeSubscription.plan'])
-            ->withCount('jobs');
+        try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('view');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
 
-        // Apply filters
-        if ($request->has('search')) {
-            $search = $request->input('search');
-            $query->where(function($q) use ($search) {
-                $q->whereLike('company_name', "%{$search}%")
-                    ->orWhereHas('user', function($q) use ($search) {
-                        $q->whereLike('first_name', "%{$search}%")
-                            ->orWhereLike('last_name', "%{$search}%")
-                            ->orWhereLike('email', "%{$search}%");
-                    });
-            });
+            $query = Employer::with(['user', 'activeSubscription.plan'])
+                ->withCount('jobs');
+
+            // Apply filters
+            if ($request->has('search')) {
+                $search = $request->input('search');
+                $query->where(function($q) use ($search) {
+                    $q->whereLike('company_name', "%{$search}%")
+                        ->orWhereHas('user', function($q) use ($search) {
+                            $q->whereLike('first_name', "%{$search}%")
+                                ->orWhereLike('last_name', "%{$search}%")
+                                ->orWhereLike('email', "%{$search}%");
+                        });
+                });
+            }
+
+            if ($request->has('is_featured')) {
+                $isFeatured = $request->input('is_featured');
+                $query->where('is_featured', $isFeatured === 'true');
+            }
+
+            if ($request->has('is_verified')) {
+                $isVerified = $request->input('is_verified');
+                $query->where('is_verified', $isVerified === 'true');
+            }
+
+            // Sort
+            $sortBy = $request->input('sort_by', 'created_at');
+            $sortOrder = $request->input('sort_order', 'desc');
+            $query->orderBy($sortBy, $sortOrder);
+
+            $perPage = $request->input('per_page', config('app.pagination.per_page'));
+            $employers = $query->paginate($perPage);
+
+            return response()->paginatedSuccess(
+                EmployerResource::collection($employers),
+                'Employers retrieved successfully'
+            );
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
         }
-
-        if ($request->has('is_featured')) {
-            $isFeatured = $request->input('is_featured');
-            $query->where('is_featured', $isFeatured === 'true');
-        }
-
-        if ($request->has('is_verified')) {
-            $isVerified = $request->input('is_verified');
-            $query->where('is_verified', $isVerified === 'true');
-        }
-
-        // Sort
-        $sortBy = $request->input('sort_by', 'created_at');
-        $sortOrder = $request->input('sort_order', 'desc');
-        $query->orderBy($sortBy, $sortOrder);
-
-        $perPage = $request->input('per_page', config('app.pagination.per_page'));
-        $employers = $query->paginate($perPage);
-
-        return response()->paginatedSuccess(
-            EmployerResource::collection($employers),
-            'Employers retrieved successfully'
-        );
     }
 
     /**
@@ -113,57 +137,67 @@ class EmployersController extends Controller implements HasMiddleware
      */
     public function show(int $id): JsonResponse
     {
-        $employer = Employer::with([
-            'user',
-            'jobs' => function($query) {
-                $query->withCount('applications');
-            },
-            'jobs.applications' => function($query) {
-                $query->with(['candidate.user']);
-            },
-            'activeSubscription.plan',
-            'subscriptions.plan',
-            'candidatePools',
-            'notificationTemplates',
-            // Get all applications across all jobs with candidate information
-            'applications' => function($query) {
-                $query->with(['candidate.user', 'job']);
-            },
-        ])
-            ->withCount('jobs')
-            ->findOrFail($id);
+        try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('view');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
 
-        // Add additional job statistics
-        $employer->active_jobs_count = $employer->jobs()->where('is_active', true)->count();
-        $employer->featured_jobs_count = $employer->jobs()->where('is_featured', true)->count();
-        $employer->draft_jobs_count = $employer->jobs()->where('is_draft', true)->count();
-        $employer->expired_jobs_count = $employer->jobs()
-            ->where('deadline', '<', now())
-            ->where('deadline', '!=', null)
-            ->count();
+            $employer = Employer::with([
+                'user',
+                'jobs' => function($query) {
+                    $query->withCount('applications');
+                },
+                'jobs.applications' => function($query) {
+                    $query->with(['candidate.user']);
+                },
+                'activeSubscription.plan',
+                'subscriptions.plan',
+                'candidatePools',
+                'notificationTemplates',
+                // Get all applications across all jobs with candidate information
+                'applications' => function($query) {
+                    $query->with(['candidate.user', 'job']);
+                },
+            ])
+                ->withCount('jobs')
+                ->findOrFail($id);
 
-        // Get application statistics
-        $employer->total_applications_count = $employer->applications()->count();
+            // Add additional job statistics
+            $employer->active_jobs_count = $employer->jobs()->where('is_active', true)->count();
+            $employer->featured_jobs_count = $employer->jobs()->where('is_featured', true)->count();
+            $employer->draft_jobs_count = $employer->jobs()->where('is_draft', true)->count();
+            $employer->expired_jobs_count = $employer->jobs()
+                ->where('deadline', '<', now())
+                ->where('deadline', '!=', null)
+                ->count();
 
-        // Get application status counts
-        $applicationStatusCounts = $employer->applications()
-            ->selectRaw('status, COUNT(*) as count')
-            ->groupBy('status')
-            ->pluck('count', 'status')
-            ->toArray();
+            // Get application statistics
+            $employer->total_applications_count = $employer->applications()->count();
 
-        $employer->application_status_counts = $applicationStatusCounts;
+            // Get application status counts
+            $applicationStatusCounts = $employer->applications()
+                ->selectRaw('status, COUNT(*) as count')
+                ->groupBy('status')
+                ->pluck('count', 'status')
+                ->toArray();
 
-        // Get hired candidates (applications with status 'hired')
-        $employer->hired_candidates = $employer->applications()
-            ->where('status', 'hired')
-            ->with(['candidate.user', 'job'])
-            ->get();
+            $employer->application_status_counts = $applicationStatusCounts;
 
-        return response()->success(
-            new EmployerResource($employer),
-            'Employer retrieved successfully'
-        );
+            // Get hired candidates (applications with status 'hired')
+            $employer->hired_candidates = $employer->applications()
+                ->where('status', 'hired')
+                ->with(['candidate.user', 'job'])
+                ->get();
+
+            return response()->success(
+                new EmployerResource($employer),
+                'Employer retrieved successfully'
+            );
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
     }
 
     /**
@@ -174,14 +208,23 @@ class EmployersController extends Controller implements HasMiddleware
      */
     public function getEmployers(Request $request): JsonResponse
     {
-        $filters = $request->all();
-        $employers = $this->employerService->getEmployers($filters);
+        try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('view');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
 
-        return response()->paginatedSuccess(
-            $employers,
-//            EmployerResource::collection($employers),
-            'Employers retrieved successfully'
-        );
+            $filters = $request->all();
+            $employers = $this->employerService->getEmployers($filters);
+
+            return response()->paginatedSuccess(
+                $employers,
+                'Employers retrieved successfully'
+            );
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
     }
 
     /**
@@ -192,14 +235,23 @@ class EmployersController extends Controller implements HasMiddleware
      */
     public function getProfileDetails(int $id): JsonResponse
     {
-        $employer = $this->employerService->getEmployerProfile($id);
-        $statistics = $this->employerService->getEmployerStatistics($id);
+        try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('view');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
 
-        return response()->success([
-            'employer' => $employer,
-//            'employer' => new EmployerResource($employer),
-            'statistics' => $statistics,
-        ], 'Employer profile details retrieved successfully');
+            $employer = $this->employerService->getEmployerProfile($id);
+            $statistics = $this->employerService->getEmployerStatistics($id);
+
+            return response()->success([
+                'employer' => $employer,
+                'statistics' => $statistics,
+            ], 'Employer profile details retrieved successfully');
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
     }
 
     /**
@@ -211,13 +263,23 @@ class EmployersController extends Controller implements HasMiddleware
      */
     public function getJobListings(int $id, Request $request): JsonResponse
     {
-        $filters = $request->all();
-        $jobs = $this->employerService->getEmployerJobsForAdmin($id, $filters);
+        try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('view');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
 
-        return response()->paginatedSuccess(
-            JobResource::collection($jobs),
-            'Employer job listings retrieved successfully'
-        );
+            $filters = $request->all();
+            $jobs = $this->employerService->getEmployerJobsForAdmin($id, $filters);
+
+            return response()->paginatedSuccess(
+                JobResource::collection($jobs),
+                'Employer job listings retrieved successfully'
+            );
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
     }
 
     /**
@@ -229,13 +291,23 @@ class EmployersController extends Controller implements HasMiddleware
      */
     public function getHiredCandidates(int $id, Request $request): JsonResponse
     {
-        $filters = $request->all();
-        $hiredCandidates = $this->employerService->getHiredCandidates($id, $filters);
+        try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('view');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
 
-        return response()->paginatedSuccess(
-            JobApplicationResource::collection($hiredCandidates),
-            'Hired candidates retrieved successfully'
-        );
+            $filters = $request->all();
+            $hiredCandidates = $this->employerService->getHiredCandidates($id, $filters);
+
+            return response()->paginatedSuccess(
+                JobApplicationResource::collection($hiredCandidates),
+                'Hired candidates retrieved successfully'
+            );
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
     }
 
     /**
@@ -247,13 +319,23 @@ class EmployersController extends Controller implements HasMiddleware
      */
     public function getTransactions(int $id, Request $request): JsonResponse
     {
-        $filters = $request->all();
-        $transactions = $this->employerService->getEmployerTransactions($id, $filters);
+        try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('view');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
 
-        return response()->paginatedSuccess(
-            SubscriptionResource::collection($transactions),
-            'Employer transactions retrieved successfully'
-        );
+            $filters = $request->all();
+            $transactions = $this->employerService->getEmployerTransactions($id, $filters);
+
+            return response()->paginatedSuccess(
+                SubscriptionResource::collection($transactions),
+                'Employer transactions retrieved successfully'
+            );
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
     }
 
     /**
@@ -264,9 +346,19 @@ class EmployersController extends Controller implements HasMiddleware
      */
     public function delete(int $id): JsonResponse
     {
-        $this->employerService->deleteEmployer($id);
+        try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('delete');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
 
-        return response()->success('Employer deleted successfully');
+            $this->employerService->deleteEmployer($id);
+
+            return response()->success('Employer deleted successfully');
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
     }
 
     /**
@@ -278,11 +370,21 @@ class EmployersController extends Controller implements HasMiddleware
      */
     public function moderateAccountStatus(int $id, Request $request): JsonResponse
     {
-        $isActive = $request->input('is_active', true);
-        $user = $this->employerService->moderateEmployerAccountStatus($id, $isActive);
+        try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('update');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
 
-        $status = $isActive ? 'activated' : 'deactivated';
-        return response()->success($user, "Employer account {$status} successfully");
+            $isActive = $request->input('is_active', true);
+            $user = $this->employerService->moderateEmployerAccountStatus($id, $isActive);
+
+            $status = $isActive ? 'activated' : 'deactivated';
+            return response()->success($user, "Employer account {$status} successfully");
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
     }
 
     /**
@@ -294,10 +396,20 @@ class EmployersController extends Controller implements HasMiddleware
      */
     public function setShadowBan(int $id, Request $request): JsonResponse
     {
-        $isShadowBanned = $request->input('is_shadow_banned', false);
-        $user = $this->employerService->setShadowBanForEmployer($id, $isShadowBanned);
+        try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('update');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
 
-        $status = $isShadowBanned ? 'shadow banned' : 'removed from shadow ban';
-        return response()->success($user, "Employer account {$status} successfully");
+            $isShadowBanned = $request->input('is_shadow_banned', false);
+            $user = $this->employerService->setShadowBanForEmployer($id, $isShadowBanned);
+
+            $status = $isShadowBanned ? 'shadow banned' : 'removed from shadow ban';
+            return response()->success($user, "Employer account {$status} successfully");
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
     }
 }

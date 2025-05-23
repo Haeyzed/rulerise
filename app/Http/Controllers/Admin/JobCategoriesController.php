@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\JobCategoryRequest;
 use App\Models\JobCategory;
+use App\Services\AdminAclService;
 use App\Services\AdminService;
 use App\Services\JobCategoryService;
+use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
@@ -23,18 +25,37 @@ class JobCategoriesController extends Controller implements HasMiddleware
      * @var AdminService
      */
     protected AdminService $adminService;
+
+    /**
+     * Job category service instance
+     *
+     * @var JobCategoryService
+     */
     protected JobCategoryService $jobCategoryService;
+
+    /**
+     * The Admin ACL service instance.
+     *
+     * @var AdminAclService
+     */
+    protected AdminAclService $adminAclService;
 
     /**
      * Create a new controller instance.
      *
      * @param AdminService $adminService
+     * @param JobCategoryService $jobCategoryService
+     * @param AdminAclService $adminAclService
      * @return void
      */
-    public function __construct(AdminService $adminService, JobCategoryService $jobCategoryService)
-    {
+    public function __construct(
+        AdminService $adminService,
+        JobCategoryService $jobCategoryService,
+        AdminAclService $adminAclService
+    ) {
         $this->adminService = $adminService;
         $this->jobCategoryService = $jobCategoryService;
+        $this->adminAclService = $adminAclService;
     }
 
     /**
@@ -54,9 +75,19 @@ class JobCategoriesController extends Controller implements HasMiddleware
      */
     public function index(): JsonResponse
     {
-        $categories = JobCategory::all();
+        try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('view');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
 
-        return response()->success($categories, 'Job Categories retrieved successfully.');
+            $categories = JobCategory::all();
+
+            return response()->success($categories, 'Job Categories retrieved successfully.');
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
     }
 
     /**
@@ -67,11 +98,21 @@ class JobCategoriesController extends Controller implements HasMiddleware
      */
     public function store(JobCategoryRequest $request): JsonResponse
     {
-        $data = $request->validated();
+        try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('create');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
 
-        $category = $this->jobCategoryService->createCategory($data);
+            $data = $request->validated();
 
-        return response()->success($category, 'Job category created successfully');
+            $category = $this->jobCategoryService->createCategory($data);
+
+            return response()->success($category, 'Job category created successfully');
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
     }
 
     /**
@@ -82,9 +123,19 @@ class JobCategoriesController extends Controller implements HasMiddleware
      */
     public function show(int $id): JsonResponse
     {
-        $category = JobCategory::query()->findOrFail($id);
+        try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('view');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
 
-        return response()->success($category, 'Job category retrieved successfully.');
+            $category = JobCategory::query()->findOrFail($id);
+
+            return response()->success($category, 'Job category retrieved successfully.');
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
     }
 
     /**
@@ -96,11 +147,21 @@ class JobCategoriesController extends Controller implements HasMiddleware
      */
     public function update(JobCategoryRequest $request, JobCategory $jobCategory): JsonResponse
     {
-        $data = $request->validated();
+        try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('update');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
 
-        $category = $this->jobCategoryService->updateCategory($jobCategory, $data);
+            $data = $request->validated();
 
-        return response()->success($category, 'Job category updated successfully');
+            $category = $this->jobCategoryService->updateCategory($jobCategory, $data);
+
+            return response()->success($category, 'Job category updated successfully');
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
     }
 
     /**
@@ -111,9 +172,19 @@ class JobCategoriesController extends Controller implements HasMiddleware
      */
     public function destroy(JobCategory $jobCategory): JsonResponse
     {
-        $this->jobCategoryService->deleteCategory($jobCategory);
+        try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('delete');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
 
-        return response()->success(null, 'Job category deleted successfully');
+            $this->jobCategoryService->deleteCategory($jobCategory);
+
+            return response()->success(null, 'Job category deleted successfully');
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
     }
 
     /**
@@ -125,14 +196,24 @@ class JobCategoriesController extends Controller implements HasMiddleware
      */
     public function setActive(int $id, Request $request): JsonResponse
     {
-        $isActive = $request->input('is_active', true);
+        try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('update');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
 
-        $category = JobCategory::query()->findOrFail($id);
+            $isActive = $request->input('is_active', true);
 
-        $category = $this->adminService->setJobCategoryStatus($category, $isActive);
+            $category = JobCategory::query()->findOrFail($id);
 
-        $status = $isActive ? 'activated' : 'deactivated';
+            $category = $this->adminService->setJobCategoryStatus($category, $isActive);
 
-        return response()->success($category, "Job category {$status} successfully");
+            $status = $isActive ? 'activated' : 'deactivated';
+
+            return response()->success($category, "Job category {$status} successfully");
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
     }
 }

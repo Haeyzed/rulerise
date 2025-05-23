@@ -7,6 +7,7 @@ use App\Http\Requests\FaqCategoryRequest;
 use App\Http\Requests\FaqRequest;
 use App\Http\Resources\FaqCategoryResource;
 use App\Http\Resources\FaqResource;
+use App\Services\AdminAclService;
 use App\Services\FaqService;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -27,14 +28,23 @@ class FaqController extends Controller implements HasMiddleware
     protected FaqService $faqService;
 
     /**
+     * The Admin ACL service instance.
+     *
+     * @var AdminAclService
+     */
+    protected AdminAclService $adminAclService;
+
+    /**
      * Create a new controller instance.
      *
      * @param FaqService $faqService
+     * @param AdminAclService $adminAclService
      * @return void
      */
-    public function __construct(FaqService $faqService)
+    public function __construct(FaqService $faqService, AdminAclService $adminAclService)
     {
         $this->faqService = $faqService;
+        $this->adminAclService = $adminAclService;
     }
 
     /**
@@ -54,12 +64,22 @@ class FaqController extends Controller implements HasMiddleware
      */
     public function getAllCategories(): JsonResponse
     {
-        $categories = $this->faqService->getAllCategoriesWithFaqs(false);
+        try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('view');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
 
-        return response()->success(
-            FaqCategoryResource::collection($categories),
-            'FAQ categories retrieved successfully'
-        );
+            $categories = $this->faqService->getAllCategoriesWithFaqs(false);
+
+            return response()->success(
+                FaqCategoryResource::collection($categories),
+                'FAQ categories retrieved successfully'
+            );
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
     }
 
     /**
@@ -71,6 +91,12 @@ class FaqController extends Controller implements HasMiddleware
     public function getCategory(int $id): JsonResponse
     {
         try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('view');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
+
             $category = $this->faqService->getCategoryWithFaqs($id, false);
 
             return response()->success(
@@ -90,12 +116,22 @@ class FaqController extends Controller implements HasMiddleware
      */
     public function createCategory(FaqCategoryRequest $request): JsonResponse
     {
-        $category = $this->faqService->createCategory($request->validated());
+        try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('create');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
 
-        return response()->created(
-            new FaqCategoryResource($category),
-            'FAQ category created successfully'
-        );
+            $category = $this->faqService->createCategory($request->validated());
+
+            return response()->created(
+                new FaqCategoryResource($category),
+                'FAQ category created successfully'
+            );
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
     }
 
     /**
@@ -108,6 +144,12 @@ class FaqController extends Controller implements HasMiddleware
     public function updateCategory(int $id, FaqCategoryRequest $request): JsonResponse
     {
         try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('update');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
+
             $data = $request->validated();
             $category = $this->faqService->updateCategory($id, $data);
 
@@ -129,6 +171,12 @@ class FaqController extends Controller implements HasMiddleware
     public function deleteCategory(int $id): JsonResponse
     {
         try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('delete');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
+
             $this->faqService->deleteCategory($id);
 
             return response()->success(null, 'FAQ category deleted successfully');
@@ -145,15 +193,25 @@ class FaqController extends Controller implements HasMiddleware
      */
     public function getAllFaqs(Request $request): JsonResponse
     {
-        $filters = $request->only(['category_id', 'search', 'is_active']);
-        $perPage = $request->input('per_page', 10);
+        try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('view');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
 
-        $faqs = $this->faqService->getAllFaqs($filters, $perPage);
+            $filters = $request->only(['category_id', 'search', 'is_active']);
+            $perPage = $request->input('per_page', 10);
 
-        return response()->paginatedSuccess(
-            FaqResource::collection($faqs),
-            'FAQs retrieved successfully'
-        );
+            $faqs = $this->faqService->getAllFaqs($filters, $perPage);
+
+            return response()->paginatedSuccess(
+                FaqResource::collection($faqs),
+                'FAQs retrieved successfully'
+            );
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
     }
 
     /**
@@ -165,6 +223,12 @@ class FaqController extends Controller implements HasMiddleware
     public function getFaq(int $id): JsonResponse
     {
         try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('view');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
+
             $faq = $this->faqService->getFaq($id);
 
             return response()->success(
@@ -184,13 +248,23 @@ class FaqController extends Controller implements HasMiddleware
      */
     public function createFaq(FaqRequest $request): JsonResponse
     {
-        $data = $request->validated();
-        $faq = $this->faqService->createFaq($data);
+        try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('create');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
 
-        return response()->created(
-            new FaqResource($faq),
-            'FAQ created successfully'
-        );
+            $data = $request->validated();
+            $faq = $this->faqService->createFaq($data);
+
+            return response()->created(
+                new FaqResource($faq),
+                'FAQ created successfully'
+            );
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
     }
 
     /**
@@ -203,6 +277,12 @@ class FaqController extends Controller implements HasMiddleware
     public function updateFaq(int $id, FaqRequest $request): JsonResponse
     {
         try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('update');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
+
             $data = $request->validated();
             $faq = $this->faqService->updateFaq($id, $data);
 
@@ -224,6 +304,12 @@ class FaqController extends Controller implements HasMiddleware
     public function deleteFaq(int $id): JsonResponse
     {
         try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('delete');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
+
             $this->faqService->deleteFaq($id);
 
             return response()->success(null, 'FAQ deleted successfully');
@@ -240,15 +326,25 @@ class FaqController extends Controller implements HasMiddleware
      */
     public function reorderFaqs(Request $request): JsonResponse
     {
-        $request->validate([
-            'ordered_ids' => 'required|array',
-            'ordered_ids.*' => 'integer|exists:faqs,id',
-        ]);
+        try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('reorder');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
 
-        $orderedIds = $request->input('ordered_ids');
-        $this->faqService->reorderFaqs($orderedIds);
+            $request->validate([
+                'ordered_ids' => 'required|array',
+                'ordered_ids.*' => 'integer|exists:faqs,id',
+            ]);
 
-        return response()->success(null, 'FAQs reordered successfully');
+            $orderedIds = $request->input('ordered_ids');
+            $this->faqService->reorderFaqs($orderedIds);
+
+            return response()->success(null, 'FAQs reordered successfully');
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
     }
 
     /**
@@ -259,14 +355,24 @@ class FaqController extends Controller implements HasMiddleware
      */
     public function reorderCategories(Request $request): JsonResponse
     {
-        $request->validate([
-            'ordered_ids' => 'required|array',
-            'ordered_ids.*' => 'integer|exists:faq_categories,id',
-        ]);
+        try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('reorder');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
 
-        $orderedIds = $request->input('ordered_ids');
-        $this->faqService->reorderCategories($orderedIds);
+            $request->validate([
+                'ordered_ids' => 'required|array',
+                'ordered_ids.*' => 'integer|exists:faq_categories,id',
+            ]);
 
-        return response()->success(null, 'FAQ categories reordered successfully');
+            $orderedIds = $request->input('ordered_ids');
+            $this->faqService->reorderCategories($orderedIds);
+
+            return response()->success(null, 'FAQ categories reordered successfully');
+        } catch (Exception $e) {
+            return response()->serverError($e->getMessage());
+        }
     }
 }

@@ -7,6 +7,7 @@ use App\Http\Requests\Admin\RoleRequest;
 use App\Http\Resources\RoleResource;
 use App\Models\User;
 use App\Services\ACLService;
+use App\Services\AdminAclService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Spatie\Permission\Models\Role;
@@ -31,14 +32,23 @@ class RolesController extends Controller implements HasMiddleware
     protected ACLService $aclService;
 
     /**
+     * The Admin ACL service instance.
+     *
+     * @var AdminAclService
+     */
+    protected AdminAclService $adminAclService;
+
+    /**
      * Create a new controller instance.
      *
      * @param ACLService $aclService
+     * @param AdminAclService $adminAclService
      * @return void
      */
-    public function __construct(ACLService $aclService)
+    public function __construct(ACLService $aclService, AdminAclService $adminAclService)
     {
         $this->aclService = $aclService;
+        $this->adminAclService = $adminAclService;
     }
 
     /**
@@ -60,6 +70,12 @@ class RolesController extends Controller implements HasMiddleware
     public function index(Request $request): JsonResponse
     {
         try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('view');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
+
             $perPage = $request->input('per_page', 10);
             $search = $request->input('search', '');
             $sortBy = $request->input('sort_by', 'name');
@@ -88,6 +104,12 @@ class RolesController extends Controller implements HasMiddleware
     public function show(int $id): JsonResponse
     {
         try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('view');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
+
             $role = Role::with('permissions')->findOrFail($id);
 
             return response()->success(new RoleResource($role), 'Role retrieved successfully');
@@ -105,6 +127,17 @@ class RolesController extends Controller implements HasMiddleware
     public function store(RoleRequest $request): JsonResponse
     {
         try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('create');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
+
+            // Check if trying to create superadmin role
+            if (strtolower($request->name) === 'superadmin' && !$this->adminAclService->canAssignRole('superadmin')) {
+                return response()->forbidden('The superadmin role cannot be created');
+            }
+
             DB::beginTransaction();
 
             // Create the role using ACL service
@@ -133,9 +166,20 @@ class RolesController extends Controller implements HasMiddleware
     public function update(RoleRequest $request, int $id): JsonResponse
     {
         try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('update');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
+
             DB::beginTransaction();
 
             $role = Role::findOrFail($id);
+
+            // Prevent updating superadmin role if not allowed
+            if (strtolower($role->name) === 'superadmin' && !$this->adminAclService->canAssignRole('superadmin')) {
+                return response()->forbidden('The superadmin role cannot be modified');
+            }
 
             // Update the role
             $role->update([
@@ -166,9 +210,20 @@ class RolesController extends Controller implements HasMiddleware
     public function destroy(int $id): JsonResponse
     {
         try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('delete');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
+
             DB::beginTransaction();
 
             $role = Role::findOrFail($id);
+
+            // Prevent deleting superadmin role
+            if (strtolower($role->name) === 'superadmin') {
+                return response()->forbidden('The superadmin role cannot be deleted');
+            }
 
             // Check if the role is assigned to any users
             if ($role->users()->count() > 0) {
@@ -195,6 +250,12 @@ class RolesController extends Controller implements HasMiddleware
     public function getAllPermissions(): JsonResponse
     {
         try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('view');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
+
             $permissions = $this->aclService->getAllPermissions();
 
             return response()->success($permissions, 'Permissions retrieved successfully');
@@ -212,10 +273,21 @@ class RolesController extends Controller implements HasMiddleware
     public function assignRoleToUser(Request $request): JsonResponse
     {
         try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('update');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
+
             $request->validate([
                 'user_id' => 'required|exists:users,id',
                 'role_name' => 'required|exists:roles,name'
             ]);
+
+            // Check if trying to assign superadmin role
+            if (strtolower($request->role_name) === 'superadmin' && !$this->adminAclService->canAssignRole('superadmin')) {
+                return response()->forbidden('The superadmin role cannot be assigned');
+            }
 
             $user = User::findOrFail($request->user_id);
 
@@ -237,6 +309,12 @@ class RolesController extends Controller implements HasMiddleware
     public function assignPermissionsToUser(Request $request): JsonResponse
     {
         try {
+            // Check permission using AdminAclService
+            [$hasPermission, $errorMessage] = $this->adminAclService->hasPermission('update');
+            if (!$hasPermission) {
+                return response()->forbidden($errorMessage);
+            }
+
             $request->validate([
                 'user_id' => 'required|exists:users,id',
                 'permissions' => 'required|array',
