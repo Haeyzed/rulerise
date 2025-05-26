@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\UserTypeEnum;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\CreateUserRequest;
 use App\Http\Requests\Admin\UpdateUserRequest;
@@ -156,7 +157,7 @@ class UserManagementController extends Controller implements HasMiddleware
                 'last_name' => $data['last_name'],
                 'email' => $data['email'],
                 'password' => Hash::make($plainPassword),
-                'user_type' => $data['user_type'] ?? 'admin',
+                'user_type' => UserTypeEnum::ADMIN->value,
                 'is_active' => $data['is_active'] ?? true,
                 'email_verified_at' => now()
             ]);

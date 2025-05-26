@@ -243,11 +243,6 @@ class AuthService
     {
         $credentials = ['email' => $email, 'password' => $password];
 
-        // Add user_type to credentials if provided
-        if ($userType) {
-            $credentials['user_type'] = $userType;
-        }
-
         // Set token expiration to 7 days (10080 minutes)
         Auth::factory()->setTTL(10080);
 
@@ -258,6 +253,12 @@ class AuthService
         $user = Auth::user();
 
         if (!$user || !$user->is_active) {
+            return null;
+        }
+
+        // Check user type manually
+        if ($userType && $user->user_type->value !== $userType) {
+            Auth::logout();
             return null;
         }
 
