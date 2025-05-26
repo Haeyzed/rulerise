@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-use App\Enums\UserTypeEnum;
+//use App\Enums\UserTypeEnum;
 use App\Notifications\ResetPasswordNotification;
 use App\Notifications\VerifyEmailNotification;
 use App\Services\Storage\StorageService;
@@ -100,7 +100,7 @@ class User extends Authenticatable implements JWTSubject, MustVerifyEmail
             'password' => 'hashed',
             'is_active' => 'boolean',
             'is_shadow_banned' => 'boolean',
-            'user_type' => UserTypeEnum::class
+//            'user_type' => UserTypeEnum::class
         ];
     }
 
@@ -155,7 +155,7 @@ class User extends Authenticatable implements JWTSubject, MustVerifyEmail
      */
     public function isCandidate(): bool
     {
-        return $this->user_type->value === 'candidate';
+        return $this->user_type === 'candidate';
     }
 
     /**
@@ -165,7 +165,7 @@ class User extends Authenticatable implements JWTSubject, MustVerifyEmail
      */
     public function isEmployer(): bool
     {
-        return $this->user_type->value === 'employer';
+        return $this->user_type === 'employer';
     }
 
     /**
@@ -175,7 +175,7 @@ class User extends Authenticatable implements JWTSubject, MustVerifyEmail
      */
     public function isEmployerStaff(): bool
     {
-        return $this->user_type->value === 'employer_staff';
+        return $this->user_type === 'employer_staff';
     }
 
     /**
@@ -185,7 +185,7 @@ class User extends Authenticatable implements JWTSubject, MustVerifyEmail
      */
     public function isAdmin(): bool
     {
-        return $this->user_type->value === 'admin';
+        return $this->user_type === 'admin';
     }
 
     /**

@@ -45,7 +45,7 @@ class AppServiceProvider extends ServiceProvider
     private function customizeResetPasswordUrl(): void
     {
         ResetPassword::createUrlUsing(function (object $notifiable, string $token) {
-            $userType = $notifiable->user_type->value ?? 'candidate';
+            $userType = $notifiable->user_type ?? 'candidate';
 
             return $this->buildCustomUrl("{$userType}/resetPassword", [
                 'token' => $token,
@@ -80,7 +80,7 @@ class AppServiceProvider extends ServiceProvider
     private function customizeVerificationUrl(): void
     {
         VerifyEmail::createUrlUsing(function (object $notifiable) {
-            $userType = $notifiable->user_type->value ?? 'candidate';
+            $userType = $notifiable->user_type ?? 'candidate';
 
             $verifyUrl = URL::temporarySignedRoute(
                 'verification.verify',

@@ -124,8 +124,8 @@ class AuthController extends Controller implements HasMiddleware
 
         $user = $result['user'];
 
-        // Check if email is verified for specific user types
-        if (in_array($user->user_type->value, ['candidate', 'employer']) && !$user->hasVerifiedEmail()) {
+        // Check if email is verified
+        if (!$user->hasVerifiedEmail()) {
             // Resend verification email
             $user->sendEmailVerificationNotification();
 
@@ -141,9 +141,10 @@ class AuthController extends Controller implements HasMiddleware
         } elseif ($user->isEmployer()) {
             $user->load(['employer', 'employer.notificationTemplates']);
         } elseif ($user->isEmployerStaff()) {
+            // For staff users, load the employer they belong to
             $user->load(['employerRelation', 'employerRelation.notificationTemplates']);
         } elseif ($user->isAdmin()) {
-            // No specific relationships to load
+            // No specific relationships to load for admin
         }
 
         return response()->success(

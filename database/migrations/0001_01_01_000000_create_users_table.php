@@ -1,6 +1,6 @@
 <?php
 
-use App\Enums\UserTypeEnum;
+//use App\Enums\UserTypeEnum;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -27,7 +27,7 @@ return new class extends Migration
             $table->string('state')->nullable();
             $table->string('city')->nullable();
             $table->string('profile_picture')->nullable();
-            $table->string('user_type')->default(UserTypeEnum::CANDIDATE->value);
+            $table->string('user_type')->default('candidate');
             $table->boolean('is_active')->default(true);
             $table->boolean('is_shadow_banned')->default(false);
             $table->rememberToken();
