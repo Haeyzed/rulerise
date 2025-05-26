@@ -155,7 +155,7 @@ class User extends Authenticatable implements JWTSubject, MustVerifyEmail
      */
     public function isCandidate(): bool
     {
-        return $this->user_type === 'candidate';
+        return $this->user_type->value === 'candidate';
     }
 
     /**
@@ -165,7 +165,7 @@ class User extends Authenticatable implements JWTSubject, MustVerifyEmail
      */
     public function isEmployer(): bool
     {
-        return $this->user_type === 'employer';
+        return $this->user_type->value === 'employer';
     }
 
     /**
@@ -175,7 +175,7 @@ class User extends Authenticatable implements JWTSubject, MustVerifyEmail
      */
     public function isEmployerStaff(): bool
     {
-        return $this->user_type === 'employer_staff';
+        return $this->user_type->value === 'employer_staff';
     }
 
     /**
@@ -185,7 +185,7 @@ class User extends Authenticatable implements JWTSubject, MustVerifyEmail
      */
     public function isAdmin(): bool
     {
-        return $this->user_type === 'admin';
+        return $this->user_type->value === 'admin';
     }
 
     /**

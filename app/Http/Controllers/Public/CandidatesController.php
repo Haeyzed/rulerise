@@ -53,7 +53,7 @@ class CandidatesController extends Controller// implements HasMiddleware
     public function getProfile(): JsonResponse
     {
         $user = auth()->user();
-        $profile = $this->candidateService->getProfile($user->with('candidate'));
+        $profile = $this->candidateService->getProfile($user);
 
         return response()->success(new UserResource($profile), 'Profile retrieved successfully.');
     }
