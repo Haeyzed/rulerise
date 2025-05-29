@@ -124,8 +124,8 @@ class AuthController extends Controller implements HasMiddleware
 
         $user = $result['user'];
 
-        // Check if email is verified
-        if (!$user->hasVerifiedEmail()) {
+        // Check if email is verified and user is not admin
+        if (!$user->hasVerifiedEmail() && !$user->isAdmin()) {
             // Resend verification email
             $user->sendEmailVerificationNotification();
 
