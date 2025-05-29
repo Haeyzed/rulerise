@@ -1,8 +1,6 @@
 <x-mail::message>
 
-<div style="text-align: center; margin-bottom: 40px;">
-<div style="background: rgba(113, 128, 150, 0.05); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin: 0 auto 20px; width: 120px; height: 120px;">
-    <div style="background: rgba(113, 128, 150, 0.06); border-radius: 50%; display: flex; align-items: center; justify-content: center; width: 80px; height: 80px;">
+    <div style="text-align: center; margin-bottom: 40px;">
         <svg width="300" height="300" viewBox="0 0 300 300" fill="none" xmlns="http://www.w3.org/2000/svg">
             <circle cx="150" cy="150" r="150" fill="#718096" fill-opacity="0.05"/>
             <circle cx="150" cy="150" r="120" fill="#718096" fill-opacity="0.06"/>
@@ -21,32 +19,28 @@
             <rect x="13" y="270" width="281" height="5" fill="#718096"/>
         </svg>
     </div>
-</div>
 
-<div style="background: #718096; height: 2px; margin: 20px auto; width: 100px;"></div>
-</div>
+    # Verify Your Email
 
-# Verify Your Email
+    <div style="background: #26A4FF; height: 2px; margin: 10px auto 30px; width: 40px;"></div>
 
-<div style="background: #26A4FF; height: 2px; margin: 10px auto 30px; width: 40px;"></div>
+    Welcome! Please click the button below to verify your email address.
 
-Welcome! Please click the button below to verify your email address.
+    <x-mail::button :url="$url" color="primary">
+        VERIFY EMAIL ADDRESS
+    </x-mail::button>
 
-<x-mail::button :url="$url" color="primary">
-VERIFY EMAIL ADDRESS
-</x-mail::button>
+    If you did not create an account, no further action is required.
 
-If you did not create an account, no further action is required.
+    Best regards,
+    {{ config('app.name') }} Team
 
-Best regards,
-{{ config('app.name') }} Team
+    ---
 
----
+    If you're having trouble clicking the "Verify Email Address" button, copy and paste the URL below into your web browser:
 
-If you're having trouble clicking the "Verify Email Address" button, copy and paste the URL below into your web browser:
-
-<div style="word-break: break-all; font-size: 12px; color: #666;">
-{{ $url }}
-</div>
+    <div style="word-break: break-all; font-size: 12px; color: #666;">
+        {{ $url }}
+    </div>
 
 </x-mail::message>
