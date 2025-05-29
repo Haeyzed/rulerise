@@ -3,7 +3,6 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
-use Illuminate\Mail\Markdown;
 
 class MailServiceProvider extends ServiceProvider
 {
@@ -23,9 +22,7 @@ class MailServiceProvider extends ServiceProvider
         // Publish mail views
         $this->publishes([
             __DIR__.'/../../resources/views/vendor/mail' => resource_path('views/vendor/mail'),
+            __DIR__.'/../../resources/views/emails' => resource_path('views/emails'),
         ], 'laravel-mail');
-
-        // Configure markdown theme
-        Markdown::theme('talent-beyond-borders');
     }
 }
