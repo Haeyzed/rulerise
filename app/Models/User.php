@@ -242,24 +242,25 @@ class User extends Authenticatable implements JWTSubject, MustVerifyEmail
         return app(StorageService::class)->url($this->profile_picture);
     }
 
-//    /**
-//     * Send the password reset notification.
-//     *
-//     * @param string $token
-//     * @return void
-//     */
-//    public function sendPasswordResetNotification($token): void
-//    {
-//        $this->notify(new ResetPasswordNotification($token));
-//    }
-//
-//    /**
-//     * Send the email verification notification.
-//     *
-//     * @return void
-//     */
-//    public function sendEmailVerificationNotification(): void
-//    {
-//        $this->notify(new VerifyEmailNotification());
-//    }
+    /**
+     * Send the password reset notification.
+     *
+     * @param string $token
+     * @return void
+     */
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new ResetPasswordNotification($token));
+    }
+
+    /**
+     * Send the email verification notification.
+     *
+     * @return void
+     */
+    public function sendEmailVerificationNotification(): void
+    {
+        $this->notify(new VerifyEmailNotification());
+    }
+
 }
