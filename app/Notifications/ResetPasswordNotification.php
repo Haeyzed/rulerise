@@ -46,7 +46,7 @@ class ResetPasswordNotification extends Notification
      * @param  mixed  $notifiable
      * @return \Illuminate\Notifications\Messages\MailMessage
      */
-    public function toMail($notifiable)
+    public function toMail($notifiable): MailMessage
     {
         $url = url(route('password.reset', [
             'token' => $this->token,
