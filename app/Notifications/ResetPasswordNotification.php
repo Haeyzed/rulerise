@@ -68,21 +68,15 @@ class ResetPasswordNotification extends Notification
      */
     public function toMail(mixed $notifiable): MailMessage
     {
-        $resetPasswordUrl = $this->resetPasswordUrl($notifiable);
         if (static::$toMailCallback) {
             return call_user_func(static::$toMailCallback, $notifiable, $this->token);
         }
 
-//        if (static::$createUrlCallback) {
-//            $url = call_user_func(static::$createUrlCallback, $notifiable, $this->token);
-//        } else {
-//            $url = url(route('password.reset', [
-//                'token' => $this->token,
-//                'email' => $notifiable->getEmailForPasswordReset(),
-//            ], false));
-//        }
+        $resetPasswordUrl = static::$createUrlCallback
+            ? call_user_func(static::$createUrlCallback, $notifiable, $this->token)
+            : $this->resetPasswordUrl($notifiable);
 
-        return $this->buildMailMessage($resetPasswordUrl);
+        return $this->buildMailMessage($resetPasswordUrl, $notifiable);
     }
 
     /**
@@ -91,7 +85,7 @@ class ResetPasswordNotification extends Notification
      * @param string $url
      * @return MailMessage
      */
-    protected function buildMailMessage(string $url): MailMessage
+    protected function buildMailMessage(string $url, mixed $notifiable): MailMessage
     {
         return (new MailMessage)
             ->subject('Reset Your Password')
