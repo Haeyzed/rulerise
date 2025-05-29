@@ -289,7 +289,7 @@ class UserManagementController extends Controller implements HasMiddleware
                 return response()->badRequest('You cannot delete your own account');
             }
 
-            $user->delete();
+            $user->forceDelete();
 
             return response()->success(null, 'User deleted successfully');
         } catch (Exception $e) {
