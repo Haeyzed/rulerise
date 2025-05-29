@@ -113,11 +113,29 @@ return [
         'name' => env('MAIL_FROM_NAME', 'Example'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Markdown Mail Settings
+    |--------------------------------------------------------------------------
+    */
+
     'markdown' => [
-        'theme' => 'default',
+        'theme' => 'talent-beyond-borders',
 
         'paths' => [
             resource_path('views/vendor/mail'),
         ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Social Media Links
+    |--------------------------------------------------------------------------
+    */
+
+    'social' => [
+        'facebook' => env('MAIL_SOCIAL_FACEBOOK', 'https://facebook.com/talentbeyondborders'),
+        'twitter' => env('MAIL_SOCIAL_TWITTER', 'https://twitter.com/talentbeyondborders'),
+        'instagram' => env('MAIL_SOCIAL_INSTAGRAM', 'https://instagram.com/talentbeyondborders'),
     ],
 ];
