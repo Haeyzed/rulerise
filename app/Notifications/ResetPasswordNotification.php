@@ -22,19 +22,21 @@ class ResetPasswordNotification extends Notification
      */
     public string $token;
 
+
+
     /**
      * The callback that should be used to create the reset password URL.
      *
-     * @var Closure|null
+     * @var \Closure|null
      */
-    public static ?Closure $createUrlCallback;
+    public static $createUrlCallback;
 
     /**
      * The callback that should be used to build the mail message.
      *
-     * @var Closure|null
+     * @var \Closure|null
      */
-    public static ?Closure $toMailCallback;
+    public static $toMailCallback;
 
 
     /**
