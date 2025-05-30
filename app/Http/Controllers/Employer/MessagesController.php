@@ -43,7 +43,7 @@ class MessagesController extends Controller implements HasMiddleware
     public static function middleware(): array
     {
         return [
-            new Middleware(['auth:api', 'role:employer,employer_staff']),
+            new Middleware(['auth:api', 'role:employer']),
         ];
     }
 
@@ -56,25 +56,25 @@ class MessagesController extends Controller implements HasMiddleware
     public function index(Request $request): JsonResponse
     {
         $user = auth()->user();
-        
+
         // Prepare filters
         $filters = [];
         if ($request->has('is_read')) {
             $filters['is_read'] = filter_var($request->input('is_read'), FILTER_VALIDATE_BOOLEAN);
         }
-        
+
         if ($request->has('type')) {
             $filters['type'] = $request->input('type');
         }
-        
+
         if ($request->has('job_id')) {
             $filters['job_id'] = $request->input('job_id');
         }
-        
+
         if ($request->has('application_id')) {
             $filters['application_id'] = $request->input('application_id');
         }
-        
+
         if ($request->has('search')) {
             $filters['search'] = $request->input('search');
         }
@@ -119,7 +119,7 @@ class MessagesController extends Controller implements HasMiddleware
         try {
             $user = auth()->user();
             $message = $this->messageService->getMessage($id, $user);
-            
+
             return response()->success(
                 new MessageResource($message),
                 'Message retrieved successfully'
@@ -140,9 +140,9 @@ class MessagesController extends Controller implements HasMiddleware
         try {
             $user = auth()->user();
             $data = $request->validated();
-            
+
             $message = $this->messageService->sendMessage($data, $user);
-            
+
             return response()->created(
                 new MessageResource($message->load(['sender', 'receiver', 'job', 'application'])),
                 'Message sent successfully'
@@ -164,7 +164,7 @@ class MessagesController extends Controller implements HasMiddleware
         try {
             $user = auth()->user();
             $this->messageService->deleteMessage($id, $user);
-            
+
             return response()->success(null, 'Message deleted successfully');
         } catch (Exception $e) {
             return response()->error('Failed to delete message: ' . $e->getMessage());
@@ -182,7 +182,7 @@ class MessagesController extends Controller implements HasMiddleware
         try {
             $user = auth()->user();
             $this->messageService->markMessageAsRead($id, $user);
-            
+
             return response()->success(null, 'Message marked as read');
         } catch (Exception $e) {
             return response()->error('Failed to mark message as read: ' . $e->getMessage());
@@ -199,7 +199,7 @@ class MessagesController extends Controller implements HasMiddleware
         try {
             $user = auth()->user();
             $count = $this->messageService->markAllMessagesAsRead($user);
-            
+
             return response()->success(['count' => $count], 'All messages marked as read');
         } catch (Exception $e) {
             return response()->error('Failed to mark all messages as read: ' . $e->getMessage());
@@ -215,7 +215,7 @@ class MessagesController extends Controller implements HasMiddleware
     {
         $user = auth()->user();
         $count = $this->messageService->getUnreadMessageCount($user);
-        
+
         return response()->success(['count' => $count], 'Unread message count retrieved successfully');
     }
 }

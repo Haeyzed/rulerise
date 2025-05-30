@@ -17,21 +17,15 @@ class VerifyEmailNotification extends Notification
 {
     use Queueable;
 
-
+    /**
+     * The callback to create the reset password URL.
+     */
+    public static ?Closure $createUrlCallback = null;
 
     /**
-     * The callback that should be used to create the reset password URL.
-     *
-     * @var \Closure|null
+     * The callback to build the mail message.
      */
-    public static $createUrlCallback;
-
-    /**
-     * The callback that should be used to build the mail message.
-     *
-     * @var \Closure|null
-     */
-    public static $toMailCallback;
+    public static ?Closure $toMailCallback = null;
 
     /**
      * Create a new notification instance.
@@ -68,7 +62,7 @@ class VerifyEmailNotification extends Notification
             return call_user_func(static::$toMailCallback, $notifiable, $verificationUrl);
         }
 
-        return $this->buildMailMessage($verificationUrl);
+        return $this->buildMailMessage($verificationUrl, $notifiable);
     }
 
     /**
@@ -77,7 +71,7 @@ class VerifyEmailNotification extends Notification
      * @param string $url
      * @return MailMessage
      */
-    protected function buildMailMessage(string $url): MailMessage
+    protected function buildMailMessage(string $url, mixed $notifiable): MailMessage
     {
 
         return (new MailMessage)

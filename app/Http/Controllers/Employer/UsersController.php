@@ -64,7 +64,7 @@ class UsersController extends Controller implements HasMiddleware
 
         // Get users that belong to this employer's staff
         $query = User::query()
-            ->where('user_type', 'employer_staff')
+            ->where('user_type', 'employer')
             ->where('employer_id', $employer->id);
 
         // Apply search if provided
@@ -103,7 +103,7 @@ class UsersController extends Controller implements HasMiddleware
         // Find the staff user and ensure they belong to this employer
         $staffUser = User::query()
             ->where('id', $id)
-            ->where('user_type', 'employer_staff')
+            ->where('user_type', 'employer')
             ->where('employer_id', $employer->id)
             ->firstOrFail();
 
@@ -140,13 +140,13 @@ class UsersController extends Controller implements HasMiddleware
                     'country' => $data['country'] ?? null,
                     'state' => $data['state'] ?? null,
                     'city' => $data['city'] ?? null,
-                    'user_type' => 'employer_staff',
+                    'user_type' => 'employer',
                     'employer_id' => $employer->id, // Link to the employer
                     'is_active' => true,
                 ]);
 
-                // Assign employer_staff role
-                $newUser->assignRole('employer_staff');
+                // Assign employer role
+                $newUser->assignRole('employer');
 
                 // Send notification email with credentials
                 $newUser->notify(new NewUserCredentials($password, $employer));
@@ -177,7 +177,7 @@ class UsersController extends Controller implements HasMiddleware
             // Find the staff user and ensure they belong to this employer
             $staffUser = User::query()
                 ->where('id', $id)
-                ->where('user_type', 'employer_staff')
+                ->where('user_type', 'employer')
                 ->where('employer_id', $employer->id)
                 ->firstOrFail();
 
@@ -241,7 +241,7 @@ class UsersController extends Controller implements HasMiddleware
             // Find the staff user and ensure they belong to this employer
             $staffUser = User::query()
                 ->where('id', $id)
-                ->where('user_type', 'employer_staff')
+                ->where('user_type', 'employer')
                 ->where('employer_id', $employer->id)
                 ->firstOrFail();
 

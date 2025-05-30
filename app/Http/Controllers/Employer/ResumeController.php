@@ -46,7 +46,7 @@ class ResumeController extends Controller implements HasMiddleware
     public static function middleware(): array
     {
         return [
-            new Middleware(['auth:api', 'role:employer,employer_staff']),
+            new Middleware(['auth:api', 'role:employer']),
         ];
     }
 

@@ -49,6 +49,8 @@ class ResetPasswordNotification extends Notification
      */
     public function toMail(mixed $notifiable): MailMessage
     {
+        $resetPasswordUrl = $this->resetPasswordUrl($notifiable);
+
         if (static::$toMailCallback) {
             return call_user_func(static::$toMailCallback, $notifiable, $this->token);
         }
