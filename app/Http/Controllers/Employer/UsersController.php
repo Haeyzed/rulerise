@@ -64,7 +64,7 @@ class UsersController extends Controller implements HasMiddleware
 
         // Get users that belong to this employer's staff
         $query = User::query()
-            ->where('user_type', 'employer')
+            ->where('user_type', 'employer_staff')
             ->where('employer_id', $employer->id);
 
         // Apply search if provided
@@ -103,7 +103,7 @@ class UsersController extends Controller implements HasMiddleware
         // Find the staff user and ensure they belong to this employer
         $staffUser = User::query()
             ->where('id', $id)
-            ->where('user_type', 'employer')
+            ->where('user_type', 'employer_staff')
             ->where('employer_id', $employer->id)
             ->firstOrFail();
 
@@ -140,12 +140,12 @@ class UsersController extends Controller implements HasMiddleware
                     'country' => $data['country'] ?? null,
                     'state' => $data['state'] ?? null,
                     'city' => $data['city'] ?? null,
-                    'user_type' => 'employer',
+                    'user_type' => 'employer_staff',
                     'employer_id' => $employer->id, // Link to the employer
                     'is_active' => true,
                 ]);
 
-                // Assign employer role
+                // Assign employer_staff role
                 $newUser->assignRole('employer');
 
                 // Send notification email with credentials
@@ -177,7 +177,7 @@ class UsersController extends Controller implements HasMiddleware
             // Find the staff user and ensure they belong to this employer
             $staffUser = User::query()
                 ->where('id', $id)
-                ->where('user_type', 'employer')
+                ->where('user_type', 'employer_staff')
                 ->where('employer_id', $employer->id)
                 ->firstOrFail();
 
@@ -241,7 +241,7 @@ class UsersController extends Controller implements HasMiddleware
             // Find the staff user and ensure they belong to this employer
             $staffUser = User::query()
                 ->where('id', $id)
-                ->where('user_type', 'employer')
+                ->where('user_type', 'employer_staff')
                 ->where('employer_id', $employer->id)
                 ->firstOrFail();
 

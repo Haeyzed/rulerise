@@ -38,7 +38,7 @@ class JobNotificationTemplatesController extends Controller implements HasMiddle
     public static function middleware(): array
     {
         return [
-            new Middleware(['auth:api','role:employer']),
+            new Middleware(['auth:api','role:employer,employer_staff']),
         ];
     }
 

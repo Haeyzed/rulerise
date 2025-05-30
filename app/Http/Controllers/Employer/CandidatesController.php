@@ -52,7 +52,7 @@ class CandidatesController extends Controller implements HasMiddleware
     public static function middleware(): array
     {
         return [
-            new Middleware(['auth:api','role:employer']),
+            new Middleware(['auth:api','role:employer,employer_staff']),
         ];
     }
 

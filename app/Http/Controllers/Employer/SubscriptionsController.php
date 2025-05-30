@@ -38,7 +38,7 @@ class SubscriptionsController extends Controller implements HasMiddleware
     public static function middleware(): array
     {
         return [
-            new Middleware(['auth:api','role:employer']),
+            new Middleware(['auth:api','role:employer,employer_staff']),
         ];
     }
 
@@ -73,7 +73,7 @@ class SubscriptionsController extends Controller implements HasMiddleware
 
         try {
             $result = $this->subscriptionService->decrementCvDownloadsLeft($employer);
-            
+
             if (!$result) {
                 return response()->badRequest('No CV downloads left or no active subscription');
             }
@@ -83,7 +83,7 @@ class SubscriptionsController extends Controller implements HasMiddleware
             return response()->badRequest($e->getMessage());
         }
     }
-    
+
     /**
      * Cancel subscription
      *
@@ -94,22 +94,22 @@ class SubscriptionsController extends Controller implements HasMiddleware
     {
         $user = auth()->user();
         $employer = $user->employer;
-        
+
         try {
             $subscription = $employer->subscriptions()->findOrFail($id);
-            
+
             $result = $this->subscriptionService->cancelSubscription($subscription);
-            
+
             if (!$result) {
                 return response()->badRequest('Failed to cancel subscription');
             }
-            
+
             return response()->success('Subscription cancelled successfully');
         } catch (\Exception $e) {
             return response()->badRequest($e->getMessage());
         }
     }
-    
+
     /**
      * List all subscriptions
      *
@@ -120,10 +120,10 @@ class SubscriptionsController extends Controller implements HasMiddleware
     {
         $user = auth()->user();
         $employer = $user->employer;
-        
+
         $perPage = $request->input('per_page', 10);
         $subscriptions = $this->subscriptionService->getSubscriptionHistory($employer, $perPage);
-        
+
         return response()->paginatedSuccess($subscriptions, 'Subscriptions retrieved successfully');
     }
 }
