@@ -146,7 +146,7 @@ class UsersController extends Controller implements HasMiddleware
                 ]);
 
                 // Assign employer_staff role
-                $newUser->assignRole('employer');
+//                $newUser->assignRole('employer');
 
                 // Send notification email with credentials
                 $newUser->notify(new NewUserCredentials($password, $employer));
