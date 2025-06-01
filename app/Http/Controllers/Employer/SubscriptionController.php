@@ -468,7 +468,7 @@ class SubscriptionController extends Controller
             $service = SubscriptionServiceFactory::create('paypal');
 
             // Find the subscription
-            $subscription = Subscription::where('subscription_id', $subscriptionId)
+            $subscription = Subscription::query()->where('subscription_id', $subscriptionId)
                 ->where('employer_id', $employer->id)
                 ->where('payment_method', 'paypal')
                 ->first();

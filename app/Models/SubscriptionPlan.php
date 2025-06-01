@@ -26,7 +26,14 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property bool $is_active
  * @property bool $is_featured
  * @property string $payment_type
+ * @property bool $has_trial
+ * @property int $trial_period_days
+ * @property array|null $payment_gateway_config
+ * @property string $interval_unit
+ * @property int $interval_count
+ * @property int $total_cycles
  * @property array|null $features
+ * @property array|null $metadata
  * @property string|null $external_paypal_id
  * @property string|null $external_stripe_id
  * @property \Illuminate\Support\Carbon|null $created_at
@@ -43,12 +50,6 @@ class SubscriptionPlan extends Model
      */
     const PAYMENT_TYPE_ONE_TIME = 'one_time';
     const PAYMENT_TYPE_RECURRING = 'recurring';
-
-    /**
-     * Tenure type constants
-     */
-    const TENURE_TYPE_TRIAL = 'TRIAL';
-    const TENURE_TYPE_REGULAR = 'REGULAR';
 
     /**
      * Interval unit constants
@@ -81,14 +82,13 @@ class SubscriptionPlan extends Model
         'is_featured',
         'features',
         'payment_type',
-
-//        'is_trial_period',
-//        'trial_period_days',
-//        'tenure_type',
-//        'interval_unit',
-//        'interval_count',
-//        'total_cycles',
-
+        'has_trial',
+        'trial_period_days',
+        'payment_gateway_config',
+        'interval_unit',
+        'interval_count',
+        'total_cycles',
+        'metadata',
         'external_paypal_id',
         'external_stripe_id',
     ];
@@ -110,7 +110,13 @@ class SubscriptionPlan extends Model
         'company_profile' => 'boolean',
         'is_active' => 'boolean',
         'is_featured' => 'boolean',
+        'has_trial' => 'boolean',
+        'trial_period_days' => 'integer',
+        'interval_count' => 'integer',
+        'total_cycles' => 'integer',
         'features' => 'json',
+        'payment_gateway_config' => 'json',
+        'metadata' => 'json',
     ];
 
     /**
@@ -148,7 +154,43 @@ class SubscriptionPlan extends Model
      */
     public function hasTrial(): bool
     {
-        return $this->is_trial_period && $this->trial_period_days > 0;
+        return $this->has_trial && $this->trial_period_days > 0;
+    }
+
+    /**
+     * Get payment gateway configuration for a specific provider
+     *
+     * @param string $provider
+     * @return array
+     */
+    public function getPaymentGatewayConfig(string $provider): array
+    {
+        $config = $this->payment_gateway_config ?? [];
+        return $config[$provider] ?? [];
+    }
+
+    /**
+     * Set payment gateway configuration for a specific provider
+     *
+     * @param string $provider
+     * @param array $config
+     * @return void
+     */
+    public function setPaymentGatewayConfig(string $provider, array $config): void
+    {
+        $currentConfig = $this->payment_gateway_config ?? [];
+        $currentConfig[$provider] = $config;
+        $this->payment_gateway_config = $currentConfig;
+    }
+
+    /**
+     * Get trial period in days (configurable per plan)
+     *
+     * @return int
+     */
+    public function getTrialPeriodDays(): int
+    {
+        return $this->hasTrial() ? $this->trial_period_days : 0;
     }
 
     /**
@@ -234,12 +276,12 @@ class SubscriptionPlan extends Model
         // Add regular billing cycle
         $billingCycles[] = [
             'frequency' => [
-                'interval_unit' => $this->interval_unit ?: 'DAY',
-                'interval_count' => $this->interval_count ?: $this->duration_days
+                'interval_unit' => $this->interval_unit,
+                'interval_count' => $this->interval_count
             ],
             'tenure_type' => 'REGULAR',
             'sequence' => $this->hasTrial() ? 2 : 1,
-            'total_cycles' => $this->total_cycles ?: 0, // 0 means infinite cycles
+            'total_cycles' => $this->total_cycles,
             'pricing_scheme' => [
                 'fixed_price' => [
                     'value' => (string) $this->price,
@@ -249,6 +291,52 @@ class SubscriptionPlan extends Model
         ];
 
         return $billingCycles;
+    }
+
+    /**
+     * Get Stripe price configuration
+     *
+     * @return array
+     */
+    public function getStripePriceConfig(): array
+    {
+        $config = [
+            'unit_amount' => (int) ($this->price * 100), // Convert to cents
+            'currency' => strtolower($this->currency),
+            'metadata' => [
+                'plan_id' => $this->id,
+            ]
+        ];
+
+        if ($this->isRecurring()) {
+            $config['recurring'] = [
+                'interval' => $this->getStripeInterval(),
+                'interval_count' => $this->interval_count,
+            ];
+
+            // Add trial period if enabled
+            if ($this->hasTrial()) {
+                $config['recurring']['trial_period_days'] = $this->trial_period_days;
+            }
+        }
+
+        return $config;
+    }
+
+    /**
+     * Convert interval unit to Stripe format
+     *
+     * @return string
+     */
+    private function getStripeInterval(): string
+    {
+        return match ($this->interval_unit) {
+            'DAY' => 'day',
+            'WEEK' => 'week',
+            'MONTH' => 'month',
+            'YEAR' => 'year',
+            default => 'month',
+        };
     }
 
     /**

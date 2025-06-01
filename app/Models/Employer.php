@@ -34,6 +34,8 @@ use Illuminate\Support\Carbon;
  * @property string|null $company_linkedin_url
  * @property string|null $company_twitter_url
  * @property string|null $company_facebook_url
+ * @property string|null $stripe_customer_id
+ * @property string|null $paypal_customer_id
  * @property bool $is_verified
  * @property bool $is_featured
  * @property Carbon|null $created_at
@@ -70,6 +72,8 @@ class Employer extends Model
         'company_linkedin_url',
         'company_twitter_url',
         'company_facebook_url',
+        'stripe_customer_id',
+        'paypal_customer_id',
         'is_verified',
         'is_featured',
     ];
@@ -85,8 +89,6 @@ class Employer extends Model
         'is_featured' => 'boolean',
         'company_benefits' => 'array',
     ];
-
-
 
     /**
      * Get the user that owns the employer profile.
@@ -111,14 +113,6 @@ class Employer extends Model
     {
         return $this->hasManyThrough(JobApplication::class, Job::class);
     }
-
-//    /**
-//     * Get the benefits offered by the company.
-//     */
-//    public function benefits(): HasMany
-//    {
-//        return $this->hasMany(CompanyBenefit::class);
-//    }
 
     /**
      * Get the jobs for the employer.
@@ -159,7 +153,10 @@ class Employer extends Model
     {
         return $this->hasOne(Subscription::class)
             ->where('is_active', true)
-            ->where('end_date', '>=', now())
+            ->where(function ($query) {
+                $query->whereNull('end_date')
+                    ->orWhere('end_date', '>=', now());
+            })
             ->latest();
     }
 
@@ -178,7 +175,7 @@ class Employer extends Model
      *
      * @return string|null
      */
-    public function getCompanyLogoUrlAttribute():  ?string
+    public function getCompanyLogoUrlAttribute(): ?string
     {
         if (!$this->company_logo) {
             return null;

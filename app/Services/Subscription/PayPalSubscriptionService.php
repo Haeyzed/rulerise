@@ -97,92 +97,6 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
      */
     public function createPlan(SubscriptionPlan $plan): string
     {
-        if ($plan->isOneTime()) {
-            return $this->createOneTimePlan($plan);
-        } else {
-            return $this->createRecurringPlan($plan);
-        }
-    }
-
-    /**
-     * Create a one-time payment plan in PayPal with 7-day trial
-     *
-     * @param SubscriptionPlan $plan
-     * @return string External plan ID
-     */
-    protected function createOneTimePlan(SubscriptionPlan $plan): string
-    {
-        $productId = $this->createProduct($plan);
-
-        // For one-time payments with trial, we'll create a plan with a trial period
-        // and a single billing cycle
-        $response = Http::withToken($this->getAccessToken())
-            ->withHeaders([
-                'PayPal-Request-Id' => Str::uuid()->toString(),
-            ])
-            ->post("{$this->baseUrl}/v1/billing/plans", [
-                'product_id' => $productId,
-                'name' => $plan->name . ' (One-time with trial)',
-                'description' => ($plan->description ?? $plan->name) . ' - One-time payment with 7-day trial',
-                'billing_cycles' => [
-                    [
-                        'frequency' => [
-                            'interval_unit' => 'DAY',
-                            'interval_count' => 1
-                        ],
-                        'tenure_type' => 'TRIAL',
-                        'sequence' => 1,
-                        'total_cycles' => 1,
-                        'pricing_scheme' => [
-                            'fixed_price' => [
-                                'value' => '0',
-                                'currency_code' => strtoupper($plan->currency)
-                            ]
-                        ]
-                    ],
-                    [
-                        'frequency' => [
-                            'interval_unit' => 'YEAR',
-                            'interval_count' => 1 // Use 1 year instead of 100 years
-                        ],
-                        'tenure_type' => 'REGULAR',
-                        'sequence' => 2,
-                        'total_cycles' => 1, // Only charge once
-                        'pricing_scheme' => [
-                            'fixed_price' => [
-                                'value' => (string) $plan->price,
-                                'currency_code' => strtoupper($plan->currency)
-                            ]
-                        ]
-                    ]
-                ],
-                'payment_preferences' => [
-                    'auto_bill_outstanding' => true,
-                    'setup_fee_failure_action' => 'CONTINUE',
-                    'payment_failure_threshold' => 3
-                ]
-            ]);
-
-        if ($response->successful()) {
-            return $response->json('id');
-        }
-
-        Log::error('PayPal create one-time plan error', [
-            'plan' => $plan->toArray(),
-            'response' => $response->json()
-        ]);
-
-        throw new \Exception('Failed to create PayPal one-time plan');
-    }
-
-    /**
-     * Create a recurring subscription plan in PayPal
-     *
-     * @param SubscriptionPlan $plan
-     * @return string External plan ID
-     */
-    protected function createRecurringPlan(SubscriptionPlan $plan): string
-    {
         $productId = $this->createProduct($plan);
 
         $response = Http::withToken($this->getAccessToken())
@@ -193,38 +107,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
                 'product_id' => $productId,
                 'name' => $plan->name,
                 'description' => $plan->description ?? $plan->name,
-                'billing_cycles' => [
-                    [
-                        'frequency' => [
-                            'interval_unit' => 'DAY',
-                            'interval_count' => 1
-                        ],
-                        'tenure_type' => 'TRIAL',
-                        'sequence' => 1,
-                        'total_cycles' => 1,
-                        'pricing_scheme' => [
-                            'fixed_price' => [
-                                'value' => '0',
-                                'currency_code' => strtoupper($plan->currency)
-                            ]
-                        ]
-                    ],
-                    [
-                        'frequency' => [
-                            'interval_unit' => 'DAY',
-                            'interval_count' => $plan->duration_days
-                        ],
-                        'tenure_type' => 'REGULAR',
-                        'sequence' => 2,
-                        'total_cycles' => 0, // 0 means infinite cycles
-                        'pricing_scheme' => [
-                            'fixed_price' => [
-                                'value' => (string) $plan->price,
-                                'currency_code' => strtoupper($plan->currency)
-                            ]
-                        ]
-                    ]
-                ],
+                'billing_cycles' => $plan->getPayPalBillingCycles(),
                 'payment_preferences' => [
                     'auto_bill_outstanding' => true,
                     'setup_fee_failure_action' => 'CONTINUE',
@@ -236,12 +119,12 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
             return $response->json('id');
         }
 
-        Log::error('PayPal create recurring plan error', [
+        Log::error('PayPal create plan error', [
             'plan' => $plan->toArray(),
             'response' => $response->json()
         ]);
 
-        throw new \Exception('Failed to create PayPal recurring plan');
+        throw new \Exception('Failed to create PayPal plan');
     }
 
     /**
@@ -253,21 +136,6 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
      * @return array Subscription data with redirect URL
      */
     public function createSubscription(Employer $employer, SubscriptionPlan $plan, array $paymentData = []): array
-    {
-        // For both one-time and recurring plans, we'll use the subscription API
-        // with different configurations
-        return $this->createSubscriptionWithPlan($employer, $plan, $paymentData);
-    }
-
-    /**
-     * Create a subscription with a plan (works for both one-time and recurring)
-     *
-     * @param Employer $employer
-     * @param SubscriptionPlan $plan
-     * @param array $paymentData
-     * @return array Subscription data with redirect URL
-     */
-    protected function createSubscriptionWithPlan(Employer $employer, SubscriptionPlan $plan, array $paymentData = []): array
     {
         // Get or create the external plan ID
         $externalPlanId = $plan->external_paypal_id ?? $this->createPlan($plan);
@@ -312,22 +180,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
             $data = $response->json();
 
             // Create a pending subscription record
-            $subscription = new Subscription([
-                'employer_id' => $employer->id,
-                'subscription_plan_id' => $plan->id,
-                'start_date' => Carbon::now(),
-                'end_date' => $plan->isOneTime() ? null : Carbon::now()->addDays($plan->duration_days + 7), // Including trial
-                'amount_paid' => $plan->price,
-                'currency' => $plan->currency,
-                'payment_method' => 'paypal',
-                'subscription_id' => $data['id'],
-                'job_posts_left' => $plan->job_posts_limit,
-                'featured_jobs_left' => $plan->featured_jobs_limit,
-                'cv_downloads_left' => $plan->resume_views_limit,
-                'is_active' => false, // Will be activated when payment is confirmed
-                'payment_type' => $plan->payment_type
-            ]);
-            $subscription->save();
+            $subscription = $this->createSubscriptionRecord($employer, $plan, $data);
 
             // Find the approval URL
             $approvalUrl = collect($data['links'])
@@ -348,6 +201,41 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
         ]);
 
         throw new \Exception('Failed to create PayPal subscription');
+    }
+
+    /**
+     * Create subscription record in database
+     *
+     * @param Employer $employer
+     * @param SubscriptionPlan $plan
+     * @param array $data
+     * @return Subscription
+     */
+    private function createSubscriptionRecord(Employer $employer, SubscriptionPlan $plan, array $data): Subscription
+    {
+        $endDate = null;
+        if ($plan->isRecurring() && $plan->duration_days) {
+            $endDate = Carbon::now()->addDays($plan->duration_days);
+            if ($plan->hasTrial()) {
+                $endDate->addDays($plan->getTrialPeriodDays());
+            }
+        }
+
+        return Subscription::create([
+            'employer_id' => $employer->id,
+            'subscription_plan_id' => $plan->id,
+            'start_date' => Carbon::now(),
+            'end_date' => $endDate,
+            'amount_paid' => $plan->price,
+            'currency' => $plan->currency,
+            'payment_method' => 'paypal',
+            'subscription_id' => $data['id'],
+            'job_posts_left' => $plan->job_posts_limit,
+            'featured_jobs_left' => $plan->featured_jobs_limit,
+            'cv_downloads_left' => $plan->resume_views_limit,
+            'payment_type' => $plan->payment_type,
+            'is_active' => false, // Will be activated when payment is confirmed
+        ]);
     }
 
     /**
@@ -620,6 +508,85 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
     }
 
     /**
+     * Update subscription plan
+     *
+     * @param Subscription $subscription
+     * @param SubscriptionPlan $newPlan
+     * @return bool
+     */
+    public function updateSubscriptionPlan(Subscription $subscription, SubscriptionPlan $newPlan): bool
+    {
+        // One-time subscriptions can't be updated to a different plan
+        if ($subscription->isOneTime()) {
+            return false;
+        }
+
+        if (!$subscription->subscription_id) {
+            return false;
+        }
+
+        // Get or create the external plan ID for the new plan
+        $externalPlanId = $newPlan->external_paypal_id ?? $this->createPlan($newPlan);
+
+        // If we created a new plan, save the ID
+        if (!$newPlan->external_paypal_id) {
+            $newPlan->external_paypal_id = $externalPlanId;
+            $newPlan->save();
+        }
+
+        $response = Http::withToken($this->getAccessToken())
+            ->post("{$this->baseUrl}/v1/billing/subscriptions/{$subscription->subscription_id}/revise", [
+                'plan_id' => $externalPlanId
+            ]);
+
+        if ($response->successful()) {
+            // Update the subscription in our database
+            $subscription->subscription_plan_id = $newPlan->id;
+            $subscription->end_date = $newPlan->isRecurring() && $newPlan->duration_days
+                ? Carbon::now()->addDays($newPlan->duration_days)
+                : null;
+            $subscription->job_posts_left = $newPlan->job_posts_limit;
+            $subscription->featured_jobs_left = $newPlan->featured_jobs_limit;
+            $subscription->cv_downloads_left = $newPlan->resume_views_limit;
+            $subscription->payment_type = $newPlan->payment_type;
+            $subscription->save();
+
+            return true;
+        }
+
+        Log::error('PayPal update subscription plan error', [
+            'subscription' => $subscription->toArray(),
+            'newPlan' => $newPlan->toArray(),
+            'response' => $response->json()
+        ]);
+
+        return false;
+    }
+
+    /**
+     * Get subscription transactions
+     *
+     * @param string $subscriptionId
+     * @return array List of transactions
+     */
+    public function getSubscriptionTransactions(string $subscriptionId): array
+    {
+        $response = Http::withToken($this->getAccessToken())
+            ->get("{$this->baseUrl}/v1/billing/subscriptions/{$subscriptionId}/transactions");
+
+        if ($response->successful()) {
+            return $response->json();
+        }
+
+        Log::error('PayPal get subscription transactions error', [
+            'subscriptionId' => $subscriptionId,
+            'response' => $response->json()
+        ]);
+
+        return ['transactions' => []];
+    }
+
+    /**
      * Verify webhook signature
      *
      * @param string $payload
@@ -819,22 +786,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
         $subscription->save();
 
         // Send notification to the employer
-        try {
-            $employer = $subscription->employer;
-            if ($employer && $employer->user) {
-                $employer->user->notify(new SubscriptionActivatedNotification($subscription));
-
-                Log::info('Subscription activation notification sent', [
-                    'employer_id' => $employer->id,
-                    'subscription_id' => $subscription->id
-                ]);
-            }
-        } catch (\Exception $e) {
-            Log::error('Failed to send subscription activation notification', [
-                'subscription_id' => $subscription->id,
-                'error' => $e->getMessage()
-            ]);
-        }
+        $this->sendActivationNotification($subscription);
 
         return true;
     }
@@ -869,24 +821,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
         // For one-time payments, we need to activate the subscription here
         if ($subscription->isOneTime() && !$subscription->is_active) {
             $subscription->is_active = true;
-
-            // Send notification to the employer
-            try {
-                $employer = $subscription->employer;
-                if ($employer && $employer->user) {
-                    $employer->user->notify(new SubscriptionActivatedNotification($subscription));
-
-                    Log::info('One-time subscription activation notification sent', [
-                        'employer_id' => $employer->id,
-                        'subscription_id' => $subscription->id
-                    ]);
-                }
-            } catch (\Exception $e) {
-                Log::error('Failed to send one-time subscription activation notification', [
-                    'subscription_id' => $subscription->id,
-                    'error' => $e->getMessage()
-                ]);
-            }
+            $this->sendActivationNotification($subscription);
         }
 
         $subscription->save();
@@ -921,24 +856,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
                 $subscription->is_active = true;
                 $subscription->save();
 
-                // Send notification to the employer
-                try {
-                    $employer = $subscription->employer;
-                    if ($employer && $employer->user) {
-                        $employer->user->notify(new SubscriptionActivatedNotification($subscription));
-
-                        Log::info('Subscription payment completed notification sent', [
-                            'employer_id' => $employer->id,
-                            'subscription_id' => $subscription->id
-                        ]);
-                    }
-                } catch (\Exception $e) {
-                    Log::error('Failed to send subscription payment completed notification', [
-                        'subscription_id' => $subscription->id,
-                        'error' => $e->getMessage()
-                    ]);
-                }
-
+                $this->sendActivationNotification($subscription);
                 return true;
             }
         }
@@ -955,24 +873,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
                 $subscription->is_active = true;
                 $subscription->save();
 
-                // Send notification to the employer
-                try {
-                    $employer = $subscription->employer;
-                    if ($employer && $employer->user) {
-                        $employer->user->notify(new SubscriptionActivatedNotification($subscription));
-
-                        Log::info('One-time payment completed notification sent', [
-                            'employer_id' => $employer->id,
-                            'subscription_id' => $subscription->id
-                        ]);
-                    }
-                } catch (\Exception $e) {
-                    Log::error('Failed to send one-time payment completed notification', [
-                        'subscription_id' => $subscription->id,
-                        'error' => $e->getMessage()
-                    ]);
-                }
-
+                $this->sendActivationNotification($subscription);
                 return true;
             }
         }
@@ -1037,23 +938,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
         $subscription->is_active = true;
         $subscription->save();
 
-        // Send notification to the employer if not already sent
-        try {
-            $employer = $subscription->employer;
-            if ($employer && $employer->user) {
-                $employer->user->notify(new SubscriptionActivatedNotification($subscription));
-
-                Log::info('Order completion notification sent', [
-                    'employer_id' => $employer->id,
-                    'subscription_id' => $subscription->id
-                ]);
-            }
-        } catch (\Exception $e) {
-            Log::error('Failed to send order completion notification', [
-                'subscription_id' => $subscription->id,
-                'error' => $e->getMessage()
-            ]);
-        }
+        $this->sendActivationNotification($subscription);
 
         return true;
     }
@@ -1195,118 +1080,6 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
     }
 
     /**
-     * Get subscription transactions
-     *
-     * @param string $subscriptionId
-     * @return array List of transactions
-     */
-    public function getSubscriptionTransactions(string $subscriptionId): array
-    {
-        $response = Http::withToken($this->getAccessToken())
-            ->get("{$this->baseUrl}/v1/billing/subscriptions/{$subscriptionId}/transactions");
-
-        if ($response->successful()) {
-            return $response->json();
-        }
-
-        Log::error('PayPal get subscription transactions error', [
-            'subscriptionId' => $subscriptionId,
-            'response' => $response->json()
-        ]);
-
-        return ['transactions' => []];
-    }
-
-    /**
-     * Update subscription quantity
-     *
-     * @param Subscription $subscription
-     * @param int $quantity
-     * @return bool
-     */
-    public function updateSubscriptionQuantity(Subscription $subscription, int $quantity): bool
-    {
-        if (!$subscription->subscription_id || $subscription->isOneTime()) {
-            return false;
-        }
-
-        $response = Http::withToken($this->getAccessToken())
-            ->patch("{$this->baseUrl}/v1/billing/subscriptions/{$subscription->subscription_id}", [
-                [
-                    'op' => 'replace',
-                    'path' => '/quantity',
-                    'value' => $quantity
-                ]
-            ]);
-
-        if ($response->successful()) {
-            return true;
-        }
-
-        Log::error('PayPal update subscription quantity error', [
-            'subscription' => $subscription->toArray(),
-            'quantity' => $quantity,
-            'response' => $response->json()
-        ]);
-
-        return false;
-    }
-
-    /**
-     * Update subscription plan
-     *
-     * @param Subscription $subscription
-     * @param SubscriptionPlan $newPlan
-     * @return bool
-     */
-    public function updateSubscriptionPlan(Subscription $subscription, SubscriptionPlan $newPlan): bool
-    {
-        // One-time subscriptions can't be updated to a different plan
-        if ($subscription->isOneTime()) {
-            return false;
-        }
-
-        if (!$subscription->subscription_id) {
-            return false;
-        }
-
-        // Get or create the external plan ID for the new plan
-        $externalPlanId = $newPlan->external_paypal_id ?? $this->createPlan($newPlan);
-
-        // If we created a new plan, save the ID
-        if (!$newPlan->external_paypal_id) {
-            $newPlan->external_paypal_id = $externalPlanId;
-            $newPlan->save();
-        }
-
-        $response = Http::withToken($this->getAccessToken())
-            ->post("{$this->baseUrl}/v1/billing/subscriptions/{$subscription->subscription_id}/revise", [
-                'plan_id' => $externalPlanId
-            ]);
-
-        if ($response->successful()) {
-            // Update the subscription in our database
-            $subscription->subscription_plan_id = $newPlan->id;
-            $subscription->end_date = Carbon::now()->addDays($newPlan->duration_days);
-            $subscription->job_posts_left = $newPlan->job_posts_limit;
-            $subscription->featured_jobs_left = $newPlan->featured_jobs_limit;
-            $subscription->cv_downloads_left = $newPlan->resume_views_limit;
-            $subscription->payment_type = $newPlan->payment_type;
-            $subscription->save();
-
-            return true;
-        }
-
-        Log::error('PayPal update subscription plan error', [
-            'subscription' => $subscription->toArray(),
-            'newPlan' => $newPlan->toArray(),
-            'response' => $response->json()
-        ]);
-
-        return false;
-    }
-
-    /**
      * Update subscription with PayPal details
      *
      * @param Subscription $subscription
@@ -1358,6 +1131,32 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
 
         if (isset($details['status_update_time'])) {
             $subscription->status_update_time = Carbon::parse($details['status_update_time']);
+        }
+    }
+
+    /**
+     * Send activation notification
+     *
+     * @param Subscription $subscription
+     * @return void
+     */
+    private function sendActivationNotification(Subscription $subscription): void
+    {
+        try {
+            $employer = $subscription->employer;
+            if ($employer && $employer->user) {
+                $employer->user->notify(new SubscriptionActivatedNotification($subscription));
+
+                Log::info('PayPal subscription activation notification sent', [
+                    'employer_id' => $employer->id,
+                    'subscription_id' => $subscription->id
+                ]);
+            }
+        } catch (\Exception $e) {
+            Log::error('Failed to send PayPal subscription activation notification', [
+                'subscription_id' => $subscription->id,
+                'error' => $e->getMessage()
+            ]);
         }
     }
 }
