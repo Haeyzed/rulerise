@@ -217,8 +217,8 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
                         'quantity' => 1,
                     ],
                 ],
-                'success_url' => url('/api/subscription/stripe/success?session_id={CHECKOUT_SESSION_ID}'),
-                'cancel_url' => url('/api/subscription/stripe/cancel'),
+                'success_url' => config('app.frontend_url') . '/employer/dashboard?session_id={CHECKOUT_SESSION_ID}',
+                'cancel_url' => config('app.frontend_url') . '/employer/dashboard',
                 'metadata' => [
                     'employer_id' => $employer->id,
                     'plan_id' => $plan->id
