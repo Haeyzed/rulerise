@@ -138,6 +138,9 @@ Route::middleware(['auth:api', 'role:employer,employer_staff'])->group(function 
 
         // Verify PayPal subscription
         Route::post('/verify-paypal', [SubscriptionController::class, 'verifyPayPalSubscription']);
+
+        // Verify Stripe subscription
+        Route::post('/verify-stripe', [SubscriptionController::class, 'verifyStripeSubscription']);
     });
 
     // Subscriptions

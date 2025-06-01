@@ -14,7 +14,7 @@ use Stripe\Webhook;
 
 class StripeSubscriptionService implements SubscriptionServiceInterface
 {
-    protected $stripe;
+    public $stripe;
     protected $webhookSecret;
 
     public function __construct()

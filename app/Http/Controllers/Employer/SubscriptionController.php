@@ -540,4 +540,189 @@ class SubscriptionController extends Controller
             return response()->serverError('Error verifying subscription: ' . $e->getMessage());
         }
     }
+
+    /**
+     * Manually verify a Stripe subscription
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function verifyStripeSubscription(Request $request): JsonResponse
+    {
+        $sessionId = $request->input('session_id');
+        $subscriptionId = $request->input('subscription_id');
+
+        if (!$sessionId && !$subscriptionId) {
+            return response()->badRequest('Session ID or Subscription ID is required');
+        }
+
+        try {
+            $employer = Auth::user()->employer;
+            $service = SubscriptionServiceFactory::create('stripe');
+
+            // Find the subscription by session ID or subscription ID
+            $subscription = null;
+
+            if ($sessionId) {
+                $subscription = Subscription::where('payment_reference', $sessionId)
+                    ->where('payment_method', 'stripe')
+                    ->first();
+            } elseif ($subscriptionId) {
+                $subscription = Subscription::where('subscription_id', $subscriptionId)
+                    ->where('payment_method', 'stripe')
+                    ->first();
+            }
+
+            if (!$subscription) {
+                return response()->notFound('Subscription not found');
+            }
+
+            // Verify that the subscription belongs to the current employer
+            if ($subscription->employer_id !== $employer->id) {
+                return response()->forbidden('Unauthorized access to this subscription');
+            }
+
+            // Get subscription details from Stripe
+            $details = null;
+            $stripeStatus = 'UNKNOWN';
+
+            if ($subscription->subscription_id) {
+                $details = $service->getSubscriptionDetails($subscription->subscription_id);
+                $stripeStatus = $details['status'] ?? 'UNKNOWN';
+
+                // Log the details for debugging
+                Log::info('Stripe subscription details', [
+                    'subscription_id' => $subscription->subscription_id,
+                    'details' => $details
+                ]);
+            } elseif ($sessionId) {
+                // For one-time payments or when subscription_id is not yet set
+                // We can retrieve the checkout session
+                try {
+                    $session = $service->stripe->checkout->sessions->retrieve($sessionId);
+                    $stripeStatus = $session->status;
+
+                    // If this is a subscription, update the subscription_id
+                    if ($session->mode === 'subscription' && isset($session->subscription) && !$subscription->subscription_id) {
+                        $subscription->subscription_id = $session->subscription;
+                        $subscription->save();
+
+                        // Now get the subscription details
+                        $details = $service->getSubscriptionDetails($session->subscription);
+                        $stripeStatus = $details['status'] ?? $stripeStatus;
+                    }
+
+                    Log::info('Stripe session details', [
+                        'session_id' => $sessionId,
+                        'session' => $session
+                    ]);
+                } catch (\Exception $e) {
+                    Log::error('Error retrieving Stripe session', [
+                        'session_id' => $sessionId,
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
+
+            // Update subscription with Stripe details if available
+            if ($details) {
+                $this->updateSubscriptionWithStripeDetails($subscription, $details);
+            }
+
+            // If subscription is active in Stripe but not in our database
+            $isActiveInStripe = in_array($stripeStatus, ['active', 'trialing', 'complete', 'paid']);
+
+            if ($isActiveInStripe && !$subscription->is_active) {
+                $subscription->is_active = true;
+                $subscription->save();
+
+                // Send notification
+                try {
+                    if ($employer->user) {
+                        $employer->user->notify(new SubscriptionActivatedNotification($subscription));
+                    }
+                } catch (\Exception $e) {
+                    Log::error('Failed to send subscription activation notification during verification', [
+                        'subscription_id' => $subscription->id,
+                        'error' => $e->getMessage()
+                    ]);
+                }
+
+                Log::info('Subscription activated via manual verification', [
+                    'subscription_id' => $subscription->id,
+                    'stripe_status' => $stripeStatus
+                ]);
+
+                return response()->success([
+                    'subscription' => $subscription->fresh(),
+                    'plan' => $subscription->plan
+                ],'Subscription activated successfully');
+            }
+
+            return response()->success([
+                'subscription' => $subscription,
+                'plan' => $subscription->plan,
+                'stripe_status' => $stripeStatus
+            ],'Subscription status checked');
+        } catch (Exception $e) {
+            Log::error('Error verifying Stripe subscription', [
+                'session_id' => $sessionId ?? null,
+                'subscription_id' => $subscriptionId ?? null,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->serverError('Error verifying subscription: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Update subscription with Stripe details
+     *
+     * @param Subscription $subscription
+     * @param array $details
+     * @return void
+     */
+    private function updateSubscriptionWithStripeDetails(Subscription $subscription, array $details): void
+    {
+        // Store customer information if available
+        if (isset($details['customer'])) {
+            $subscription->subscriber_info = [
+                'email' => $details['customer']['email'] ?? null,
+                'name' => $details['customer']['name'] ?? null,
+                'customer_id' => $details['customer']['id'] ?? null
+            ];
+        }
+
+        // Store billing information if available
+        $subscription->billing_info = [
+            'status' => $details['status'] ?? null,
+            'current_period_start' => $details['current_period_start'] ?? null,
+            'current_period_end' => $details['current_period_end'] ?? null,
+            'cancel_at' => $details['cancel_at'] ?? null,
+            'canceled_at' => $details['canceled_at'] ?? null,
+            'trial_start' => $details['trial_start'] ?? null,
+            'trial_end' => $details['trial_end'] ?? null,
+            'payment_method' => 'Stripe',
+            'last_four' => null // We would need to fetch the payment method to get this
+        ];
+
+        // Update subscription end date based on current_period_end if available
+        // Only for recurring subscriptions
+        if (!$subscription->isOneTime() && isset($details['current_period_end'])) {
+            $subscription->end_date = date('Y-m-d H:i:s', $details['current_period_end']);
+        }
+
+        // Update next billing date if available
+        if (isset($details['current_period_end'])) {
+            $subscription->next_billing_date = date('Y-m-d H:i:s', $details['current_period_end']);
+        }
+
+        // Store status if available
+        if (isset($details['status'])) {
+            $subscription->external_status = $details['status'];
+        }
+
+        $subscription->save();
+    }
 }
