@@ -164,10 +164,10 @@ Route::middleware(['auth:api', 'role:employer'])->group(function () {
     // Staff management
     Route::prefix('staff')->group(function () {
         Route::get('/', [UsersController::class, 'index']);
-        Route::get('{id}', [UsersController::class, 'show']);
+        Route::get('/{id}', [UsersController::class, 'show']);
         Route::post('/', [UsersController::class, 'store']);
         Route::match(['put','patch'],'/{id}', [UsersController::class, 'update']);
-        Route::delete('{id}', [UsersController::class, 'delete']);
+        Route::delete('/{id}', [UsersController::class, 'delete']);
     });
 
     // Subscription management
