@@ -69,7 +69,10 @@ class SubscriptionService
     {
         return $employer->subscriptions()
             ->where('is_active', true)
-            ->where('end_date', '>=', now())
+            ->where(function ($query) {
+                $query->whereNull('end_date') // One-time subscriptions with no expiration
+                ->orWhere('end_date', '>=', now()); // Recurring subscriptions not yet expired
+            })
             ->with('plan')
             ->first();
     }
