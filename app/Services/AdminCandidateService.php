@@ -18,8 +18,7 @@ class AdminCandidateService
      */
     public function getCandidates(array $filters = []): LengthAwarePaginator
     {
-        $query = Candidate::with(['user'])
-            ->withCount('jobApplications');
+        $query = Candidate::with(['user']);
 
         // Apply search filter
         if (!empty($filters['search'])) {
@@ -93,6 +92,9 @@ class AdminCandidateService
                 ->orderBy('users.created_at', $sortOrder)
                 ->select('candidates.*');
         }
+
+        // Add job applications count to all queries
+        $query->withCount('jobApplications');
 
         // Paginate results
         $perPage = $filters['per_page'] ?? config('app.pagination.per_page', 15);
