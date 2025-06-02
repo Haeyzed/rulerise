@@ -162,14 +162,14 @@ Route::middleware(['auth:api', 'role:employer,employer_staff'])->group(function 
 // Routes that require employer role (not staff)
 Route::middleware(['auth:api', 'role:employer'])->group(function () {
     // Staff management
-    Route::apiResource('staff', UsersController::class);
-//    Route::prefix('staff')->group(function () {
-//        Route::get('/', [UsersController::class, 'index']);
-//        Route::get('{id}', [UsersController::class, 'show']);
-//        Route::post('/', [UsersController::class, 'store']);
-//        Route::put('/', [UsersController::class, 'update']);
-//        Route::delete('{id}', [UsersController::class, 'delete']);
-//    });
+//    Route::apiResource('staff', UsersController::class);
+    Route::prefix('staff')->group(function () {
+        Route::get('/', [UsersController::class, 'index']);
+        Route::get('{id}', [UsersController::class, 'show']);
+        Route::post('/', [UsersController::class, 'store']);
+        Route::match(['put','patch'],'/{id}', [UsersController::class, 'update']);
+        Route::delete('{id}', [UsersController::class, 'delete']);
+    });
 
     // Subscription management
     Route::prefix('subscriptions')->group(function () {
