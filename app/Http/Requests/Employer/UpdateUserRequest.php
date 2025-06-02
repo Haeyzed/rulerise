@@ -33,7 +33,7 @@ class UpdateUserRequest extends BaseRequest
             'email' => [
                 'required',
                 'email',
-                Rule::unique('users')->ignore($this->input('id'))->where(function ($query) {
+                Rule::unique('users')->ignore($this->route('id'))->where(function ($query) {
                     return $query->where('user_type', $this->input('user_type', 'employer_staff'));
                 }),
             ],
