@@ -8,6 +8,7 @@ use App\Models\SubscriptionPlan;
 use App\Notifications\SubscriptionActivatedNotification;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
+use Stripe\Checkout\Session;
 use Stripe\Exception\ApiErrorException;
 use Stripe\StripeClient;
 use Stripe\Webhook;
@@ -302,7 +303,7 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
      *
      * @param Employer $employer
      * @param SubscriptionPlan $plan
-     * @param \Stripe\Checkout\Session $session
+     * @param Session $session
      * @return Subscription
      */
     private function createSubscriptionRecord(Employer $employer, SubscriptionPlan $plan, $session): Subscription
@@ -324,6 +325,7 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
             'currency' => $plan->currency,
             'payment_method' => 'stripe',
             'payment_reference' => $session->id,
+            'subscription_id' => $session->id,
             'job_posts_left' => $plan->job_posts_limit,
             'featured_jobs_left' => $plan->featured_jobs_limit,
             'cv_downloads_left' => $plan->resume_views_limit,
@@ -628,7 +630,7 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
     /**
      * Handle checkout session completed event
      *
-     * @param \Stripe\Checkout\Session $session
+     * @param Session $session
      * @return bool
      */
     protected function handleCheckoutSessionCompleted($session): bool
