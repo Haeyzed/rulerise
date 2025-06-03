@@ -506,6 +506,20 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
                 'expand' => ['data.latest_invoice', 'data.items.data.price.product']
             ]);
 
+            // Log the subscription data
+            Log::info('Stripe subscriptions retrieved', [
+                'employer_id' => $employer->id,
+                'customer_id' => $employer->stripe_customer_id,
+                'subscriptions' => collect($subscriptions->data)->map(function ($subscription) {
+                    return [
+                        'id' => $subscription->id,
+                        'status' => $subscription->status,
+                        'items' => collect($subscription->items->data)->pluck('price.id'),
+                    ];
+                }),
+                'has_more' => $subscriptions->has_more
+            ]);
+
             return [
                 'subscriptions' => $subscriptions->data,
                 'has_more' => $subscriptions->has_more,
