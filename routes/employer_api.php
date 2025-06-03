@@ -93,7 +93,7 @@ Route::middleware(['auth:api', 'role:employer,employer_staff'])->group(function 
         Route::delete('{id}', [MessagesController::class, 'destroy']);
         Route::post('{id}/mark-as-read', [MessagesController::class, 'markAsRead']);
         Route::post('mark-all-as-read', [MessagesController::class, 'markAllAsRead']);
-        Route::get('unread-count', [MessagesController::class, 'getUnreadCount']);
+        Route::post('unread-count', [MessagesController::class, 'getUnreadCount']);
     });
 
     // Profile
@@ -136,21 +136,16 @@ Route::middleware(['auth:api', 'role:employer,employer_staff'])->group(function 
         // Update subscription plan
         Route::post('/{subscription}/update-plan', [SubscriptionController::class, 'updateSubscriptionPlan']);
 
-        // Verify PayPal subscription
+        // Manual verification endpoints
         Route::post('/verify-paypal', [SubscriptionController::class, 'verifyPayPalSubscription']);
-
-        // Verify Stripe subscription
         Route::post('/verify-stripe', [SubscriptionController::class, 'verifyStripeSubscription']);
-    });
 
-    // Subscriptions
-//    Route::prefix('cv-packages')->group(function () {
-//        Route::get('/', [SubscriptionPaymentController::class, 'subscriptionList']);
-//        Route::post('{id}/subscribe', [SubscriptionPaymentController::class, 'createPaymentLink']);
-//        Route::get('subscription-detail', [SubscriptionsController::class, 'subscriptionInformation']);
-//        Route::post('update-download-usage', [SubscriptionsController::class, 'updateCVDownloadUsage']);
-//        Route::post('verifySubscription', [SubscriptionPaymentController::class, 'verifySubscription']);
-//    });
+        // Additional management endpoints
+        Route::get('/status', [SubscriptionController::class, 'getSubscriptionStatus']);
+        Route::post('/{subscription}/sync', [SubscriptionController::class, 'syncSubscription']);
+        Route::get('/all', [SubscriptionController::class, 'getAllSubscriptions']);
+        Route::post('/{subscription}/retry', [SubscriptionController::class, 'retrySubscription']);
+    });
 
     // Job notification templates
     Route::prefix('job-notification-template')->group(function () {
@@ -162,7 +157,6 @@ Route::middleware(['auth:api', 'role:employer,employer_staff'])->group(function 
 // Routes that require employer role (not staff)
 Route::middleware(['auth:api', 'role:employer'])->group(function () {
     // Staff management
-//    Route::apiResource('staff', UsersController::class);
     Route::prefix('staff')->group(function () {
         Route::get('/', [UsersController::class, 'index']);
         Route::get('{id}', [UsersController::class, 'show']);
