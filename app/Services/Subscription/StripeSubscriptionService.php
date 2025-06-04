@@ -342,8 +342,6 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
                 'mode' => $plan->isRecurring() ? 'subscription' : 'payment',
                 'success_url' => config('app.frontend_url') . '/employer/dashboard?session_id={CHECKOUT_SESSION_ID}',
                 'cancel_url' => config('app.frontend_url') . '/employer/dashboard?session_id={CHECKOUT_SESSION_ID}',
-//                'success_url' => $this->baseUrl . '/employer/subscription/stripe/success?session_id={CHECKOUT_SESSION_ID}',
-//                'cancel_url' => $this->baseUrl . '/employer/subscription/stripe/cancel',
                 'client_reference_id' => $employer->id,
                 'metadata' => [
                     'employer_id' => $employer->id,
@@ -930,6 +928,8 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
         $employerId = $data['client_reference_id'] ?? null;
         $subscriptionId = $data['subscription'] ?? null;
         $paymentIntentId = $data['payment_intent'] ?? null;
+        $mode = $data['mode'] ?? '';
+        $paymentStatus = $data['payment_status'] ?? '';
 
         // Find the subscription in our database by payment_reference (session ID)
         $subscription = Subscription::where('payment_reference', $sessionId)
@@ -950,10 +950,25 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
             $subscription->transaction_id = $paymentIntentId;
         }
 
-        // For one-time payments, we activate immediately
-        if ($subscription->isOneTime()) {
+        // For one-time payments (mode = 'payment'), activate immediately when payment is successful
+        if ($mode === 'payment' && $paymentStatus === 'paid') {
             $subscription->is_active = true;
+            $subscription->external_status = 'paid';
             $this->sendActivationNotification($subscription);
+
+            Log::info('One-time Stripe payment activated via webhook', [
+                'subscription_id' => $subscription->id,
+                'session_id' => $sessionId,
+                'payment_status' => $paymentStatus
+            ]);
+        }
+        // For recurring subscriptions (mode = 'subscription'), they will be activated via subscription.created/updated events
+        elseif ($mode === 'subscription') {
+            Log::info('Recurring Stripe subscription session completed, waiting for subscription events', [
+                'subscription_id' => $subscription->id,
+                'session_id' => $sessionId,
+                'stripe_subscription_id' => $subscriptionId
+            ]);
         }
 
         $subscription->save();

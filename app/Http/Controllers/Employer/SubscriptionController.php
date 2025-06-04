@@ -584,50 +584,83 @@ class SubscriptionController extends Controller
                 return response()->notFound('Subscription not found');
             }
 
-            // Get subscription details from Stripe
+            // Check if this is a one-time payment or recurring subscription
+            $isOneTimePayment = $subscription->isOneTime();
+
+            // Get details from Stripe
             $details = [];
+            $shouldBeActive = false;
+            $stripeStatus = 'unknown';
 
-            // If we have a Stripe subscription ID, get subscription details
-            if ($subscription->subscription_id) {
-                $details = $service->getSubscriptionDetails($subscription->subscription_id);
-            }
-            // If we only have session ID, get session details
-            elseif ($sessionId && method_exists($service, 'getCheckoutSessionDetails')) {
-                $sessionDetails = $service->getCheckoutSessionDetails($sessionId);
-
-                // If session has subscription, get subscription details
-                if (isset($sessionDetails['subscription']['id'])) {
-                    $subscription->subscription_id = $sessionDetails['subscription']['id'];
-                    $subscription->save();
-                    $details = $service->getSubscriptionDetails($sessionDetails['subscription']['id']);
-                } else {
+            if ($isOneTimePayment) {
+                // For one-time payments, check the checkout session
+                if ($subscription->payment_reference && method_exists($service, 'getCheckoutSessionDetails')) {
+                    $sessionDetails = $service->getCheckoutSessionDetails($subscription->payment_reference);
                     $details = $sessionDetails;
+
+                    // For one-time payments, check session status and payment status
+                    $sessionStatus = $sessionDetails['status'] ?? '';
+                    $paymentStatus = $sessionDetails['payment_status'] ?? '';
+
+                    Log::info('Stripe one-time payment session details', [
+                        'session_id' => $subscription->payment_reference,
+                        'session_status' => $sessionStatus,
+                        'payment_status' => $paymentStatus,
+                        'details' => $sessionDetails
+                    ]);
+
+                    // One-time payment is successful if session is complete and payment is paid
+                    if ($sessionStatus === 'complete' && $paymentStatus === 'paid') {
+                        $shouldBeActive = true;
+                        $stripeStatus = 'paid';
+                    }
+
+                    // Update transaction ID if available
+                    if (isset($sessionDetails['payment_intent'])) {
+                        $subscription->transaction_id = $sessionDetails['payment_intent'];
+                    }
+                }
+            } else {
+                // For recurring subscriptions, check subscription details
+                if ($subscription->subscription_id) {
+                    $details = $service->getSubscriptionDetails($subscription->subscription_id);
+                } elseif ($sessionId && method_exists($service, 'getCheckoutSessionDetails')) {
+                    $sessionDetails = $service->getCheckoutSessionDetails($sessionId);
+
+                    // If session has subscription, get subscription details
+                    if (isset($sessionDetails['subscription']['id'])) {
+                        $subscription->subscription_id = $sessionDetails['subscription']['id'];
+                        $subscription->save();
+                        $details = $service->getSubscriptionDetails($sessionDetails['subscription']['id']);
+                    } else {
+                        $details = $sessionDetails;
+                    }
+                }
+
+                // For recurring subscriptions, check subscription status
+                $stripeStatus = $details['status'] ?? 'unknown';
+                $activeStatuses = ['active', 'trialing'];
+
+                if (in_array($stripeStatus, $activeStatuses)) {
+                    $shouldBeActive = true;
                 }
             }
 
             // Log the details for debugging
-            Log::info('Stripe subscription details', [
-                'subscription_id' => $subscription->subscription_id ?? $sessionId,
-                'details' => $details
+            Log::info('Stripe subscription verification details', [
+                'subscription_id' => $subscription->id,
+                'is_one_time' => $isOneTimePayment,
+                'stripe_status' => $stripeStatus,
+                'should_be_active' => $shouldBeActive,
+                'current_is_active' => $subscription->is_active
             ]);
 
-            // Update subscription with Stripe details if we have subscription details
+            // Update subscription with Stripe details if we have them
             if (!empty($details) && isset($details['status']) && method_exists($service, 'updateSubscriptionWithStripeDetails')) {
                 $service->updateSubscriptionWithStripeDetails($subscription, $details);
             }
 
-            // Check if subscription should be active
-            $shouldBeActive = false;
-            $stripeStatus = $details['status'] ?? 'unknown';
-
-            // Stripe statuses that should be considered active
-            $activeStatuses = ['active', 'trialing'];
-
-            if (in_array($stripeStatus, $activeStatuses)) {
-                $shouldBeActive = true;
-            }
-
-            // If subscription should be active in Stripe but not in our database
+            // If subscription should be active but isn't in our database
             if ($shouldBeActive && !$subscription->is_active) {
                 $subscription->is_active = true;
                 $subscription->external_status = $stripeStatus;
@@ -648,8 +681,9 @@ class SubscriptionController extends Controller
 
                 Log::info('Subscription activated via manual verification', [
                     'subscription_id' => $subscription->id,
-                    'stripe_id' => $subscription->subscription_id ?? $sessionId,
-                    'stripe_status' => $stripeStatus
+                    'stripe_id' => $subscription->subscription_id ?? $subscription->payment_reference,
+                    'stripe_status' => $stripeStatus,
+                    'is_one_time' => $isOneTimePayment
                 ]);
 
                 return response()->success([
@@ -661,7 +695,8 @@ class SubscriptionController extends Controller
             return response()->success([
                 'subscription' => $subscription,
                 'plan' => $subscription->plan,
-                'stripe_status' => $stripeStatus
+                'stripe_status' => $stripeStatus,
+                'is_one_time' => $isOneTimePayment
             ],'Subscription status checked');
         } catch (Exception $e) {
             Log::error('Error verifying Stripe subscription', [
