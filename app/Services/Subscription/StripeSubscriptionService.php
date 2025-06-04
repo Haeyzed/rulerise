@@ -969,6 +969,7 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
     {
         $subscriptionId = $data['id'] ?? '';
         $customerId = $data['customer'] ?? '';
+        $status = $data['status'] ?? '';
 
         // Find the employer by Stripe customer ID
         $employer = Employer::where('stripe_customer_id', $customerId)->first();
@@ -984,7 +985,7 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
             ->first();
 
         if (!$subscription) {
-            // If not found by subscription_id, try to find by payment_reference
+            // If not found by subscription_id, try to find by employer and update it
             $subscription = Subscription::where('employer_id', $employer->id)
                 ->where('payment_method', 'stripe')
                 ->whereNull('subscription_id')
@@ -993,6 +994,14 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
 
             if ($subscription) {
                 $subscription->subscription_id = $subscriptionId;
+                $subscription->external_status = $status;
+
+                // If status is trialing or active, activate the subscription
+                if (in_array($status, ['trialing', 'active'])) {
+                    $subscription->is_active = true;
+                    $this->sendActivationNotification($subscription);
+                }
+
                 $subscription->save();
             } else {
                 Log::error('Stripe subscription not found', ['subscriptionId' => $subscriptionId]);
@@ -1036,6 +1045,17 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
                 }
                 break;
 
+            case 'trialing':
+                // During trial, the subscription is active
+                $subscription->is_active = true;
+                $subscription->is_suspended = false;
+
+                // If this is the first time the subscription becomes trialing, send notification
+                if ($subscription->external_status !== 'trialing') {
+                    $this->sendActivationNotification($subscription);
+                }
+                break;
+
             case 'past_due':
                 // Don't change active status yet, but mark as past due
                 $subscription->external_status = 'past_due';
@@ -1052,12 +1072,6 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
             case 'incomplete':
             case 'incomplete_expired':
                 $subscription->is_active = false;
-                break;
-
-            case 'trialing':
-                // During trial, the subscription is active
-                $subscription->is_active = true;
-                $subscription->is_suspended = false;
                 break;
         }
 
