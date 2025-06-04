@@ -569,7 +569,7 @@ class SubscriptionController extends Controller
             $subscription = null;
 
             if ($subscriptionId) {
-                $subscription = Subscription::where('subscription_id', $subscriptionId)
+                $subscription = Subscription::where('id', $subscriptionId)
                     ->where('employer_id', $employer->id)
                     ->where('payment_method', 'stripe')
                     ->first();
