@@ -340,8 +340,10 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
                     ],
                 ],
                 'mode' => $plan->isRecurring() ? 'subscription' : 'payment',
-                'success_url' => $this->baseUrl . '/employer/subscription/stripe/success?session_id={CHECKOUT_SESSION_ID}',
-                'cancel_url' => $this->baseUrl . '/employer/subscription/stripe/cancel',
+                'success_url' => config('app.frontend_url') . '/employer/dashboard?session_id={CHECKOUT_SESSION_ID}',
+                'cancel_url' => config('app.frontend_url') . '/employer/dashboard?session_id={CHECKOUT_SESSION_ID}',
+//                'success_url' => $this->baseUrl . '/employer/subscription/stripe/success?session_id={CHECKOUT_SESSION_ID}',
+//                'cancel_url' => $this->baseUrl . '/employer/subscription/stripe/cancel',
                 'client_reference_id' => $employer->id,
                 'metadata' => [
                     'employer_id' => $employer->id,
