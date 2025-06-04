@@ -285,6 +285,28 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
     }
 
     /**
+     * Check if automatic tax is properly configured
+     *
+     * @return bool
+     */
+    protected function isAutomaticTaxConfigured(): bool
+    {
+        try {
+            // Try to retrieve tax settings to see if they're configured
+            $settings = $this->stripe->tax->settings->retrieve();
+
+            // Check if there's a valid origin address
+            return !empty($settings->defaults['tax_behavior']) &&
+                !empty($settings->head_office['address']);
+        } catch (ApiErrorException $e) {
+            Log::warning('Could not retrieve Stripe tax settings', [
+                'error' => $e->getMessage()
+            ]);
+            return false;
+        }
+    }
+
+    /**
      * Create a subscription for an employer
      *
      * @param Employer $employer
@@ -318,8 +340,8 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
                     ],
                 ],
                 'mode' => $plan->isRecurring() ? 'subscription' : 'payment',
-                'success_url' => $this->baseUrl . '/employer/subscription/success?session_id={CHECKOUT_SESSION_ID}',
-                'cancel_url' => $this->baseUrl . '/employer/subscription/cancel',
+                'success_url' => $this->baseUrl . '/employer/subscription/stripe/success?session_id={CHECKOUT_SESSION_ID}',
+                'cancel_url' => $this->baseUrl . '/employer/subscription/stripe/cancel',
                 'client_reference_id' => $employer->id,
                 'metadata' => [
                     'employer_id' => $employer->id,
@@ -334,15 +356,46 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
                 ];
             }
 
-            // Add tax settings if configured
+            // Get Stripe configuration from the plan
             $stripeConfig = $plan->getPaymentGatewayConfig('stripe');
-            if (isset($stripeConfig['automatic_tax']) && $stripeConfig['automatic_tax']['enabled']) {
+
+            // Only add automatic tax if it's explicitly enabled AND properly configured
+            if (isset($stripeConfig['automatic_tax']['enabled']) &&
+                $stripeConfig['automatic_tax']['enabled'] === true &&
+                $this->isAutomaticTaxConfigured()) {
+
                 $sessionParams['automatic_tax'] = ['enabled' => true];
+
+                Log::info('Automatic tax enabled for Stripe checkout session', [
+                    'plan_id' => $plan->id,
+                    'employer_id' => $employer->id
+                ]);
+            } else {
+                Log::info('Automatic tax disabled for Stripe checkout session', [
+                    'plan_id' => $plan->id,
+                    'employer_id' => $employer->id,
+                    'config_enabled' => isset($stripeConfig['automatic_tax']['enabled']) ? $stripeConfig['automatic_tax']['enabled'] : false,
+                    'stripe_configured' => $this->isAutomaticTaxConfigured()
+                ]);
             }
 
             // Allow promotion codes if configured
             if (isset($stripeConfig['allow_promotion_codes']) && $stripeConfig['allow_promotion_codes']) {
                 $sessionParams['allow_promotion_codes'] = true;
+            }
+
+            // Add billing address collection if needed
+            if (isset($stripeConfig['billing_address_collection'])) {
+                $sessionParams['billing_address_collection'] = $stripeConfig['billing_address_collection'];
+            } else {
+                // Default to auto for better user experience
+                $sessionParams['billing_address_collection'] = 'auto';
+            }
+
+            // Add phone number collection if configured
+            if (isset($stripeConfig['phone_number_collection']['enabled']) &&
+                $stripeConfig['phone_number_collection']['enabled']) {
+                $sessionParams['phone_number_collection'] = ['enabled' => true];
             }
 
             $session = $this->stripe->checkout->sessions->create($sessionParams);
@@ -365,10 +418,19 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
             Log::error('Stripe create subscription error', [
                 'employer' => $employer->id,
                 'plan' => $plan->toArray(),
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
+                'error_code' => $e->getStripeCode(),
+                'error_type' => $e->getError()->type ?? null
             ]);
 
-            throw new \Exception('Failed to create Stripe subscription: ' . $e->getMessage());
+            // Provide more specific error messages for common issues
+            $errorMessage = match ($e->getStripeCode()) {
+                'tax_calculation_failed' => 'Tax calculation failed. Please contact support.',
+                'invalid_request_error' => 'Invalid request. Please check your configuration.',
+                default => 'Failed to create Stripe subscription: ' . $e->getMessage()
+            };
+
+            throw new \Exception($errorMessage);
         }
     }
 
@@ -382,12 +444,23 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
     {
         // If the employer already has a Stripe customer ID, use it
         if ($employer->stripe_customer_id) {
-            return $employer->stripe_customer_id;
+            try {
+                // Verify the customer still exists
+                $this->stripe->customers->retrieve($employer->stripe_customer_id);
+                return $employer->stripe_customer_id;
+            } catch (ApiErrorException $e) {
+                Log::warning('Stripe customer not found, creating new one', [
+                    'employer_id' => $employer->id,
+                    'old_customer_id' => $employer->stripe_customer_id,
+                    'error' => $e->getMessage()
+                ]);
+                // Continue to create a new customer
+            }
         }
 
         try {
             // Create a new customer
-            $customer = $this->stripe->customers->create([
+            $customerData = [
                 'email' => $employer->user->email ?? $employer->company_email,
                 'name' => $employer->company_name,
                 'description' => 'Employer ID: ' . $employer->id,
@@ -395,7 +468,32 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
                     'employer_id' => $employer->id,
                     'user_id' => $employer->user_id,
                 ],
-            ]);
+            ];
+
+            // Add phone if available
+            if ($employer->company_phone_number) {
+                $customerData['phone'] = $employer->company_phone_number;
+            }
+
+            // Add address if available
+            if ($employer->company_address || $employer->company_country) {
+                $address = [];
+                if ($employer->company_address) {
+                    $address['line1'] = $employer->company_address;
+                }
+                if ($employer->company_country) {
+                    $address['country'] = $employer->company_country;
+                }
+                if ($employer->company_state) {
+                    $address['state'] = $employer->company_state;
+                }
+
+                if (!empty($address)) {
+                    $customerData['address'] = $address;
+                }
+            }
+
+            $customer = $this->stripe->customers->create($customerData);
 
             // Save the customer ID to the employer
             $employer->stripe_customer_id = $customer->id;
@@ -528,6 +626,30 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
         } catch (ApiErrorException $e) {
             Log::error('Stripe get subscription details error', [
                 'subscriptionId' => $subscriptionId,
+                'error' => $e->getMessage()
+            ]);
+
+            return [];
+        }
+    }
+
+    /**
+     * Get checkout session details
+     *
+     * @param string $sessionId
+     * @return array Session details
+     */
+    public function getCheckoutSessionDetails(string $sessionId): array
+    {
+        try {
+            $session = $this->stripe->checkout->sessions->retrieve($sessionId, [
+                'expand' => ['customer', 'subscription', 'payment_intent']
+            ]);
+
+            return $session->toArray();
+        } catch (ApiErrorException $e) {
+            Log::error('Stripe get checkout session details error', [
+                'sessionId' => $sessionId,
                 'error' => $e->getMessage()
             ]);
 

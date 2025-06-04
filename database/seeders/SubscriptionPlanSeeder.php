@@ -45,7 +45,15 @@ class SubscriptionPlanSeeder extends Seeder
                 ],
                 'stripe' => [
                     'payment_method_types' => ['card'],
-                    'allow_promotion_codes' => true
+                    'allow_promotion_codes' => true,
+                    'billing_address_collection' => 'auto',
+                    'phone_number_collection' => [
+                        'enabled' => false
+                    ],
+                    // Automatic tax is disabled by default for better compatibility
+                    'automatic_tax' => [
+                        'enabled' => false
+                    ]
                 ]
             ],
             'features' => [
@@ -96,7 +104,14 @@ class SubscriptionPlanSeeder extends Seeder
                 'stripe' => [
                     'payment_method_types' => ['card'],
                     'allow_promotion_codes' => true,
-                    'automatic_tax' => ['enabled' => true]
+                    'billing_address_collection' => 'required',
+                    'phone_number_collection' => [
+                        'enabled' => true
+                    ],
+                    // Automatic tax is disabled by default - enable only when properly configured
+                    'automatic_tax' => [
+                        'enabled' => false // Set to true only after configuring tax settings in Stripe dashboard
+                    ]
                 ]
             ],
             'features' => [
