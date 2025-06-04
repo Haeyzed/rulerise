@@ -139,12 +139,6 @@ Route::middleware(['auth:api', 'role:employer,employer_staff'])->group(function 
         // Manual verification endpoints
         Route::post('/verify-paypal', [SubscriptionController::class, 'verifyPayPalSubscription']);
         Route::post('/verify-stripe', [SubscriptionController::class, 'verifyStripeSubscription']);
-
-        // Additional management endpoints
-        Route::get('/status', [SubscriptionController::class, 'getSubscriptionStatus']);
-        Route::post('/{subscription}/sync', [SubscriptionController::class, 'syncSubscription']);
-        Route::get('/all', [SubscriptionController::class, 'getAllSubscriptions']);
-        Route::post('/{subscription}/retry', [SubscriptionController::class, 'retrySubscription']);
     });
 
     // Job notification templates

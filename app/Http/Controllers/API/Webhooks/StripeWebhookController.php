@@ -5,40 +5,42 @@ namespace App\Http\Controllers\API\Webhooks;
 use App\Http\Controllers\Controller;
 use App\Services\Subscription\SubscriptionServiceFactory;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Log;
 
 class StripeWebhookController extends Controller
 {
     /**
-     * Handle Stripe webhook
+     * Handle Stripe webhook events
      *
      * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
+     * @return Response
      */
-    public function handle(Request $request)
+    public function handle(Request $request): Response
     {
+        $payload = $request->getContent();
+        $headers = $request->header();
+
         Log::info('Stripe webhook received', [
-            'headers' => $request->headers->all()
+            'headers' => $headers,
         ]);
 
         try {
             $service = SubscriptionServiceFactory::create('stripe');
-            $success = $service->handleWebhook(
-                $request->getContent(),
-                $request->headers->all()
-            );
+            $success = $service->handleWebhook($payload, $headers);
 
-            if (!$success) {
-                return response()->json(['error' => 'Webhooks processing failed'], 400);
+            if ($success) {
+                return response('Webhook processed successfully', 200);
+            } else {
+                return response('Webhook processing failed', 422);
             }
-
-            return response()->json(['success' => true]);
         } catch (\Exception $e) {
-            Log::error('Stripe webhook error', [
-                'error' => $e->getMessage()
+            Log::error('Error processing Stripe webhook', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
             ]);
 
-            return response()->json(['error' => $e->getMessage()], 500);
+            return response('Webhook processing error: ' . $e->getMessage(), 500);
         }
     }
 }
