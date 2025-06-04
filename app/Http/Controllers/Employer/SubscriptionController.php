@@ -587,26 +587,50 @@ class SubscriptionController extends Controller
             // Get subscription details from Stripe
             $details = [];
 
-            if ($subscriptionId) {
-                $details = $service->getSubscriptionDetails($subscriptionId);
-            } elseif ($sessionId && method_exists($service, 'getCheckoutSessionDetails')) {
-                $details = $service->getCheckoutSessionDetails($sessionId);
+            // If we have a Stripe subscription ID, get subscription details
+            if ($subscription->subscription_id) {
+                $details = $service->getSubscriptionDetails($subscription->subscription_id);
+            }
+            // If we only have session ID, get session details
+            elseif ($sessionId && method_exists($service, 'getCheckoutSessionDetails')) {
+                $sessionDetails = $service->getCheckoutSessionDetails($sessionId);
+
+                // If session has subscription, get subscription details
+                if (isset($sessionDetails['subscription']['id'])) {
+                    $subscription->subscription_id = $sessionDetails['subscription']['id'];
+                    $subscription->save();
+                    $details = $service->getSubscriptionDetails($sessionDetails['subscription']['id']);
+                } else {
+                    $details = $sessionDetails;
+                }
             }
 
             // Log the details for debugging
             Log::info('Stripe subscription details', [
-                'subscription_id' => $subscriptionId ?? $sessionId,
+                'subscription_id' => $subscription->subscription_id ?? $sessionId,
                 'details' => $details
             ]);
 
-            // Update subscription with Stripe details if we have a subscription ID
-            if ($subscriptionId && method_exists($service, 'updateSubscriptionWithStripeDetails')) {
+            // Update subscription with Stripe details if we have subscription details
+            if (!empty($details) && isset($details['status']) && method_exists($service, 'updateSubscriptionWithStripeDetails')) {
                 $service->updateSubscriptionWithStripeDetails($subscription, $details);
             }
 
-            // If subscription is active in Stripe but not in our database
-            if (isset($details['status']) && ($details['status'] === 'active' || $details['status'] === 'trialing') && !$subscription->is_active) {
+            // Check if subscription should be active
+            $shouldBeActive = false;
+            $stripeStatus = $details['status'] ?? 'unknown';
+
+            // Stripe statuses that should be considered active
+            $activeStatuses = ['active', 'trialing'];
+
+            if (in_array($stripeStatus, $activeStatuses)) {
+                $shouldBeActive = true;
+            }
+
+            // If subscription should be active in Stripe but not in our database
+            if ($shouldBeActive && !$subscription->is_active) {
                 $subscription->is_active = true;
+                $subscription->external_status = $stripeStatus;
                 $subscription->save();
 
                 // Send notification
@@ -624,7 +648,8 @@ class SubscriptionController extends Controller
 
                 Log::info('Subscription activated via manual verification', [
                     'subscription_id' => $subscription->id,
-                    'stripe_id' => $subscriptionId ?? $sessionId
+                    'stripe_id' => $subscription->subscription_id ?? $sessionId,
+                    'stripe_status' => $stripeStatus
                 ]);
 
                 return response()->success([
@@ -636,7 +661,7 @@ class SubscriptionController extends Controller
             return response()->success([
                 'subscription' => $subscription,
                 'plan' => $subscription->plan,
-                'stripe_status' => $details['status'] ?? 'UNKNOWN'
+                'stripe_status' => $stripeStatus
             ],'Subscription status checked');
         } catch (Exception $e) {
             Log::error('Error verifying Stripe subscription', [

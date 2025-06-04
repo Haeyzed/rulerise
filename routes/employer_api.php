@@ -5,7 +5,7 @@ use App\Http\Controllers\API\Webhooks\StripeWebhookController;
 use App\Http\Controllers\Employer\CandidatesController;
 use App\Http\Controllers\Employer\PaymentController;
 use App\Http\Controllers\Employer\ResumeController;
-use App\Http\Controllers\Employer\SubscriptionsController;
+use App\Http\Controllers\Employer\SubscriptionController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Employer\DashboardsController;
@@ -107,38 +107,38 @@ Route::middleware(['auth:api', 'role:employer,employer_staff'])->group(function 
 
     Route::prefix('subscription')->group(function () {
         // Basic subscription management
-        Route::get('/plans', [SubscriptionsController::class, 'getPlans']);
-        Route::get('/active', [SubscriptionsController::class, 'getActiveSubscription']);
-        Route::post('/{plan}/subscribe', [SubscriptionsController::class, 'subscribe']);
-        Route::post('/cancel', [SubscriptionsController::class, 'cancel']);
+        Route::get('/plans', [SubscriptionController::class, 'getPlans']);
+        Route::get('/active', [SubscriptionController::class, 'getActiveSubscription']);
+        Route::post('/{plan}/subscribe', [SubscriptionController::class, 'subscribe']);
+        Route::post('/cancel', [SubscriptionController::class, 'cancel']);
 
         // List plans from a specific provider
-        Route::get('/provider/{provider}/plans', [SubscriptionsController::class, 'listProviderPlans']);
+        Route::get('/provider/{provider}/plans', [SubscriptionController::class, 'listProviderPlans']);
 
         // Get plan details
-        Route::get('/provider/{provider}/plans/{externalPlanId}', [SubscriptionsController::class, 'getPlanDetails']);
+        Route::get('/provider/{provider}/plans/{externalPlanId}', [SubscriptionController::class, 'getPlanDetails']);
 
         // List employer subscriptions
-        Route::get('/provider/{provider}/subscriptions', [SubscriptionsController::class, 'listEmployerSubscriptions']);
+        Route::get('/provider/{provider}/subscriptions', [SubscriptionController::class, 'listEmployerSubscriptions']);
 
         // Get subscription details
-        Route::get('/provider/{provider}/subscriptions/{subscriptionId}', [SubscriptionsController::class, 'getSubscriptionDetails']);
+        Route::get('/provider/{provider}/subscriptions/{subscriptionId}', [SubscriptionController::class, 'getSubscriptionDetails']);
 
         // Get subscription transactions
-        Route::get('/provider/{provider}/subscriptions/{subscriptionId}/transactions', [SubscriptionsController::class, 'getSubscriptionTransactions']);
+        Route::get('/provider/{provider}/subscriptions/{subscriptionId}/transactions', [SubscriptionController::class, 'getSubscriptionTransactions']);
 
         // Suspend subscription
-        Route::post('/{subscription}/suspend', [SubscriptionsController::class, 'suspendSubscription']);
+        Route::post('/{subscription}/suspend', [SubscriptionController::class, 'suspendSubscription']);
 
         // Reactivate subscription
-        Route::post('/{subscription}/reactivate', [SubscriptionsController::class, 'reactivateSubscription']);
+        Route::post('/{subscription}/reactivate', [SubscriptionController::class, 'reactivateSubscription']);
 
         // Update subscription plan
-        Route::post('/{subscription}/update-plan', [SubscriptionsController::class, 'updateSubscriptionPlan']);
+        Route::post('/{subscription}/update-plan', [SubscriptionController::class, 'updateSubscriptionPlan']);
 
         // Manual verification endpoints
-        Route::post('/verify-paypal', [SubscriptionsController::class, 'verifyPayPalSubscription']);
-        Route::post('/verify-stripe', [SubscriptionsController::class, 'verifyStripeSubscription']);
+        Route::post('/verify-paypal', [SubscriptionController::class, 'verifyPayPalSubscription']);
+        Route::post('/verify-stripe', [SubscriptionController::class, 'verifyStripeSubscription']);
     });
 
     // Job notification templates
@@ -192,10 +192,10 @@ Route::middleware(['auth:api', 'role:employer'])->group(function () {
 });
 
 // Subscription callback endpoints (no auth required)
-Route::get('subscription/paypal/success', [SubscriptionsController::class, 'paypalSuccess']);
-Route::get('subscription/paypal/cancel', [SubscriptionsController::class, 'paypalCancel']);
-Route::get('subscription/stripe/success', [SubscriptionsController::class, 'stripeSuccess']);
-Route::get('subscription/stripe/cancel', [SubscriptionsController::class, 'stripeCancel']);
+Route::get('subscription/paypal/success', [SubscriptionController::class, 'paypalSuccess']);
+Route::get('subscription/paypal/cancel', [SubscriptionController::class, 'paypalCancel']);
+Route::get('subscription/stripe/success', [SubscriptionController::class, 'stripeSuccess']);
+Route::get('subscription/stripe/cancel', [SubscriptionController::class, 'stripeCancel']);
 
 // Webhook endpoints (no auth required, verified by signature)
 Route::post('webhooks/paypal', [PayPalWebhookController::class, 'handle']);
