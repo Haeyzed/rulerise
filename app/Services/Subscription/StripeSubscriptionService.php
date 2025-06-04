@@ -1225,8 +1225,10 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
     {
         // Store customer information if available
         if (isset($details['customer'])) {
+            // Extract just the ID if it's an object, otherwise use as-is
+            $customer = $details['customer'];
             $subscription->subscriber_info = [
-                'customer_id' => $details['customer'],
+                'customer_id' => is_array($customer) ? ($customer['id'] ?? null) : $customer,
             ];
         }
 

@@ -617,7 +617,9 @@ class SubscriptionController extends Controller
 
                     // Update transaction ID if available
                     if (isset($sessionDetails['payment_intent'])) {
-                        $subscription->transaction_id = $sessionDetails['payment_intent'];
+                        // Extract just the ID if it's an object, otherwise use as-is
+                        $paymentIntent = $sessionDetails['payment_intent'];
+                        $subscription->transaction_id = is_array($paymentIntent) ? ($paymentIntent['id'] ?? null) : $paymentIntent;
                     }
                 }
             } else {
