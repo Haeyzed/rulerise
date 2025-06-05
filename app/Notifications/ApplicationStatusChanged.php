@@ -67,7 +67,7 @@ class ApplicationStatusChanged extends Notification// implements ShouldQueue
                 }
             }
 
-            return $mail->action('View Application', url('/candidate/applications/' . $this->application->id));
+            return $mail->action('View Application', config('app.frontend_url') . '/candidate/applications/' . $this->application->id);
         }
 
         // Default notifications based on status if no template is available
