@@ -81,7 +81,7 @@ class CandidateWithdrewApplication extends Notification// implements ShouldQueue
             ->line($candidateName . ' has withdrawn their application for the position of ' . $this->job->title . '.')
             ->line('Reason: ' . $withdrawalReason)
             ->line('The application status has been automatically updated to "Withdrawn" in your dashboard.')
-            ->action('View Applications', url('/employer/applications'))
+//            ->action('View Applications', url('/employer/applications'))
             ->line('This is an automated notification.');
     }
 

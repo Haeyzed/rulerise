@@ -48,7 +48,7 @@ class JobApplicationWithdrawn extends Notification// implements ShouldQueue
             ->line('You have successfully withdrawn your application for the position of ' . $this->job->title . ' at ' . $this->job->employer->company_name . '.')
             ->line('We understand that circumstances change, and we appreciate you keeping your application status up to date.')
             ->line('You are welcome to apply for other positions or reapply for this position in the future if your circumstances change.')
-            ->action('View Other Jobs', url('/jobs'))
+            ->action('View Other Jobs', config('app.frontend_url') . '/candidate/dashboard')
             ->line('Thank you for your interest in ' . $this->job->employer->company_name . '.');
     }
 

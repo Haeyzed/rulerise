@@ -92,8 +92,10 @@ class EmployerApplicationReceived extends Notification// implements ShouldQueue
                 'candidateUser' => $candidateUser,
                 'job' => $this->job,
                 'resumeText' => $resumeText,
+//                'employerName' => $notifiable->first_name,
                 'employerName' => $notifiable->first_name,
-                'viewApplicationUrl' => config('app.frontend_url') . '/employer/jobs/' . $this->job->id . '/applications/' . $this->application->id,
+//                'viewApplicationUrl' => config('app.frontend_url') . '/employer/jobs/job-details?id=' . $this->job->id . '/applications/' . $this->application->id,
+                'viewApplicationUrl' => config('app.frontend_url') . '/employer/jobs/job-details?id=' . $this->job->id,
                 'viewCandidateUrl' => config('app.frontend_url') . '/employer/candidates/' . $this->candidate->id,
                 'viewJobUrl' => config('app.frontend_url') . '/employer/jobs/' . $this->job->id,
             ]);
