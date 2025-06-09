@@ -112,6 +112,10 @@ Route::middleware(['auth:api', 'role:employer,employer_staff'])->group(function 
         Route::post('/{plan}/subscribe', [SubscriptionController::class, 'subscribe']);
         Route::post('/cancel', [SubscriptionController::class, 'cancel']);
 
+        // Trial management
+        Route::get('/trial-eligibility', [SubscriptionController::class, 'getTrialEligibility']);
+        Route::post('/{plan}/trial', [SubscriptionController::class, 'createTrial']);
+
         // List plans from a specific provider
         Route::get('/provider/{provider}/plans', [SubscriptionController::class, 'listProviderPlans']);
 
@@ -139,6 +143,9 @@ Route::middleware(['auth:api', 'role:employer,employer_staff'])->group(function 
         // Manual verification endpoints
         Route::post('/verify-paypal', [SubscriptionController::class, 'verifyPayPalSubscription']);
         Route::post('/verify-stripe', [SubscriptionController::class, 'verifyStripeSubscription']);
+
+        // Get all subscriptions
+        Route::get('/all', [SubscriptionController::class, 'getAllSubscriptions']);
     });
 
     // Job notification templates

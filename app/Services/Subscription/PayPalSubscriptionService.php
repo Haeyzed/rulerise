@@ -158,6 +158,22 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
      */
     public function createSubscription(Employer $employer, SubscriptionPlan $plan, array $paymentData = []): array
     {
+        // Check trial eligibility and handle accordingly
+        $useTrialPeriod = $plan->hasTrial() && $employer->isEligibleForTrial();
+
+        // For one-time plans with trial, create manual trial subscription
+        if ($plan->isOneTime() && $useTrialPeriod) {
+            $subscription = $this->createTrialSubscription($employer, $plan);
+
+            return [
+                'subscription_id' => $subscription->id,
+                'external_subscription_id' => null,
+                'redirect_url' => null,
+                'status' => 'trial_active',
+                'trial_subscription' => true
+            ];
+        }
+
         // Get or create the external plan ID
         $externalPlanId = $plan->external_paypal_id ?? $this->createPlan($plan);
 
@@ -165,6 +181,20 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
         if (!$plan->external_paypal_id) {
             $plan->external_paypal_id = $externalPlanId;
             $plan->save();
+        }
+
+        // Create modified billing cycles if trial is not eligible
+        $billingCycles = $plan->getPayPalBillingCycles();
+        if (!$useTrialPeriod && $plan->hasTrial()) {
+            // Remove trial cycle if employer is not eligible
+            $billingCycles = array_filter($billingCycles, function($cycle) {
+                return $cycle['tenure_type'] !== 'TRIAL';
+            });
+            // Reindex and update sequence numbers
+            $billingCycles = array_values($billingCycles);
+            foreach ($billingCycles as $index => &$cycle) {
+                $cycle['sequence'] = $index + 1;
+            }
         }
 
         // Prepare subscription data
@@ -199,7 +229,8 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
             'plan_id' => $plan->id,
             'external_plan_id' => $externalPlanId,
             'start_time' => $subscriptionData['start_time'],
-            'is_one_time' => $plan->isOneTime()
+            'is_one_time' => $plan->isOneTime(),
+            'use_trial' => $useTrialPeriod
         ]);
 
         // Create the subscription
@@ -213,7 +244,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
             $data = $response->json();
 
             // Create a pending subscription record
-            $subscription = $this->createSubscriptionRecord($employer, $plan, $data);
+            $subscription = $this->createSubscriptionRecord($employer, $plan, $data, $useTrialPeriod);
 
             // Find the approval URL
             $approvalUrl = collect($data['links'])
@@ -257,24 +288,74 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
     }
 
     /**
+     * Create a manual trial subscription (for one-time plans with trial)
+     *
+     * @param Employer $employer
+     * @param SubscriptionPlan $plan
+     * @return Subscription
+     */
+    public function createTrialSubscription(Employer $employer, SubscriptionPlan $plan): Subscription
+    {
+        if (!$plan->isOneTime() || !$plan->hasTrial() || !$employer->isEligibleForTrial()) {
+            throw new \Exception('Employer is not eligible for trial or plan does not support trial');
+        }
+
+        // Calculate trial end date
+        $trialEndDate = Carbon::now()->addDays($plan->getTrialPeriodDays());
+
+        // Create the subscription record
+        $subscription = Subscription::create([
+            'employer_id' => $employer->id,
+            'subscription_plan_id' => $plan->id,
+            'start_date' => Carbon::now(),
+            'end_date' => $trialEndDate,
+            'amount_paid' => 0.00, // Trial is free
+            'currency' => $plan->currency,
+            'payment_method' => 'paypal',
+            'subscription_id' => null, // No external subscription for manual trial
+            'job_posts_left' => $plan->job_posts_limit,
+            'featured_jobs_left' => $plan->featured_jobs_limit,
+            'cv_downloads_left' => $plan->resume_views_limit,
+            'payment_type' => $plan->payment_type,
+            'is_active' => true, // Trial is immediately active
+            'used_trial' => true,
+        ]);
+
+        // Mark employer as having used trial
+        $employer->markTrialAsUsed();
+
+        // Send activation notification
+        $this->sendActivationNotification($subscription);
+
+        Log::info('Manual trial subscription created', [
+            'employer_id' => $employer->id,
+            'subscription_id' => $subscription->id,
+            'trial_end_date' => $trialEndDate->toDateTimeString()
+        ]);
+
+        return $subscription;
+    }
+
+    /**
      * Create subscription record in database
      *
      * @param Employer $employer
      * @param SubscriptionPlan $plan
      * @param array $data
+     * @param bool $usedTrial
      * @return Subscription
      */
-    private function createSubscriptionRecord(Employer $employer, SubscriptionPlan $plan, array $data): Subscription
+    private function createSubscriptionRecord(Employer $employer, SubscriptionPlan $plan, array $data, bool $usedTrial = false): Subscription
     {
         $endDate = null;
         if ($plan->isRecurring() && $plan->duration_days) {
             $endDate = Carbon::now()->addDays($plan->duration_days);
-            if ($plan->hasTrial()) {
+            if ($usedTrial && $plan->hasTrial()) {
                 $endDate->addDays($plan->getTrialPeriodDays());
             }
         }
 
-        return Subscription::create([
+        $subscription = Subscription::create([
             'employer_id' => $employer->id,
             'subscription_plan_id' => $plan->id,
             'start_date' => Carbon::now(),
@@ -288,7 +369,15 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
             'cv_downloads_left' => $plan->resume_views_limit,
             'payment_type' => $plan->payment_type,
             'is_active' => false, // Will be activated when payment is confirmed
+            'used_trial' => $usedTrial,
         ]);
+
+        // Mark employer as having used trial if applicable
+        if ($usedTrial) {
+            $employer->markTrialAsUsed();
+        }
+
+        return $subscription;
     }
 
     /**
@@ -464,8 +553,11 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
      */
     public function cancelSubscription(Subscription $subscription): bool
     {
+        // For manual trial subscriptions, just deactivate locally
         if (!$subscription->subscription_id) {
-            return false;
+            $subscription->is_active = false;
+            $subscription->save();
+            return true;
         }
 
         $response = Http::withToken($this->getAccessToken())

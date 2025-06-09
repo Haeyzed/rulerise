@@ -60,6 +60,15 @@ interface SubscriptionServiceInterface
     public function createSubscription(Employer $employer, SubscriptionPlan $plan, array $paymentData = []): array;
 
     /**
+     * Create a manual trial subscription (for one-time plans with trial)
+     *
+     * @param Employer $employer
+     * @param SubscriptionPlan $plan
+     * @return Subscription
+     */
+    public function createTrialSubscription(Employer $employer, SubscriptionPlan $plan): Subscription;
+
+    /**
      * Cancel a subscription
      *
      * @param Subscription $subscription

@@ -28,6 +28,7 @@ use Illuminate\Support\Carbon;
  * @property bool $is_active
  * @property string $payment_type
  * @property bool $is_suspended
+ * @property bool $used_trial
  * @property array|null $subscriber_info
  * @property array|null $billing_info
  * @property string|null $external_status
@@ -65,6 +66,7 @@ class Subscription extends Model
         'cv_downloads_left',
         'is_active',
         'is_suspended',
+        'used_trial',
         'subscriber_info',
         'billing_info',
         'external_status',
@@ -89,6 +91,7 @@ class Subscription extends Model
         'cv_downloads_left' => 'integer',
         'is_active' => 'boolean',
         'is_suspended' => 'boolean',
+        'used_trial' => 'boolean',
         'subscriber_info' => 'json',
         'billing_info' => 'json',
     ];

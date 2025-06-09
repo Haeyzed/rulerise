@@ -38,6 +38,8 @@ use Illuminate\Support\Carbon;
  * @property string|null $paypal_customer_id
  * @property bool $is_verified
  * @property bool $is_featured
+ * @property bool $has_used_trial
+ * @property Carbon|null $trial_used_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  *
@@ -76,6 +78,8 @@ class Employer extends Model
         'paypal_customer_id',
         'is_verified',
         'is_featured',
+        'has_used_trial',
+        'trial_used_at',
     ];
 
     /**
@@ -88,6 +92,8 @@ class Employer extends Model
         'is_verified' => 'boolean',
         'is_featured' => 'boolean',
         'company_benefits' => 'array',
+        'has_used_trial' => 'boolean',
+        'trial_used_at' => 'datetime',
     ];
 
     /**
@@ -168,6 +174,29 @@ class Employer extends Model
     public function hasActiveSubscription(): bool
     {
         return $this->activeSubscription()->exists();
+    }
+
+    /**
+     * Check if employer is eligible for trial period
+     *
+     * @return bool
+     */
+    public function isEligibleForTrial(): bool
+    {
+        return !$this->has_used_trial;
+    }
+
+    /**
+     * Mark trial as used for this employer
+     *
+     * @return void
+     */
+    public function markTrialAsUsed(): void
+    {
+        $this->update([
+            'has_used_trial' => true,
+            'trial_used_at' => now(),
+        ]);
     }
 
     /**
