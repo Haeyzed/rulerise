@@ -66,15 +66,27 @@ class SubscriptionController extends Controller
         try {
             $service = SubscriptionServiceFactory::create($provider);
 
-            // Validate business rules before creating subscription
+            // Enhanced validation for one-time plans
             if ($plan->isOneTime()) {
                 if (!$service->canUseOneTimePayment($employer, $plan)) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'You must complete a trial period before purchasing one-time plans.',
-                        'requires_trial' => true,
-                        'trial_available' => $employer->isEligibleForTrial()
-                    ], 422);
+                    // Check if plan has trial and employer hasn't used it
+                    if ($plan->hasTrial() && !$employer->has_used_trial) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'You must complete a trial period before purchasing one-time plans.',
+                            'requires_trial' => true,
+                            'trial_available' => true,
+                            'plan_has_trial' => true
+                        ], 422);
+                    } else {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'One-time payment not available for this plan configuration.',
+                            'requires_trial' => false,
+                            'trial_available' => false,
+                            'plan_has_trial' => $plan->hasTrial()
+                        ], 422);
+                    }
                 }
             }
 
@@ -87,7 +99,9 @@ class SubscriptionController extends Controller
                 'provider' => $provider,
                 'is_one_time' => $plan->isOneTime(),
                 'needs_trial' => $needsTrial,
-                'has_used_trial' => $employer->has_used_trial
+                'has_used_trial' => $employer->has_used_trial,
+                'plan_has_trial' => $plan->hasTrial(),
+                'can_use_one_time' => $service->canUseOneTimePayment($employer, $plan)
             ]);
 
             $result = $service->createSubscription($employer, $plan);
@@ -203,13 +217,17 @@ class SubscriptionController extends Controller
                 'is_eligible_for_trial' => $employer->isEligibleForTrial(),
                 'has_used_trial' => $employer->has_used_trial,
                 'plan_type' => $plan->payment_type,
+                'plan_has_trial' => $plan->hasTrial(),
                 'requires_trial_first' => false
             ];
 
             // Check if one-time plan requires trial first
             if ($plan->isOneTime() && !$eligibility['can_use_one_time']) {
-                $eligibility['can_subscribe'] = false;
-                $eligibility['requires_trial_first'] = true;
+                // Only block if plan has trial and employer hasn't used it
+                if ($plan->hasTrial() && !$employer->has_used_trial) {
+                    $eligibility['can_subscribe'] = false;
+                    $eligibility['requires_trial_first'] = true;
+                }
             }
 
             return response()->json([

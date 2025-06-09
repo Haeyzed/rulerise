@@ -31,8 +31,13 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
      */
     public function canUseOneTimePayment(Employer $employer, SubscriptionPlan $plan): bool
     {
-        // For one-time plans, employer must have used trial period
+        // For one-time plans, employer must have used trial period OR plan doesn't require trial
         if ($plan->isOneTime()) {
+            // If plan doesn't have trial, allow one-time payment
+            if (!$plan->hasTrial()) {
+                return true;
+            }
+            // If plan has trial, employer must have used trial
             return $employer->has_used_trial;
         }
 
@@ -683,7 +688,9 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
         }
 
         try {
-            $this->stripe->subscriptions->cancel($subscription->subscription_id, []);
+            $this->stripe->subscriptions->cancel($subscription->subscription_id, [
+                'cancel_at_period_end' => false,
+            ]);
 
             $subscription->is_active = false;
             $subscription->save();

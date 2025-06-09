@@ -34,8 +34,13 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
      */
     public function canUseOneTimePayment(Employer $employer, SubscriptionPlan $plan): bool
     {
-        // For one-time plans, employer must have used trial period
+        // For one-time plans, employer must have used trial period OR plan doesn't require trial
         if ($plan->isOneTime()) {
+            // If plan doesn't have trial, allow one-time payment
+            if (!$plan->hasTrial()) {
+                return true;
+            }
+            // If plan has trial, employer must have used trial
             return $employer->has_used_trial;
         }
 
@@ -199,20 +204,6 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
                         ],
                         'description' => $plan->name,
                         'custom_id' => "employer_{$employer->id}_plan_{$plan->id}"
-                    ]
-                ],
-                'payment_source' => [
-                    'paypal' => [
-                        'experience_context' => [
-                            'payment_method_preference' => 'IMMEDIATE_PAYMENT_REQUIRED',
-                            'brand_name' => config('app.name'),
-                            'locale' => 'en-US',
-                            'landing_page' => 'LOGIN',
-                            'shipping_preference' => 'NO_SHIPPING',
-                            'user_action' => 'PAY_NOW',
-                            'return_url' => config('app.frontend_url') . '/employer/dashboard',
-                            'cancel_url' => config('app.frontend_url') . '/employer/dashboard',
-                        ]
                     ]
                 ],
                 'application_context' => [
