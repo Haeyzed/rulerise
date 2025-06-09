@@ -683,7 +683,9 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
         }
 
         try {
-            $this->stripe->subscriptions->cancel($subscription->subscription_id, []);
+            $this->stripe->subscriptions->cancel($subscription->subscription_id, [
+                'cancel_at_period_end' => false,
+            ]);
 
             $subscription->is_active = false;
             $subscription->save();
@@ -818,8 +820,8 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
         }
 
         try {
-            $this->stripe->subscriptions->resume($subscription->subscription_id, [
-                'billing_cycle_anchor' => 'now',
+            $this->stripe->subscriptions->update($subscription->subscription_id, [
+                'pause_collection' => '',
             ]);
 
             $subscription->is_active = true;
