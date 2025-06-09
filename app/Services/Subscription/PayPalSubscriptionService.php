@@ -30,9 +30,34 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
     }
 
     /**
+     * Validate if employer can use one-time payment for a plan
+     */
+    public function canUseOneTimePayment(Employer $employer, SubscriptionPlan $plan): bool
+    {
+        // For one-time plans, employer must have used trial period
+        if ($plan->isOneTime()) {
+            return $employer->has_used_trial;
+        }
+
+        return false;
+    }
+
+    /**
+     * Validate if employer needs trial for a plan
+     */
+    public function shouldUseTrial(Employer $employer, SubscriptionPlan $plan): bool
+    {
+        // Only use trial if:
+        // 1. Plan has trial enabled
+        // 2. Employer hasn't used trial yet
+        // 3. Plan is recurring (one-time plans handle trial differently)
+        return $plan->hasTrial() &&
+            !$employer->has_used_trial &&
+            $plan->isRecurring();
+    }
+
+    /**
      * Get PayPal access token
-     *
-     * @return string
      */
     public function getAccessToken(): string
     {
@@ -60,9 +85,6 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * Create a product in PayPal
-     *
-     * @param SubscriptionPlan $plan
-     * @return string Product ID
      */
     protected function createProduct(SubscriptionPlan $plan): string
     {
@@ -91,12 +113,15 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * Create a subscription plan in the payment gateway
-     *
-     * @param SubscriptionPlan $plan
-     * @return string External plan ID
      */
     public function createPlan(SubscriptionPlan $plan): string
     {
+        if ($plan->isOneTime()) {
+            // One-time plans don't need to be created in PayPal
+            // They use the Order API directly
+            return 'one_time_' . $plan->id;
+        }
+
         $productId = $this->createProduct($plan);
 
         $response = Http::withToken($this->getAccessToken())
@@ -128,49 +153,74 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
     }
 
     /**
-     * Create a subscription for an employer
-     *
-     * @param Employer $employer
-     * @param SubscriptionPlan $plan
-     * @param array $paymentData
-     * @return array Subscription data with redirect URL
+     * Create a subscription for an employer with enhanced trial logic
      */
     public function createSubscription(Employer $employer, SubscriptionPlan $plan, array $paymentData = []): array
     {
-        // Get or create the external plan ID
-        $externalPlanId = $plan->external_paypal_id ?? $this->createPlan($plan);
-
-        // If we created a new plan, save the ID
-        if (!$plan->external_paypal_id) {
-            $plan->external_paypal_id = $externalPlanId;
-            $plan->save();
+        // Validate business rules
+        if ($plan->isOneTime() && !$this->canUseOneTimePayment($employer, $plan)) {
+            throw new \Exception('One-time payments require trial period to be used first');
         }
 
-        // Create the subscription
+        // For one-time plans, use Order API
+        if ($plan->isOneTime()) {
+            return $this->createOneTimeOrder($employer, $plan, $paymentData);
+        }
+
+        // For recurring plans, use Billing API
+        return $this->createRecurringSubscription($employer, $plan, $paymentData);
+    }
+
+    /**
+     * Create a one-time payment order using PayPal Order API
+     */
+    public function createOneTimeOrder(Employer $employer, SubscriptionPlan $plan, array $paymentData = []): array
+    {
+        if (!$plan->isOneTime()) {
+            throw new \Exception('This method is only for one-time payment plans');
+        }
+
+        if (!$this->canUseOneTimePayment($employer, $plan)) {
+            throw new \Exception('Employer must use trial period before one-time payments');
+        }
+
         $response = Http::withToken($this->getAccessToken())
             ->withHeaders([
                 'PayPal-Request-Id' => Str::uuid()->toString(),
             ])
-            ->post("{$this->baseUrl}/v1/billing/subscriptions", [
-                'plan_id' => $externalPlanId,
-                'start_time' => Carbon::now()->addMinutes(5)->toIso8601String(),
-                'quantity' => '1',
-                'subscriber' => [
-                    'name' => [
-                        'given_name' => $employer->user->first_name ?? $employer->company_name,
-                        'surname' => $employer->user->last_name ?? ''
-                    ],
-                    'email_address' => $employer->user->email ?? $employer->company_email
+            ->post("{$this->baseUrl}/v2/checkout/orders", [
+                'intent' => 'CAPTURE',
+                'purchase_units' => [
+                    [
+                        'reference_id' => "plan_{$plan->id}_employer_{$employer->id}",
+                        'amount' => [
+                            'currency_code' => strtoupper($plan->currency),
+                            'value' => number_format($plan->price, 2, '.', '')
+                        ],
+                        'description' => $plan->name,
+                        'custom_id' => "employer_{$employer->id}_plan_{$plan->id}"
+                    ]
+                ],
+                'payment_source' => [
+                    'paypal' => [
+                        'experience_context' => [
+                            'payment_method_preference' => 'IMMEDIATE_PAYMENT_REQUIRED',
+                            'brand_name' => config('app.name'),
+                            'locale' => 'en-US',
+                            'landing_page' => 'LOGIN',
+                            'shipping_preference' => 'NO_SHIPPING',
+                            'user_action' => 'PAY_NOW',
+                            'return_url' => config('app.frontend_url') . '/employer/dashboard',
+                            'cancel_url' => config('app.frontend_url') . '/employer/dashboard',
+                        ]
+                    ]
                 ],
                 'application_context' => [
                     'brand_name' => config('app.name'),
                     'locale' => 'en-US',
+                    'landing_page' => 'LOGIN',
                     'shipping_preference' => 'NO_SHIPPING',
-                    'user_action' => 'SUBSCRIBE_NOW',
-                    'payment_method' => [
-                        'payer_selected' => 'PAYPAL',
-                        'payee_preferred' => 'IMMEDIATE_PAYMENT_REQUIRED'
-                    ],
+                    'user_action' => 'PAY_NOW',
                     'return_url' => config('app.frontend_url') . '/employer/dashboard',
                     'cancel_url' => config('app.frontend_url') . '/employer/dashboard',
                 ]
@@ -180,7 +230,10 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
             $data = $response->json();
 
             // Create a pending subscription record
-            $subscription = $this->createSubscriptionRecord($employer, $plan, $data);
+            $subscription = $this->createSubscriptionRecord($employer, $plan, [
+                'id' => $data['id'],
+                'type' => 'order'
+            ]);
 
             // Find the approval URL
             $approvalUrl = collect($data['links'])
@@ -190,7 +243,102 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
                 'subscription_id' => $subscription->id,
                 'external_subscription_id' => $data['id'],
                 'redirect_url' => $approvalUrl,
-                'status' => $data['status']
+                'status' => $data['status'],
+                'payment_type' => 'one_time'
+            ];
+        }
+
+        Log::error('PayPal create order error', [
+            'employer' => $employer->id,
+            'plan' => $plan->toArray(),
+            'response' => $response->json()
+        ]);
+
+        throw new \Exception('Failed to create PayPal order');
+    }
+
+    /**
+     * Create a recurring subscription using PayPal Billing API
+     */
+    protected function createRecurringSubscription(Employer $employer, SubscriptionPlan $plan, array $paymentData = []): array
+    {
+        // Get or create the external plan ID
+        $externalPlanId = $plan->external_paypal_id ?? $this->createPlan($plan);
+
+        if (!$plan->external_paypal_id) {
+            $plan->external_paypal_id = $externalPlanId;
+            $plan->save();
+        }
+
+        $subscriptionData = [
+            'plan_id' => $externalPlanId,
+            'start_time' => Carbon::now()->addMinutes(5)->toIso8601String(),
+            'quantity' => '1',
+            'subscriber' => [
+                'name' => [
+                    'given_name' => $employer->user->first_name ?? $employer->company_name,
+                    'surname' => $employer->user->last_name ?? ''
+                ],
+                'email_address' => $employer->user->email ?? $employer->company_email
+            ],
+            'application_context' => [
+                'brand_name' => config('app.name'),
+                'locale' => 'en-US',
+                'shipping_preference' => 'NO_SHIPPING',
+                'user_action' => 'SUBSCRIBE_NOW',
+                'payment_method' => [
+                    'payer_selected' => 'PAYPAL',
+                    'payee_preferred' => 'IMMEDIATE_PAYMENT_REQUIRED'
+                ],
+                'return_url' => config('app.frontend_url') . '/employer/dashboard',
+                'cancel_url' => config('app.frontend_url') . '/employer/dashboard',
+            ]
+        ];
+
+        // Handle trial logic for recurring subscriptions
+        if ($this->shouldUseTrial($employer, $plan)) {
+            // Trial will be handled by the plan's billing cycles
+            Log::info('Creating PayPal subscription with trial', [
+                'employer_id' => $employer->id,
+                'plan_id' => $plan->id,
+                'trial_days' => $plan->getTrialPeriodDays()
+            ]);
+        } else {
+            // No trial - immediate payment
+            Log::info('Creating PayPal subscription without trial', [
+                'employer_id' => $employer->id,
+                'plan_id' => $plan->id,
+                'has_used_trial' => $employer->has_used_trial
+            ]);
+        }
+
+        $response = Http::withToken($this->getAccessToken())
+            ->withHeaders([
+                'PayPal-Request-Id' => Str::uuid()->toString(),
+            ])
+            ->post("{$this->baseUrl}/v1/billing/subscriptions", $subscriptionData);
+
+        if ($response->successful()) {
+            $data = $response->json();
+
+            // Create a pending subscription record
+            $subscription = $this->createSubscriptionRecord($employer, $plan, $data);
+
+            // Mark trial as used if this subscription uses trial
+            if ($this->shouldUseTrial($employer, $plan)) {
+                $employer->markTrialAsUsed();
+            }
+
+            // Find the approval URL
+            $approvalUrl = collect($data['links'])
+                ->firstWhere('rel', 'approve')['href'] ?? null;
+
+            return [
+                'subscription_id' => $subscription->id,
+                'external_subscription_id' => $data['id'],
+                'redirect_url' => $approvalUrl,
+                'status' => $data['status'],
+                'payment_type' => 'recurring'
             ];
         }
 
@@ -205,18 +353,13 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * Create subscription record in database
-     *
-     * @param Employer $employer
-     * @param SubscriptionPlan $plan
-     * @param array $data
-     * @return Subscription
      */
     private function createSubscriptionRecord(Employer $employer, SubscriptionPlan $plan, array $data): Subscription
     {
         $endDate = null;
         if ($plan->isRecurring() && $plan->duration_days) {
             $endDate = Carbon::now()->addDays($plan->duration_days);
-            if ($plan->hasTrial()) {
+            if ($plan->hasTrial() && !$employer->has_used_trial) {
                 $endDate->addDays($plan->getTrialPeriodDays());
             }
         }
@@ -230,20 +373,18 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
             'currency' => $plan->currency,
             'payment_method' => 'paypal',
             'subscription_id' => $data['id'],
+            'payment_reference' => $data['id'],
             'job_posts_left' => $plan->job_posts_limit,
             'featured_jobs_left' => $plan->featured_jobs_limit,
             'cv_downloads_left' => $plan->resume_views_limit,
             'payment_type' => $plan->payment_type,
             'is_active' => false, // Will be activated when payment is confirmed
+            'used_trial' => $this->shouldUseTrial($employer, $plan),
         ]);
     }
 
     /**
      * Update a subscription plan in the payment gateway
-     *
-     * @param SubscriptionPlan $plan
-     * @param string $externalPlanId
-     * @return bool
      */
     public function updatePlan(SubscriptionPlan $plan, string $externalPlanId): bool
     {
@@ -272,9 +413,6 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * Delete a subscription plan from the payment gateway
-     *
-     * @param string $externalPlanId
-     * @return bool
      */
     public function deletePlan(string $externalPlanId): bool
     {
@@ -296,9 +434,6 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * List all subscription plans from PayPal
-     *
-     * @param array $filters Optional filters
-     * @return array List of plans
      */
     public function listPlans(array $filters = []): array
     {
@@ -330,9 +465,6 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * Get details of a specific subscription plan
-     *
-     * @param string $externalPlanId
-     * @return array Plan details
      */
     public function getPlanDetails(string $externalPlanId): array
     {
@@ -353,9 +485,6 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * List all subscriptions for an employer
-     *
-     * @param Employer $employer
-     * @return array List of subscriptions
      */
     public function listSubscriptions(Employer $employer): array
     {
@@ -382,9 +511,6 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * Get details of a specific subscription
-     *
-     * @param string $subscriptionId
-     * @return array Subscription details
      */
     public function getSubscriptionDetails(string $subscriptionId): array
     {
@@ -405,9 +531,6 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * Cancel a subscription
-     *
-     * @param Subscription $subscription
-     * @return bool
      */
     public function cancelSubscription(Subscription $subscription): bool
     {
@@ -436,9 +559,6 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * Suspend a subscription (temporarily pause)
-     *
-     * @param Subscription $subscription
-     * @return bool
      */
     public function suspendSubscription(Subscription $subscription): bool
     {
@@ -472,9 +592,6 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * Reactivate a suspended subscription
-     *
-     * @param Subscription $subscription
-     * @return bool
      */
     public function reactivateSubscription(Subscription $subscription): bool
     {
@@ -509,10 +626,6 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * Update subscription plan
-     *
-     * @param Subscription $subscription
-     * @param SubscriptionPlan $newPlan
-     * @return bool
      */
     public function updateSubscriptionPlan(Subscription $subscription, SubscriptionPlan $newPlan): bool
     {
@@ -565,9 +678,6 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * Get subscription transactions
-     *
-     * @param string $subscriptionId
-     * @return array List of transactions
      */
     public function getSubscriptionTransactions(string $subscriptionId): array
     {
@@ -588,10 +698,6 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * Verify webhook signature
-     *
-     * @param string $payload
-     * @param array $headers
-     * @return bool
      */
     protected function verifyWebhookSignature(string $payload, array $headers): bool
     {
@@ -658,10 +764,6 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * Handle webhook events from PayPal
-     *
-     * @param string $payload
-     * @param array $headers
-     * @return bool
      */
     public function handleWebhook(string $payload, array $headers): bool
     {
@@ -722,9 +824,6 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * Handle subscription created event
-     *
-     * @param array $data
-     * @return bool
      */
     protected function handleSubscriptionCreated(array $data): bool
     {
@@ -749,9 +848,6 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * Handle subscription activated event
-     *
-     * @param array $data
-     * @return bool
      */
     protected function handleSubscriptionActivated(array $data): bool
     {
@@ -793,9 +889,6 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * Handle payment completed event
-     *
-     * @param array $data
-     * @return bool
      */
     protected function handlePaymentCompleted(array $data): bool
     {
@@ -831,9 +924,6 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * Handle payment capture completed event (for one-time payments)
-     *
-     * @param array $data
-     * @return bool
      */
     protected function handlePaymentCaptureCompleted(array $data): bool
     {
@@ -888,9 +978,6 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * Handle order approved event
-     *
-     * @param array $data
-     * @return bool
      */
     protected function handleOrderApproved(array $data): bool
     {
@@ -915,9 +1002,6 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * Handle order completed event
-     *
-     * @param array $data
-     * @return bool
      */
     protected function handleOrderCompleted(array $data): bool
     {
@@ -945,9 +1029,6 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * Handle subscription cancelled event
-     *
-     * @param array $data
-     * @return bool
      */
     protected function handleSubscriptionCancelled(array $data): bool
     {
@@ -972,9 +1053,6 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * Handle subscription suspended event
-     *
-     * @param array $data
-     * @return bool
      */
     protected function handleSubscriptionSuspended(array $data): bool
     {
@@ -999,9 +1077,6 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * Handle subscription updated event
-     *
-     * @param array $data
-     * @return bool
      */
     protected function handleSubscriptionUpdated(array $data): bool
     {
@@ -1048,9 +1123,6 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * Handle subscription expired event
-     *
-     * @param array $data
-     * @return bool
      */
     protected function handleSubscriptionExpired(array $data): bool
     {
@@ -1081,10 +1153,6 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * Update subscription with PayPal details
-     *
-     * @param Subscription $subscription
-     * @param array $details
-     * @return void
      */
     public function updateSubscriptionWithPayPalDetails(Subscription $subscription, array $details): void
     {
@@ -1136,9 +1204,6 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * Send activation notification
-     *
-     * @param Subscription $subscription
-     * @return void
      */
     private function sendActivationNotification(Subscription $subscription): void
     {

@@ -7,9 +7,7 @@ use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
 use App\Notifications\SubscriptionActivatedNotification;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 use Stripe\Exception\ApiErrorException;
 use Stripe\StripeClient;
 
@@ -20,9 +18,6 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
     protected $webhookSecret;
     protected $baseUrl;
 
-    /**
-     * Constructor
-     */
     public function __construct()
     {
         $this->apiKey = config('services.stripe.secret');
@@ -32,11 +27,34 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
     }
 
     /**
+     * Validate if employer can use one-time payment for a plan
+     */
+    public function canUseOneTimePayment(Employer $employer, SubscriptionPlan $plan): bool
+    {
+        // For one-time plans, employer must have used trial period
+        if ($plan->isOneTime()) {
+            return $employer->has_used_trial;
+        }
+
+        return false;
+    }
+
+    /**
+     * Validate if employer needs trial for a plan
+     */
+    public function shouldUseTrial(Employer $employer, SubscriptionPlan $plan): bool
+    {
+        // Only use trial if:
+        // 1. Plan has trial enabled
+        // 2. Employer hasn't used trial yet
+        // 3. Plan is recurring (one-time plans handle trial differently)
+        return $plan->hasTrial() &&
+            !$employer->has_used_trial &&
+            $plan->isRecurring();
+    }
+
+    /**
      * Create a product in Stripe
-     *
-     * @param SubscriptionPlan $plan
-     * @return string Product ID
-     * @throws ApiErrorException
      */
     protected function createProduct(SubscriptionPlan $plan): string
     {
@@ -62,11 +80,6 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * Create a price in Stripe
-     *
-     * @param SubscriptionPlan $plan
-     * @param string $productId
-     * @return string Price ID
-     * @throws ApiErrorException
      */
     protected function createPrice(SubscriptionPlan $plan, string $productId): string
     {
@@ -107,9 +120,6 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * Convert interval unit to Stripe format
-     *
-     * @param string $intervalUnit
-     * @return string
      */
     protected function getStripeInterval(string $intervalUnit): string
     {
@@ -124,9 +134,6 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * Create a subscription plan in the payment gateway
-     *
-     * @param SubscriptionPlan $plan
-     * @return string External plan ID
      */
     public function createPlan(SubscriptionPlan $plan): string
     {
@@ -149,145 +156,7 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
     }
 
     /**
-     * Update a subscription plan in the payment gateway
-     *
-     * @param SubscriptionPlan $plan
-     * @param string $externalPlanId
-     * @return bool
-     */
-    public function updatePlan(SubscriptionPlan $plan, string $externalPlanId): bool
-    {
-        try {
-            // In Stripe, we can't update a price, but we can update the product
-            // First, get the price to find the product ID
-            $price = $this->stripe->prices->retrieve($externalPlanId);
-
-            // Update the product
-            $this->stripe->products->update($price->product, [
-                'name' => $plan->name,
-                'description' => $plan->description ?? $plan->name,
-                'metadata' => [
-                    'plan_id' => $plan->id,
-                ],
-            ]);
-
-            // For price changes, we need to create a new price and update the plan's external ID
-            if ($plan->price != ($price->unit_amount / 100)) {
-                $newPriceId = $this->createPrice($plan, $price->product);
-                $plan->external_stripe_id = $newPriceId;
-                $plan->save();
-            }
-
-            return true;
-        } catch (ApiErrorException $e) {
-            Log::error('Stripe update plan error', [
-                'plan' => $plan->toArray(),
-                'externalPlanId' => $externalPlanId,
-                'error' => $e->getMessage()
-            ]);
-
-            return false;
-        }
-    }
-
-    /**
-     * Delete a subscription plan from the payment gateway
-     *
-     * @param string $externalPlanId
-     * @return bool
-     */
-    public function deletePlan(string $externalPlanId): bool
-    {
-        try {
-            // In Stripe, we can't delete a price, but we can archive the product
-            // First, get the price to find the product ID
-            $price = $this->stripe->prices->retrieve($externalPlanId);
-
-            // Archive the price by setting it to inactive
-            $this->stripe->prices->update($externalPlanId, [
-                'active' => false
-            ]);
-
-            // Archive the product
-            $this->stripe->products->update($price->product, [
-                'active' => false
-            ]);
-
-            return true;
-        } catch (ApiErrorException $e) {
-            Log::error('Stripe delete plan error', [
-                'externalPlanId' => $externalPlanId,
-                'error' => $e->getMessage()
-            ]);
-
-            return false;
-        }
-    }
-
-    /**
-     * List all subscription plans from the payment gateway
-     *
-     * @param array $filters Optional filters
-     * @return array List of plans
-     */
-    public function listPlans(array $filters = []): array
-    {
-        try {
-            $params = [
-                'limit' => $filters['limit'] ?? 100,
-                'active' => $filters['active'] ?? true,
-                'type' => 'recurring',
-            ];
-
-            if (isset($filters['product'])) {
-                $params['product'] = $filters['product'];
-            }
-
-            $prices = $this->stripe->prices->all($params);
-
-            // Format the response to match the expected structure
-            return [
-                'plans' => $prices->data,
-                'total_count' => $prices->count(),
-            ];
-        } catch (ApiErrorException $e) {
-            Log::error('Stripe list plans error', [
-                'filters' => $filters,
-                'error' => $e->getMessage()
-            ]);
-
-            return ['plans' => []];
-        }
-    }
-
-    /**
-     * Get details of a specific subscription plan
-     *
-     * @param string $externalPlanId
-     * @return array Plan details
-     */
-    public function getPlanDetails(string $externalPlanId): array
-    {
-        try {
-            $price = $this->stripe->prices->retrieve($externalPlanId, [
-                'expand' => ['product']
-            ]);
-
-            return $price->toArray();
-        } catch (ApiErrorException $e) {
-            Log::error('Stripe get plan details error', [
-                'externalPlanId' => $externalPlanId,
-                'error' => $e->getMessage()
-            ]);
-
-            return [];
-        }
-    }
-
-    /**
      * Check if automatic tax is properly configured
-     *
-     * @return bool
      */
     protected function isAutomaticTaxConfigured(): bool
     {
@@ -307,20 +176,41 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
     }
 
     /**
-     * Create a subscription for an employer
-     *
-     * @param Employer $employer
-     * @param SubscriptionPlan $plan
-     * @param array $paymentData
-     * @return array Subscription data with redirect URL
+     * Create a subscription for an employer with enhanced trial logic
      */
     public function createSubscription(Employer $employer, SubscriptionPlan $plan, array $paymentData = []): array
     {
+        // Validate business rules
+        if ($plan->isOneTime() && !$this->canUseOneTimePayment($employer, $plan)) {
+            throw new \Exception('One-time payments require trial period to be used first');
+        }
+
+        // For one-time plans, use Checkout API for payment
+        if ($plan->isOneTime()) {
+            return $this->createOneTimeOrder($employer, $plan, $paymentData);
+        }
+
+        // For recurring plans, use Billing API
+        return $this->createRecurringSubscription($employer, $plan, $paymentData);
+    }
+
+    /**
+     * Create a one-time payment using Stripe Checkout API
+     */
+    public function createOneTimeOrder(Employer $employer, SubscriptionPlan $plan, array $paymentData = []): array
+    {
+        if (!$plan->isOneTime()) {
+            throw new \Exception('This method is only for one-time payment plans');
+        }
+
+        if (!$this->canUseOneTimePayment($employer, $plan)) {
+            throw new \Exception('Employer must use trial period before one-time payments');
+        }
+
         try {
-            // Get or create the external plan ID
+            // Get or create the external plan ID (price ID)
             $externalPlanId = $plan->external_stripe_id ?? $this->createPlan($plan);
 
-            // If we created a new plan, save the ID
             if (!$plan->external_stripe_id) {
                 $plan->external_stripe_id = $externalPlanId;
                 $plan->save();
@@ -329,7 +219,7 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
             // Get or create a customer
             $customerId = $this->getOrCreateCustomer($employer);
 
-            // Create a checkout session
+            // Create a checkout session for one-time payment
             $sessionParams = [
                 'customer' => $customerId,
                 'payment_method_types' => ['card'],
@@ -339,22 +229,16 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
                         'quantity' => 1,
                     ],
                 ],
-                'mode' => $plan->isRecurring() ? 'subscription' : 'payment',
+                'mode' => 'payment', // One-time payment mode
                 'success_url' => config('app.frontend_url') . '/employer/dashboard?session_id={CHECKOUT_SESSION_ID}',
                 'cancel_url' => config('app.frontend_url') . '/employer/dashboard?session_id={CHECKOUT_SESSION_ID}',
                 'client_reference_id' => $employer->id,
                 'metadata' => [
                     'employer_id' => $employer->id,
                     'plan_id' => $plan->id,
+                    'payment_type' => 'one_time',
                 ],
             ];
-
-            // Add trial period if applicable
-            if ($plan->isRecurring() && $plan->hasTrial()) {
-                $sessionParams['subscription_data'] = [
-                    'trial_period_days' => $plan->getTrialPeriodDays(),
-                ];
-            }
 
             // Get Stripe configuration from the plan
             $stripeConfig = $plan->getPaymentGatewayConfig('stripe');
@@ -369,13 +253,6 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
                 Log::info('Automatic tax enabled for Stripe checkout session', [
                     'plan_id' => $plan->id,
                     'employer_id' => $employer->id
-                ]);
-            } else {
-                Log::info('Automatic tax disabled for Stripe checkout session', [
-                    'plan_id' => $plan->id,
-                    'employer_id' => $employer->id,
-                    'config_enabled' => isset($stripeConfig['automatic_tax']['enabled']) ? $stripeConfig['automatic_tax']['enabled'] : false,
-                    'stripe_configured' => $this->isAutomaticTaxConfigured()
                 ]);
             }
 
@@ -405,22 +282,155 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
                 'id' => $session->id,
                 'customer' => $customerId,
                 'payment_intent' => $session->payment_intent ?? null,
-                'subscription' => $session->subscription ?? null,
+                'type' => 'checkout_session'
             ]);
 
             return [
                 'subscription_id' => $subscription->id,
                 'external_subscription_id' => $session->id,
                 'redirect_url' => $session->url,
-                'status' => $session->status
+                'status' => $session->status,
+                'payment_type' => 'one_time'
             ];
         } catch (ApiErrorException $e) {
-            Log::error('Stripe create subscription error', [
+            Log::error('Stripe create one-time order error', [
                 'employer' => $employer->id,
                 'plan' => $plan->toArray(),
                 'error' => $e->getMessage(),
                 'error_code' => $e->getStripeCode(),
-                'error_type' => $e->getError()->type ?? null
+            ]);
+
+            // Provide more specific error messages for common issues
+            $errorMessage = match ($e->getStripeCode()) {
+                'tax_calculation_failed' => 'Tax calculation failed. Please contact support.',
+                'invalid_request_error' => 'Invalid request. Please check your configuration.',
+                default => 'Failed to create Stripe one-time payment: ' . $e->getMessage()
+            };
+
+            throw new \Exception($errorMessage);
+        }
+    }
+
+    /**
+     * Create a recurring subscription using Stripe Billing API
+     */
+    protected function createRecurringSubscription(Employer $employer, SubscriptionPlan $plan, array $paymentData = []): array
+    {
+        try {
+            // Get or create the external plan ID
+            $externalPlanId = $plan->external_stripe_id ?? $this->createPlan($plan);
+
+            if (!$plan->external_stripe_id) {
+                $plan->external_stripe_id = $externalPlanId;
+                $plan->save();
+            }
+
+            // Get or create a customer
+            $customerId = $this->getOrCreateCustomer($employer);
+
+            // Create a checkout session for subscription
+            $sessionParams = [
+                'customer' => $customerId,
+                'payment_method_types' => ['card'],
+                'line_items' => [
+                    [
+                        'price' => $externalPlanId,
+                        'quantity' => 1,
+                    ],
+                ],
+                'mode' => 'subscription',
+                'success_url' => config('app.frontend_url') . '/employer/dashboard?session_id={CHECKOUT_SESSION_ID}',
+                'cancel_url' => config('app.frontend_url') . '/employer/dashboard?session_id={CHECKOUT_SESSION_ID}',
+                'client_reference_id' => $employer->id,
+                'metadata' => [
+                    'employer_id' => $employer->id,
+                    'plan_id' => $plan->id,
+                    'payment_type' => 'recurring',
+                ],
+            ];
+
+            // Handle trial logic for recurring subscriptions
+            if ($this->shouldUseTrial($employer, $plan)) {
+                $sessionParams['subscription_data'] = [
+                    'trial_period_days' => $plan->getTrialPeriodDays(),
+                ];
+
+                Log::info('Creating Stripe subscription with trial', [
+                    'employer_id' => $employer->id,
+                    'plan_id' => $plan->id,
+                    'trial_days' => $plan->getTrialPeriodDays()
+                ]);
+            } else {
+                Log::info('Creating Stripe subscription without trial', [
+                    'employer_id' => $employer->id,
+                    'plan_id' => $plan->id,
+                    'has_used_trial' => $employer->has_used_trial
+                ]);
+            }
+
+            // Get Stripe configuration from the plan
+            $stripeConfig = $plan->getPaymentGatewayConfig('stripe');
+
+            // Only add automatic tax if it's explicitly enabled AND properly configured
+            if (isset($stripeConfig['automatic_tax']['enabled']) &&
+                $stripeConfig['automatic_tax']['enabled'] === true &&
+                $this->isAutomaticTaxConfigured()) {
+
+                $sessionParams['automatic_tax'] = ['enabled' => true];
+
+                Log::info('Automatic tax enabled for Stripe checkout session', [
+                    'plan_id' => $plan->id,
+                    'employer_id' => $employer->id
+                ]);
+            }
+
+            // Allow promotion codes if configured
+            if (isset($stripeConfig['allow_promotion_codes']) && $stripeConfig['allow_promotion_codes']) {
+                $sessionParams['allow_promotion_codes'] = true;
+            }
+
+            // Add billing address collection if needed
+            if (isset($stripeConfig['billing_address_collection'])) {
+                $sessionParams['billing_address_collection'] = $stripeConfig['billing_address_collection'];
+            } else {
+                // Default to auto for better user experience
+                $sessionParams['billing_address_collection'] = 'auto';
+            }
+
+            // Add phone number collection if configured
+            if (isset($stripeConfig['phone_number_collection']['enabled']) &&
+                $stripeConfig['phone_number_collection']['enabled']) {
+                $sessionParams['phone_number_collection'] = ['enabled' => true];
+            }
+
+            $session = $this->stripe->checkout->sessions->create($sessionParams);
+
+            // Create a pending subscription record
+            $subscription = $this->createSubscriptionRecord($employer, $plan, [
+                'id' => $session->id,
+                'customer' => $customerId,
+                'subscription' => $session->subscription ?? null,
+                'type' => 'checkout_session'
+            ]);
+
+            // Mark trial as used if this subscription uses trial
+            if ($this->shouldUseTrial($employer, $plan)) {
+                $employer->markTrialAsUsed();
+            }
+
+            return [
+                'subscription_id' => $subscription->id,
+                'external_subscription_id' => $session->id,
+                'redirect_url' => $session->url,
+                'status' => $session->status,
+                'payment_type' => 'recurring'
+            ];
+        } catch (ApiErrorException $e) {
+            Log::error('Stripe create recurring subscription error', [
+                'employer' => $employer->id,
+                'plan' => $plan->toArray(),
+                'error' => $e->getMessage(),
+                'error_code' => $e->getStripeCode(),
             ]);
 
             // Provide more specific error messages for common issues
@@ -436,9 +446,6 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * Get or create a Stripe customer for the employer
-     *
-     * @param Employer $employer
-     * @return string Customer ID
      */
     protected function getOrCreateCustomer(Employer $employer): string
     {
@@ -512,18 +519,13 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * Create subscription record in database
-     *
-     * @param Employer $employer
-     * @param SubscriptionPlan $plan
-     * @param array $data
-     * @return Subscription
      */
     private function createSubscriptionRecord(Employer $employer, SubscriptionPlan $plan, array $data): Subscription
     {
         $endDate = null;
         if ($plan->isRecurring() && $plan->duration_days) {
             $endDate = Carbon::now()->addDays($plan->duration_days);
-            if ($plan->hasTrial()) {
+            if ($plan->hasTrial() && !$employer->has_used_trial) {
                 $endDate->addDays($plan->getTrialPeriodDays());
             }
         }
@@ -544,14 +546,135 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
             'cv_downloads_left' => $plan->resume_views_limit,
             'payment_type' => $plan->payment_type,
             'is_active' => false, // Will be activated when payment is confirmed
+            'used_trial' => $this->shouldUseTrial($employer, $plan),
         ]);
     }
 
     /**
+     * Update a subscription plan in the payment gateway
+     */
+    public function updatePlan(SubscriptionPlan $plan, string $externalPlanId): bool
+    {
+        try {
+            // In Stripe, we can't update a price, but we can update the product
+            // First, get the price to find the product ID
+            $price = $this->stripe->prices->retrieve($externalPlanId);
+
+            // Update the product
+            $this->stripe->products->update($price->product, [
+                'name' => $plan->name,
+                'description' => $plan->description ?? $plan->name,
+                'metadata' => [
+                    'plan_id' => $plan->id,
+                ],
+            ]);
+
+            // For price changes, we need to create a new price and update the plan's external ID
+            if ($plan->price != ($price->unit_amount / 100)) {
+                $newPriceId = $this->createPrice($plan, $price->product);
+                $plan->external_stripe_id = $newPriceId;
+                $plan->save();
+            }
+
+            return true;
+        } catch (ApiErrorException $e) {
+            Log::error('Stripe update plan error', [
+                'plan' => $plan->toArray(),
+                'externalPlanId' => $externalPlanId,
+                'error' => $e->getMessage()
+            ]);
+
+            return false;
+        }
+    }
+
+    /**
+     * Delete a subscription plan from the payment gateway
+     */
+    public function deletePlan(string $externalPlanId): bool
+    {
+        try {
+            // In Stripe, we can't delete a price, but we can archive the product
+            // First, get the price to find the product ID
+            $price = $this->stripe->prices->retrieve($externalPlanId);
+
+            // Archive the price by setting it to inactive
+            $this->stripe->prices->update($externalPlanId, [
+                'active' => false
+            ]);
+
+            // Archive the product
+            $this->stripe->products->update($price->product, [
+                'active' => false
+            ]);
+
+            return true;
+        } catch (ApiErrorException $e) {
+            Log::error('Stripe delete plan error', [
+                'externalPlanId' => $externalPlanId,
+                'error' => $e->getMessage()
+            ]);
+
+            return false;
+        }
+    }
+
+    /**
+     * List all subscription plans from the payment gateway
+     */
+    public function listPlans(array $filters = []): array
+    {
+        try {
+            $params = [
+                'limit' => $filters['limit'] ?? 100,
+                'active' => $filters['active'] ?? true,
+                'type' => 'recurring',
+            ];
+
+            if (isset($filters['product'])) {
+                $params['product'] = $filters['product'];
+            }
+
+            $prices = $this->stripe->prices->all($params);
+
+            // Format the response to match the expected structure
+            return [
+                'plans' => $prices->data,
+                'total_count' => $prices->count(),
+            ];
+        } catch (ApiErrorException $e) {
+            Log::error('Stripe list plans error', [
+                'filters' => $filters,
+                'error' => $e->getMessage()
+            ]);
+
+            return ['plans' => []];
+        }
+    }
+
+    /**
+     * Get details of a specific subscription plan
+     */
+    public function getPlanDetails(string $externalPlanId): array
+    {
+        try {
+            $price = $this->stripe->prices->retrieve($externalPlanId, [
+                'expand' => ['product']
+            ]);
+
+            return $price->toArray();
+        } catch (ApiErrorException $e) {
+            Log::error('Stripe get plan details error', [
+                'externalPlanId' => $externalPlanId,
+                'error' => $e->getMessage()
+            ]);
+
+            return [];
+        }
+    }
+
+    /**
      * Cancel a subscription
-     *
-     * @param Subscription $subscription
-     * @return bool
      */
     public function cancelSubscription(Subscription $subscription): bool
     {
@@ -579,9 +702,6 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * List all subscriptions for an employer
-     *
-     * @param Employer $employer
-     * @return array List of subscriptions
      */
     public function listSubscriptions(Employer $employer): array
     {
@@ -611,9 +731,6 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * Get details of a specific subscription
-     *
-     * @param string $subscriptionId
-     * @return array Subscription details
      */
     public function getSubscriptionDetails(string $subscriptionId): array
     {
@@ -635,9 +752,6 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * Get checkout session details
-     *
-     * @param string $sessionId
-     * @return array Session details
      */
     public function getCheckoutSessionDetails(string $sessionId): array
     {
@@ -659,9 +773,6 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * Suspend a subscription (temporarily pause)
-     *
-     * @param Subscription $subscription
-     * @return bool
      */
     public function suspendSubscription(Subscription $subscription): bool
     {
@@ -696,9 +807,6 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * Reactivate a suspended subscription
-     *
-     * @param Subscription $subscription
-     * @return bool
      */
     public function reactivateSubscription(Subscription $subscription): bool
     {
@@ -732,10 +840,6 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * Update subscription plan
-     *
-     * @param Subscription $subscription
-     * @param SubscriptionPlan $newPlan
-     * @return bool
      */
     public function updateSubscriptionPlan(Subscription $subscription, SubscriptionPlan $newPlan): bool
     {
@@ -794,10 +898,6 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * Get the subscription item ID for a subscription
-     *
-     * @param string $subscriptionId
-     * @return string
-     * @throws ApiErrorException
      */
     protected function getSubscriptionItemId(string $subscriptionId): string
     {
@@ -807,9 +907,6 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * Get subscription transactions (invoices)
-     *
-     * @param string $subscriptionId
-     * @return array List of transactions
      */
     public function getSubscriptionTransactions(string $subscriptionId): array
     {
@@ -835,10 +932,6 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * Verify webhook signature
-     *
-     * @param string $payload
-     * @param array $headers
-     * @return bool
      */
     protected function verifyWebhookSignature(string $payload, array $headers): bool
     {
@@ -866,10 +959,6 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * Handle webhook events from Stripe
-     *
-     * @param string $payload
-     * @param array $headers
-     * @return bool
      */
     public function handleWebhook(string $payload, array $headers): bool
     {
@@ -918,9 +1007,6 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * Handle checkout session completed event
-     *
-     * @param array $data
-     * @return bool
      */
     protected function handleCheckoutSessionCompleted(array $data): bool
     {
@@ -978,9 +1064,6 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * Handle subscription created event
-     *
-     * @param array $data
-     * @return bool
      */
     protected function handleSubscriptionCreated(array $data): bool
     {
@@ -1031,9 +1114,6 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * Handle subscription updated event
-     *
-     * @param array $data
-     * @return bool
      */
     protected function handleSubscriptionUpdated(array $data): bool
     {
@@ -1106,9 +1186,6 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * Handle subscription deleted event
-     *
-     * @param array $data
-     * @return bool
      */
     protected function handleSubscriptionDeleted(array $data): bool
     {
@@ -1135,9 +1212,6 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * Handle invoice paid event
-     *
-     * @param array $data
-     * @return bool
      */
     protected function handleInvoicePaid(array $data): bool
     {
@@ -1181,9 +1255,6 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * Handle invoice payment failed event
-     *
-     * @param array $data
-     * @return bool
      */
     protected function handleInvoicePaymentFailed(array $data): bool
     {
@@ -1216,10 +1287,6 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * Update subscription with Stripe details
-     *
-     * @param Subscription $subscription
-     * @param array $details
-     * @return void
      */
     public function updateSubscriptionWithStripeDetails(Subscription $subscription, array $details): void
     {
@@ -1278,9 +1345,6 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
 
     /**
      * Send activation notification
-     *
-     * @param Subscription $subscription
-     * @return void
      */
     private function sendActivationNotification(Subscription $subscription): void
     {
