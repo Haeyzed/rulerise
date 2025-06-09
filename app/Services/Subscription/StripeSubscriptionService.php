@@ -149,142 +149,6 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
     }
 
     /**
-     * Update a subscription plan in the payment gateway
-     *
-     * @param SubscriptionPlan $plan
-     * @param string $externalPlanId
-     * @return bool
-     */
-    public function updatePlan(SubscriptionPlan $plan, string $externalPlanId): bool
-    {
-        try {
-            // In Stripe, we can't update a price, but we can update the product
-            // First, get the price to find the product ID
-            $price = $this->stripe->prices->retrieve($externalPlanId);
-
-            // Update the product
-            $this->stripe->products->update($price->product, [
-                'name' => $plan->name,
-                'description' => $plan->description ?? $plan->name,
-                'metadata' => [
-                    'plan_id' => $plan->id,
-                ],
-            ]);
-
-            // For price changes, we need to create a new price and update the plan's external ID
-            if ($plan->price != ($price->unit_amount / 100)) {
-                $newPriceId = $this->createPrice($plan, $price->product);
-                $plan->external_stripe_id = $newPriceId;
-                $plan->save();
-            }
-
-            return true;
-        } catch (ApiErrorException $e) {
-            Log::error('Stripe update plan error', [
-                'plan' => $plan->toArray(),
-                'externalPlanId' => $externalPlanId,
-                'error' => $e->getMessage()
-            ]);
-
-            return false;
-        }
-    }
-
-    /**
-     * Delete a subscription plan from the payment gateway
-     *
-     * @param string $externalPlanId
-     * @return bool
-     */
-    public function deletePlan(string $externalPlanId): bool
-    {
-        try {
-            // In Stripe, we can't delete a price, but we can archive the product
-            // First, get the price to find the product ID
-            $price = $this->stripe->prices->retrieve($externalPlanId);
-
-            // Archive the price by setting it to inactive
-            $this->stripe->prices->update($externalPlanId, [
-                'active' => false
-            ]);
-
-            // Archive the product
-            $this->stripe->products->update($price->product, [
-                'active' => false
-            ]);
-
-            return true;
-        } catch (ApiErrorException $e) {
-            Log::error('Stripe delete plan error', [
-                'externalPlanId' => $externalPlanId,
-                'error' => $e->getMessage()
-            ]);
-
-            return false;
-        }
-    }
-
-    /**
-     * List all subscription plans from the payment gateway
-     *
-     * @param array $filters Optional filters
-     * @return array List of plans
-     */
-    public function listPlans(array $filters = []): array
-    {
-        try {
-            $params = [
-                'limit' => $filters['limit'] ?? 100,
-                'active' => $filters['active'] ?? true,
-                'type' => 'recurring',
-            ];
-
-            if (isset($filters['product'])) {
-                $params['product'] = $filters['product'];
-            }
-
-            $prices = $this->stripe->prices->all($params);
-
-            // Format the response to match the expected structure
-            return [
-                'plans' => $prices->data,
-                'total_count' => $prices->count(),
-            ];
-        } catch (ApiErrorException $e) {
-            Log::error('Stripe list plans error', [
-                'filters' => $filters,
-                'error' => $e->getMessage()
-            ]);
-
-            return ['plans' => []];
-        }
-    }
-
-    /**
-     * Get details of a specific subscription plan
-     *
-     * @param string $externalPlanId
-     * @return array Plan details
-     */
-    public function getPlanDetails(string $externalPlanId): array
-    {
-        try {
-            $price = $this->stripe->prices->retrieve($externalPlanId, [
-                'expand' => ['product']
-            ]);
-
-            return $price->toArray();
-        } catch (ApiErrorException $e) {
-            Log::error('Stripe get plan details error', [
-                'externalPlanId' => $externalPlanId,
-                'error' => $e->getMessage()
-            ]);
-
-            return [];
-        }
-    }
-
-    /**
      * Check if automatic tax is properly configured
      *
      * @return bool
@@ -365,7 +229,7 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
                 ],
             ];
 
-            // Add trial period if applicable and employer is eligible
+            // Add trial period if applicable and employer is eligible (only for recurring plans)
             if ($plan->isRecurring() && $useTrialPeriod) {
                 $sessionParams['subscription_data'] = [
                     'trial_period_days' => $plan->getTrialPeriodDays(),
@@ -423,6 +287,14 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
                 'payment_intent' => $session->payment_intent ?? null,
                 'subscription' => $session->subscription ?? null,
             ], $useTrialPeriod);
+
+            Log::info('Stripe checkout session created', [
+                'session_id' => $session->id,
+                'subscription_id' => $subscription->id,
+                'mode' => $sessionParams['mode'],
+                'use_trial' => $useTrialPeriod,
+                'is_one_time' => $plan->isOneTime()
+            ]);
 
             return [
                 'subscription_id' => $subscription->id,
@@ -619,6 +491,142 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
         }
 
         return $subscription;
+    }
+
+    /**
+     * Update a subscription plan in the payment gateway
+     *
+     * @param SubscriptionPlan $plan
+     * @param string $externalPlanId
+     * @return bool
+     */
+    public function updatePlan(SubscriptionPlan $plan, string $externalPlanId): bool
+    {
+        try {
+            // In Stripe, we can't update a price, but we can update the product
+            // First, get the price to find the product ID
+            $price = $this->stripe->prices->retrieve($externalPlanId);
+
+            // Update the product
+            $this->stripe->products->update($price->product, [
+                'name' => $plan->name,
+                'description' => $plan->description ?? $plan->name,
+                'metadata' => [
+                    'plan_id' => $plan->id,
+                ],
+            ]);
+
+            // For price changes, we need to create a new price and update the plan's external ID
+            if ($plan->price != ($price->unit_amount / 100)) {
+                $newPriceId = $this->createPrice($plan, $price->product);
+                $plan->external_stripe_id = $newPriceId;
+                $plan->save();
+            }
+
+            return true;
+        } catch (ApiErrorException $e) {
+            Log::error('Stripe update plan error', [
+                'plan' => $plan->toArray(),
+                'externalPlanId' => $externalPlanId,
+                'error' => $e->getMessage()
+            ]);
+
+            return false;
+        }
+    }
+
+    /**
+     * Delete a subscription plan from the payment gateway
+     *
+     * @param string $externalPlanId
+     * @return bool
+     */
+    public function deletePlan(string $externalPlanId): bool
+    {
+        try {
+            // In Stripe, we can't delete a price, but we can archive the product
+            // First, get the price to find the product ID
+            $price = $this->stripe->prices->retrieve($externalPlanId);
+
+            // Archive the price by setting it to inactive
+            $this->stripe->prices->update($externalPlanId, [
+                'active' => false
+            ]);
+
+            // Archive the product
+            $this->stripe->products->update($price->product, [
+                'active' => false
+            ]);
+
+            return true;
+        } catch (ApiErrorException $e) {
+            Log::error('Stripe delete plan error', [
+                'externalPlanId' => $externalPlanId,
+                'error' => $e->getMessage()
+            ]);
+
+            return false;
+        }
+    }
+
+    /**
+     * List all subscription plans from the payment gateway
+     *
+     * @param array $filters Optional filters
+     * @return array List of plans
+     */
+    public function listPlans(array $filters = []): array
+    {
+        try {
+            $params = [
+                'limit' => $filters['limit'] ?? 100,
+                'active' => $filters['active'] ?? true,
+                'type' => 'recurring',
+            ];
+
+            if (isset($filters['product'])) {
+                $params['product'] = $filters['product'];
+            }
+
+            $prices = $this->stripe->prices->all($params);
+
+            // Format the response to match the expected structure
+            return [
+                'plans' => $prices->data,
+                'total_count' => $prices->count(),
+            ];
+        } catch (ApiErrorException $e) {
+            Log::error('Stripe list plans error', [
+                'filters' => $filters,
+                'error' => $e->getMessage()
+            ]);
+
+            return ['plans' => []];
+        }
+    }
+
+    /**
+     * Get details of a specific subscription plan
+     *
+     * @param string $externalPlanId
+     * @return array Plan details
+     */
+    public function getPlanDetails(string $externalPlanId): array
+    {
+        try {
+            $price = $this->stripe->prices->retrieve($externalPlanId, [
+                'expand' => ['product']
+            ]);
+
+            return $price->toArray();
+        } catch (ApiErrorException $e) {
+            Log::error('Stripe get plan details error', [
+                'externalPlanId' => $externalPlanId,
+                'error' => $e->getMessage()
+            ]);
+
+            return [];
+        }
     }
 
     /**
