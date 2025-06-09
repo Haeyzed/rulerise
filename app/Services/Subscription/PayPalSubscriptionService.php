@@ -128,6 +128,27 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
     }
 
     /**
+     * Get proper start time for PayPal subscription
+     *
+     * @param SubscriptionPlan $plan
+     * @return string
+     */
+    protected function getSubscriptionStartTime(SubscriptionPlan $plan): string
+    {
+        // For one-time payments, start immediately
+        if ($plan->isOneTime()) {
+            // Use a longer buffer for one-time payments to ensure processing time
+            $startTime = Carbon::now('UTC')->addMinutes(10);
+        } else {
+            // For recurring subscriptions, use a longer buffer
+            $startTime = Carbon::now('UTC')->addMinutes(15);
+        }
+
+        // Ensure we're using UTC timezone and proper ISO8601 format
+        return $startTime->toIso8601String();
+    }
+
+    /**
      * Create a subscription for an employer
      *
      * @param Employer $employer
@@ -146,35 +167,47 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
             $plan->save();
         }
 
+        // Prepare subscription data
+        $subscriptionData = [
+            'plan_id' => $externalPlanId,
+            'start_time' => $this->getSubscriptionStartTime($plan),
+            'quantity' => '1',
+            'subscriber' => [
+                'name' => [
+                    'given_name' => $employer->user->first_name ?? $employer->company_name,
+                    'surname' => $employer->user->last_name ?? ''
+                ],
+                'email_address' => $employer->user->email ?? $employer->company_email
+            ],
+            'application_context' => [
+                'brand_name' => config('app.name'),
+                'locale' => 'en-US',
+                'shipping_preference' => 'NO_SHIPPING',
+                'user_action' => 'SUBSCRIBE_NOW',
+                'payment_method' => [
+                    'payer_selected' => 'PAYPAL',
+                    'payee_preferred' => 'IMMEDIATE_PAYMENT_REQUIRED'
+                ],
+                'return_url' => config('app.frontend_url') . '/employer/dashboard',
+                'cancel_url' => config('app.frontend_url') . '/employer/dashboard',
+            ]
+        ];
+
+        // Log the subscription data for debugging
+        Log::info('Creating PayPal subscription', [
+            'employer_id' => $employer->id,
+            'plan_id' => $plan->id,
+            'external_plan_id' => $externalPlanId,
+            'start_time' => $subscriptionData['start_time'],
+            'is_one_time' => $plan->isOneTime()
+        ]);
+
         // Create the subscription
         $response = Http::withToken($this->getAccessToken())
             ->withHeaders([
                 'PayPal-Request-Id' => Str::uuid()->toString(),
             ])
-            ->post("{$this->baseUrl}/v1/billing/subscriptions", [
-                'plan_id' => $externalPlanId,
-                'start_time' => Carbon::now()->addMinutes(5)->toIso8601String(),
-                'quantity' => '1',
-                'subscriber' => [
-                    'name' => [
-                        'given_name' => $employer->user->first_name ?? $employer->company_name,
-                        'surname' => $employer->user->last_name ?? ''
-                    ],
-                    'email_address' => $employer->user->email ?? $employer->company_email
-                ],
-                'application_context' => [
-                    'brand_name' => config('app.name'),
-                    'locale' => 'en-US',
-                    'shipping_preference' => 'NO_SHIPPING',
-                    'user_action' => 'SUBSCRIBE_NOW',
-                    'payment_method' => [
-                        'payer_selected' => 'PAYPAL',
-                        'payee_preferred' => 'IMMEDIATE_PAYMENT_REQUIRED'
-                    ],
-                    'return_url' => config('app.frontend_url') . '/employer/dashboard',
-                    'cancel_url' => config('app.frontend_url') . '/employer/dashboard',
-                ]
-            ]);
+            ->post("{$this->baseUrl}/v1/billing/subscriptions", $subscriptionData);
 
         if ($response->successful()) {
             $data = $response->json();
@@ -186,6 +219,12 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
             $approvalUrl = collect($data['links'])
                 ->firstWhere('rel', 'approve')['href'] ?? null;
 
+            Log::info('PayPal subscription created successfully', [
+                'subscription_id' => $subscription->id,
+                'external_subscription_id' => $data['id'],
+                'status' => $data['status']
+            ]);
+
             return [
                 'subscription_id' => $subscription->id,
                 'external_subscription_id' => $data['id'],
@@ -194,13 +233,27 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
             ];
         }
 
+        // Log detailed error information
+        $errorResponse = $response->json();
         Log::error('PayPal create subscription error', [
             'employer' => $employer->id,
             'plan' => $plan->toArray(),
-            'response' => $response->json()
+            'start_time' => $subscriptionData['start_time'],
+            'response' => $errorResponse,
+            'status_code' => $response->status()
         ]);
 
-        throw new \Exception('Failed to create PayPal subscription');
+        // Provide more specific error messages
+        if (isset($errorResponse['details'])) {
+            $errorDetails = collect($errorResponse['details']);
+            $startTimeError = $errorDetails->firstWhere('field', '/start_time');
+
+            if ($startTimeError) {
+                throw new \Exception('PayPal subscription start time error: ' . $startTimeError['description']);
+            }
+        }
+
+        throw new \Exception('Failed to create PayPal subscription: ' . ($errorResponse['message'] ?? 'Unknown error'));
     }
 
     /**
