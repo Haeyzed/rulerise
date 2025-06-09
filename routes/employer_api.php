@@ -117,7 +117,7 @@ Route::middleware(['auth:api', 'role:employer,employer_staff'])->group(function 
         Route::get('all', [SubscriptionController::class, 'getAllSubscriptions']);
 
         // Subscribe to a plan
-        Route::post('subscribe/{plan}', [SubscriptionController::class, 'subscribe']);
+        Route::post('{plan}/subscribe', [SubscriptionController::class, 'subscribe']);
 
         // Check eligibility for a plan
         Route::post('eligibility/{plan}', [SubscriptionController::class, 'checkEligibility']);
