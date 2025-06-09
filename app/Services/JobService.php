@@ -112,7 +112,7 @@ class JobService
 
         // Get application counts for different statuses for this specific job
         $totalApplications = $job->applications()->count();
-        $unsortedCount = $job->applications()->where('status', 'unsorted')->count();
+        $unsortedCount = $job->applications()->where('status', 'applied')->count();
         $shortlistedCount = $job->applications()->where('status', 'shortlisted')->count();
         $offerSentCount = $job->applications()->where('status', 'offer_sent')->count();
         $rejectedCount = $job->applications()->where('status', 'rejected')->count();
@@ -122,7 +122,7 @@ class JobService
         $query = $job->applications();
 
         // Apply status filter if provided
-        if (isset($filters['status']) && in_array($filters['status'], ['unsorted', 'shortlisted', 'offer_sent', 'rejected', 'withdrawn'])) {
+        if (isset($filters['status']) && in_array($filters['status'], ['applied', 'shortlisted', 'offer_sent', 'rejected', 'withdrawn'])) {
             $query->where('status', $filters['status']);
         }
 
