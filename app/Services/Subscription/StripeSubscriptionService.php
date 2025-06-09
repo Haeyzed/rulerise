@@ -683,9 +683,7 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
         }
 
         try {
-            $this->stripe->subscriptions->cancel($subscription->subscription_id, [
-                'cancel_at_period_end' => false,
-            ]);
+            $this->stripe->subscriptions->cancel($subscription->subscription_id, []);
 
             $subscription->is_active = false;
             $subscription->save();
