@@ -106,7 +106,7 @@ Route::middleware(['auth:api', 'role:employer,employer_staff'])->group(function 
     });
 
     // Subscription Management
-    Route::prefix('subscriptions')->group(function () {
+    Route::prefix('subscription')->group(function () {
         // Get available plans
         Route::get('plans', [SubscriptionController::class, 'getPlans']);
 
