@@ -530,7 +530,7 @@ class EmployerService
                     $query->whereIn('job_id', $jobIds);
                 },
                 'jobApplications as unsorted_count' => function ($query) use ($jobIds) {
-                    $query->whereIn('job_id', $jobIds)->where('status', 'unsorted');
+                    $query->whereIn('job_id', $jobIds)->where('status', 'applied');
                 },
                 'jobApplications as sorted_count' => function ($query) use ($jobIds) {
                     $query->whereIn('job_id', $jobIds)->where('status', 'sorted');
