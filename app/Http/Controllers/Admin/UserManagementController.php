@@ -201,7 +201,7 @@ class UserManagementController extends Controller implements HasMiddleware
                 return response()->forbidden($errorMessage);
             }
 
-            $user = User::with(['roles', 'permissions'])->findOrFail($id);
+            $user = User::with(['getRolesWithId', 'permissions'])->findOrFail($id);
 
             return response()->success(new UserResource($user), 'User retrieved successfully');
         } catch (Exception $e) {
