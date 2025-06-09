@@ -167,10 +167,12 @@ Route::middleware(['auth:api', 'role:employer,employer_staff'])->group(function 
         });
 
         // Manual verification endpoints
-        Route::prefix('verify')->group(function () {
-            Route::post('paypal', [SubscriptionController::class, 'verifyPayPalSubscription']);
-            Route::post('stripe', [SubscriptionController::class, 'verifyStripeSubscription']);
-        });
+        Route::post('verify-paypal', [SubscriptionController::class, 'verifyPayPalSubscription']);
+        Route::post('verify-stripe', [SubscriptionController::class, 'verifyStripeSubscription']);
+//        Route::prefix('verify')->group(function () {
+//            Route::post('paypal', [SubscriptionController::class, 'verifyPayPalSubscription']);
+//            Route::post('stripe', [SubscriptionController::class, 'verifyStripeSubscription']);
+//        });
     });
 
     // Job notification templates
