@@ -26,7 +26,7 @@ use Illuminate\Support\Facades\Route;
 */
 
 // Routes that require authentication
-Route::middleware(['auth:api', 'role:candidate'])->group(function () {
+Route::middleware(['auth:api', 'role:candidate', 'role:admin'])->group(function () {
     // Dashboard
     Route::get('dashboard', [DashboardsController::class, 'index']);
     Route::get('jobs/{type}', [DashboardsController::class, 'getJobs']);
