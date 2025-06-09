@@ -293,6 +293,37 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
     }
 
     /**
+     * Process one-time payment completion
+     *
+     * @param string $orderId
+     * @return bool
+     */
+    public function processOneTimePaymentCompletion(string $orderId): bool
+    {
+        try {
+            // Get order details first
+            $orderDetails = $this->getOrderDetails($orderId);
+
+            if ($orderDetails['status'] === 'APPROVED') {
+                // Capture the order
+                $captureResult = $this->captureOrder($orderId);
+
+                if ($captureResult['status'] === 'COMPLETED') {
+                    return true;
+                }
+            }
+
+            return false;
+        } catch (\Exception $e) {
+            Log::error('Failed to process one-time payment completion', [
+                'order_id' => $orderId,
+                'error' => $e->getMessage()
+            ]);
+            return false;
+        }
+    }
+
+    /**
      * Create a recurring subscription using Billing API
      *
      * @param Employer $employer
