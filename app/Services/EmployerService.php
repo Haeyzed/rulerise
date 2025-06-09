@@ -480,7 +480,7 @@ class EmployerService
 
         $unsortedCount = DB::table('job_applications')
             ->whereIn('job_id', $jobIds)
-            ->where('status', 'unsorted')
+            ->where('status', 'applied')
             ->count();
 
         $sortedCount = DB::table('job_applications')
