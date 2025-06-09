@@ -149,351 +149,6 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
     }
 
     /**
-     * Check if automatic tax is properly configured
-     *
-     * @return bool
-     */
-    protected function isAutomaticTaxConfigured(): bool
-    {
-        try {
-            // Try to retrieve tax settings to see if they're configured
-            $settings = $this->stripe->tax->settings->retrieve();
-
-            // Check if there's a valid origin address
-            return !empty($settings->defaults['tax_behavior']) &&
-                !empty($settings->head_office['address']);
-        } catch (ApiErrorException $e) {
-            Log::warning('Could not retrieve Stripe tax settings', [
-                'error' => $e->getMessage()
-            ]);
-            return false;
-        }
-    }
-
-    /**
-     * Create a subscription for an employer
-     *
-     * @param Employer $employer
-     * @param SubscriptionPlan $plan
-     * @param array $paymentData
-     * @return array Subscription data with redirect URL
-     */
-    public function createSubscription(Employer $employer, SubscriptionPlan $plan, array $paymentData = []): array
-    {
-        try {
-            // Check trial eligibility and handle accordingly
-            $useTrialPeriod = $plan->hasTrial() && $employer->isEligibleForTrial();
-
-            // For one-time plans with trial, create manual trial subscription
-            if ($plan->isOneTime() && $useTrialPeriod) {
-                $subscription = $this->createTrialSubscription($employer, $plan);
-
-                return [
-                    'subscription_id' => $subscription->id,
-                    'external_subscription_id' => null,
-                    'redirect_url' => null,
-                    'status' => 'trial_active',
-                    'trial_subscription' => true
-                ];
-            }
-
-            // Get or create the external plan ID
-            $externalPlanId = $plan->external_stripe_id ?? $this->createPlan($plan);
-
-            // If we created a new plan, save the ID
-            if (!$plan->external_stripe_id) {
-                $plan->external_stripe_id = $externalPlanId;
-                $plan->save();
-            }
-
-            // Get or create a customer
-            $customerId = $this->getOrCreateCustomer($employer);
-
-            // Create a checkout session
-            $sessionParams = [
-                'customer' => $customerId,
-                'payment_method_types' => ['card'],
-                'line_items' => [
-                    [
-                        'price' => $externalPlanId,
-                        'quantity' => 1,
-                    ],
-                ],
-                'mode' => $plan->isRecurring() ? 'subscription' : 'payment',
-                'success_url' => config('app.frontend_url') . '/employer/dashboard?session_id={CHECKOUT_SESSION_ID}',
-                'cancel_url' => config('app.frontend_url') . '/employer/dashboard?session_id={CHECKOUT_SESSION_ID}',
-                'client_reference_id' => $employer->id,
-                'metadata' => [
-                    'employer_id' => $employer->id,
-                    'plan_id' => $plan->id,
-                ],
-            ];
-
-            // Add trial period if applicable and employer is eligible (only for recurring plans)
-            if ($plan->isRecurring() && $useTrialPeriod) {
-                $sessionParams['subscription_data'] = [
-                    'trial_period_days' => $plan->getTrialPeriodDays(),
-                ];
-            }
-
-            // Get Stripe configuration from the plan
-            $stripeConfig = $plan->getPaymentGatewayConfig('stripe');
-
-            // Only add automatic tax if it's explicitly enabled AND properly configured
-            if (isset($stripeConfig['automatic_tax']['enabled']) &&
-                $stripeConfig['automatic_tax']['enabled'] === true &&
-                $this->isAutomaticTaxConfigured()) {
-
-                $sessionParams['automatic_tax'] = ['enabled' => true];
-
-                Log::info('Automatic tax enabled for Stripe checkout session', [
-                    'plan_id' => $plan->id,
-                    'employer_id' => $employer->id
-                ]);
-            } else {
-                Log::info('Automatic tax disabled for Stripe checkout session', [
-                    'plan_id' => $plan->id,
-                    'employer_id' => $employer->id,
-                    'config_enabled' => isset($stripeConfig['automatic_tax']['enabled']) ? $stripeConfig['automatic_tax']['enabled'] : false,
-                    'stripe_configured' => $this->isAutomaticTaxConfigured()
-                ]);
-            }
-
-            // Allow promotion codes if configured
-            if (isset($stripeConfig['allow_promotion_codes']) && $stripeConfig['allow_promotion_codes']) {
-                $sessionParams['allow_promotion_codes'] = true;
-            }
-
-            // Add billing address collection if needed
-            if (isset($stripeConfig['billing_address_collection'])) {
-                $sessionParams['billing_address_collection'] = $stripeConfig['billing_address_collection'];
-            } else {
-                // Default to auto for better user experience
-                $sessionParams['billing_address_collection'] = 'auto';
-            }
-
-            // Add phone number collection if configured
-            if (isset($stripeConfig['phone_number_collection']['enabled']) &&
-                $stripeConfig['phone_number_collection']['enabled']) {
-                $sessionParams['phone_number_collection'] = ['enabled' => true];
-            }
-
-            $session = $this->stripe->checkout->sessions->create($sessionParams);
-
-            // Create a pending subscription record
-            $subscription = $this->createSubscriptionRecord($employer, $plan, [
-                'id' => $session->id,
-                'customer' => $customerId,
-                'payment_intent' => $session->payment_intent ?? null,
-                'subscription' => $session->subscription ?? null,
-            ], $useTrialPeriod);
-
-            Log::info('Stripe checkout session created', [
-                'session_id' => $session->id,
-                'subscription_id' => $subscription->id,
-                'mode' => $sessionParams['mode'],
-                'use_trial' => $useTrialPeriod,
-                'is_one_time' => $plan->isOneTime()
-            ]);
-
-            return [
-                'subscription_id' => $subscription->id,
-                'external_subscription_id' => $session->id,
-                'redirect_url' => $session->url,
-                'status' => $session->status
-            ];
-        } catch (ApiErrorException $e) {
-            Log::error('Stripe create subscription error', [
-                'employer' => $employer->id,
-                'plan' => $plan->toArray(),
-                'error' => $e->getMessage(),
-                'error_code' => $e->getStripeCode(),
-                'error_type' => $e->getError()->type ?? null
-            ]);
-
-            // Provide more specific error messages for common issues
-            $errorMessage = match ($e->getStripeCode()) {
-                'tax_calculation_failed' => 'Tax calculation failed. Please contact support.',
-                'invalid_request_error' => 'Invalid request. Please check your configuration.',
-                default => 'Failed to create Stripe subscription: ' . $e->getMessage()
-            };
-
-            throw new \Exception($errorMessage);
-        }
-    }
-
-    /**
-     * Create a manual trial subscription (for one-time plans with trial)
-     *
-     * @param Employer $employer
-     * @param SubscriptionPlan $plan
-     * @return Subscription
-     */
-    public function createTrialSubscription(Employer $employer, SubscriptionPlan $plan): Subscription
-    {
-        if (!$plan->isOneTime() || !$plan->hasTrial() || !$employer->isEligibleForTrial()) {
-            throw new \Exception('Employer is not eligible for trial or plan does not support trial');
-        }
-
-        // Calculate trial end date
-        $trialEndDate = Carbon::now()->addDays($plan->getTrialPeriodDays());
-
-        // Create the subscription record
-        $subscription = Subscription::create([
-            'employer_id' => $employer->id,
-            'subscription_plan_id' => $plan->id,
-            'start_date' => Carbon::now(),
-            'end_date' => $trialEndDate,
-            'amount_paid' => 0.00, // Trial is free
-            'currency' => $plan->currency,
-            'payment_method' => 'stripe',
-            'subscription_id' => null, // No external subscription for manual trial
-            'job_posts_left' => $plan->job_posts_limit,
-            'featured_jobs_left' => $plan->featured_jobs_limit,
-            'cv_downloads_left' => $plan->resume_views_limit,
-            'payment_type' => $plan->payment_type,
-            'is_active' => true, // Trial is immediately active
-            'used_trial' => true,
-        ]);
-
-        // Mark employer as having used trial
-        $employer->markTrialAsUsed();
-
-        // Send activation notification
-        $this->sendActivationNotification($subscription);
-
-        Log::info('Manual trial subscription created', [
-            'employer_id' => $employer->id,
-            'subscription_id' => $subscription->id,
-            'trial_end_date' => $trialEndDate->toDateTimeString()
-        ]);
-
-        return $subscription;
-    }
-
-    /**
-     * Get or create a Stripe customer for the employer
-     *
-     * @param Employer $employer
-     * @return string Customer ID
-     */
-    protected function getOrCreateCustomer(Employer $employer): string
-    {
-        // If the employer already has a Stripe customer ID, use it
-        if ($employer->stripe_customer_id) {
-            try {
-                // Verify the customer still exists
-                $this->stripe->customers->retrieve($employer->stripe_customer_id);
-                return $employer->stripe_customer_id;
-            } catch (ApiErrorException $e) {
-                Log::warning('Stripe customer not found, creating new one', [
-                    'employer_id' => $employer->id,
-                    'old_customer_id' => $employer->stripe_customer_id,
-                    'error' => $e->getMessage()
-                ]);
-                // Continue to create a new customer
-            }
-        }
-
-        try {
-            // Create a new customer
-            $customerData = [
-                'email' => $employer->user->email ?? $employer->company_email,
-                'name' => $employer->company_name,
-                'description' => 'Employer ID: ' . $employer->id,
-                'metadata' => [
-                    'employer_id' => $employer->id,
-                    'user_id' => $employer->user_id,
-                ],
-            ];
-
-            // Add phone if available
-            if ($employer->company_phone_number) {
-                $customerData['phone'] = $employer->company_phone_number;
-            }
-
-            // Add address if available
-            if ($employer->company_address || $employer->company_country) {
-                $address = [];
-                if ($employer->company_address) {
-                    $address['line1'] = $employer->company_address;
-                }
-                if ($employer->company_country) {
-                    $address['country'] = $employer->company_country;
-                }
-                if ($employer->company_state) {
-                    $address['state'] = $employer->company_state;
-                }
-
-                if (!empty($address)) {
-                    $customerData['address'] = $address;
-                }
-            }
-
-            $customer = $this->stripe->customers->create($customerData);
-
-            // Save the customer ID to the employer
-            $employer->stripe_customer_id = $customer->id;
-            $employer->save();
-
-            return $customer->id;
-        } catch (ApiErrorException $e) {
-            Log::error('Stripe create customer error', [
-                'employer' => $employer->toArray(),
-                'error' => $e->getMessage()
-            ]);
-
-            throw new \Exception('Failed to create Stripe customer: ' . $e->getMessage());
-        }
-    }
-
-    /**
-     * Create subscription record in database
-     *
-     * @param Employer $employer
-     * @param SubscriptionPlan $plan
-     * @param array $data
-     * @param bool $usedTrial
-     * @return Subscription
-     */
-    private function createSubscriptionRecord(Employer $employer, SubscriptionPlan $plan, array $data, bool $usedTrial = false): Subscription
-    {
-        $endDate = null;
-        if ($plan->isRecurring() && $plan->duration_days) {
-            $endDate = Carbon::now()->addDays($plan->duration_days);
-            if ($usedTrial && $plan->hasTrial()) {
-                $endDate->addDays($plan->getTrialPeriodDays());
-            }
-        }
-
-        $subscription = Subscription::create([
-            'employer_id' => $employer->id,
-            'subscription_plan_id' => $plan->id,
-            'start_date' => Carbon::now(),
-            'end_date' => $endDate,
-            'amount_paid' => $plan->price,
-            'currency' => $plan->currency,
-            'payment_method' => 'stripe',
-            'subscription_id' => $data['subscription'] ?? null,
-            'payment_reference' => $data['id'],
-            'transaction_id' => $data['payment_intent'] ?? null,
-            'job_posts_left' => $plan->job_posts_limit,
-            'featured_jobs_left' => $plan->featured_jobs_limit,
-            'cv_downloads_left' => $plan->resume_views_limit,
-            'payment_type' => $plan->payment_type,
-            'is_active' => false, // Will be activated when payment is confirmed
-            'used_trial' => $usedTrial,
-        ]);
-
-        // Mark employer as having used trial if applicable
-        if ($usedTrial) {
-            $employer->markTrialAsUsed();
-        }
-
-        return $subscription;
-    }
-
-    /**
      * Update a subscription plan in the payment gateway
      *
      * @param SubscriptionPlan $plan
@@ -630,6 +285,269 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
     }
 
     /**
+     * Check if automatic tax is properly configured
+     *
+     * @return bool
+     */
+    protected function isAutomaticTaxConfigured(): bool
+    {
+        try {
+            // Try to retrieve tax settings to see if they're configured
+            $settings = $this->stripe->tax->settings->retrieve();
+
+            // Check if there's a valid origin address
+            return !empty($settings->defaults['tax_behavior']) &&
+                !empty($settings->head_office['address']);
+        } catch (ApiErrorException $e) {
+            Log::warning('Could not retrieve Stripe tax settings', [
+                'error' => $e->getMessage()
+            ]);
+            return false;
+        }
+    }
+
+    /**
+     * Create a subscription for an employer
+     *
+     * @param Employer $employer
+     * @param SubscriptionPlan $plan
+     * @param array $paymentData
+     * @return array Subscription data with redirect URL
+     */
+    public function createSubscription(Employer $employer, SubscriptionPlan $plan, array $paymentData = []): array
+    {
+        try {
+            // Get or create the external plan ID
+            $externalPlanId = $plan->external_stripe_id ?? $this->createPlan($plan);
+
+            // If we created a new plan, save the ID
+            if (!$plan->external_stripe_id) {
+                $plan->external_stripe_id = $externalPlanId;
+                $plan->save();
+            }
+
+            // Get or create a customer
+            $customerId = $this->getOrCreateCustomer($employer);
+
+            // Create a checkout session
+            $sessionParams = [
+                'customer' => $customerId,
+                'payment_method_types' => ['card'],
+                'line_items' => [
+                    [
+                        'price' => $externalPlanId,
+                        'quantity' => 1,
+                    ],
+                ],
+                'mode' => $plan->isRecurring() ? 'subscription' : 'payment',
+                'success_url' => config('app.frontend_url') . '/employer/dashboard?session_id={CHECKOUT_SESSION_ID}',
+                'cancel_url' => config('app.frontend_url') . '/employer/dashboard?session_id={CHECKOUT_SESSION_ID}',
+                'client_reference_id' => $employer->id,
+                'metadata' => [
+                    'employer_id' => $employer->id,
+                    'plan_id' => $plan->id,
+                ],
+            ];
+
+            // Add trial period if applicable
+            if ($plan->isRecurring() && $plan->hasTrial()) {
+                $sessionParams['subscription_data'] = [
+                    'trial_period_days' => $plan->getTrialPeriodDays(),
+                ];
+            }
+
+            // Get Stripe configuration from the plan
+            $stripeConfig = $plan->getPaymentGatewayConfig('stripe');
+
+            // Only add automatic tax if it's explicitly enabled AND properly configured
+            if (isset($stripeConfig['automatic_tax']['enabled']) &&
+                $stripeConfig['automatic_tax']['enabled'] === true &&
+                $this->isAutomaticTaxConfigured()) {
+
+                $sessionParams['automatic_tax'] = ['enabled' => true];
+
+                Log::info('Automatic tax enabled for Stripe checkout session', [
+                    'plan_id' => $plan->id,
+                    'employer_id' => $employer->id
+                ]);
+            } else {
+                Log::info('Automatic tax disabled for Stripe checkout session', [
+                    'plan_id' => $plan->id,
+                    'employer_id' => $employer->id,
+                    'config_enabled' => isset($stripeConfig['automatic_tax']['enabled']) ? $stripeConfig['automatic_tax']['enabled'] : false,
+                    'stripe_configured' => $this->isAutomaticTaxConfigured()
+                ]);
+            }
+
+            // Allow promotion codes if configured
+            if (isset($stripeConfig['allow_promotion_codes']) && $stripeConfig['allow_promotion_codes']) {
+                $sessionParams['allow_promotion_codes'] = true;
+            }
+
+            // Add billing address collection if needed
+            if (isset($stripeConfig['billing_address_collection'])) {
+                $sessionParams['billing_address_collection'] = $stripeConfig['billing_address_collection'];
+            } else {
+                // Default to auto for better user experience
+                $sessionParams['billing_address_collection'] = 'auto';
+            }
+
+            // Add phone number collection if configured
+            if (isset($stripeConfig['phone_number_collection']['enabled']) &&
+                $stripeConfig['phone_number_collection']['enabled']) {
+                $sessionParams['phone_number_collection'] = ['enabled' => true];
+            }
+
+            $session = $this->stripe->checkout->sessions->create($sessionParams);
+
+            // Create a pending subscription record
+            $subscription = $this->createSubscriptionRecord($employer, $plan, [
+                'id' => $session->id,
+                'customer' => $customerId,
+                'payment_intent' => $session->payment_intent ?? null,
+                'subscription' => $session->subscription ?? null,
+            ]);
+
+            return [
+                'subscription_id' => $subscription->id,
+                'external_subscription_id' => $session->id,
+                'redirect_url' => $session->url,
+                'status' => $session->status
+            ];
+        } catch (ApiErrorException $e) {
+            Log::error('Stripe create subscription error', [
+                'employer' => $employer->id,
+                'plan' => $plan->toArray(),
+                'error' => $e->getMessage(),
+                'error_code' => $e->getStripeCode(),
+                'error_type' => $e->getError()->type ?? null
+            ]);
+
+            // Provide more specific error messages for common issues
+            $errorMessage = match ($e->getStripeCode()) {
+                'tax_calculation_failed' => 'Tax calculation failed. Please contact support.',
+                'invalid_request_error' => 'Invalid request. Please check your configuration.',
+                default => 'Failed to create Stripe subscription: ' . $e->getMessage()
+            };
+
+            throw new \Exception($errorMessage);
+        }
+    }
+
+    /**
+     * Get or create a Stripe customer for the employer
+     *
+     * @param Employer $employer
+     * @return string Customer ID
+     */
+    protected function getOrCreateCustomer(Employer $employer): string
+    {
+        // If the employer already has a Stripe customer ID, use it
+        if ($employer->stripe_customer_id) {
+            try {
+                // Verify the customer still exists
+                $this->stripe->customers->retrieve($employer->stripe_customer_id);
+                return $employer->stripe_customer_id;
+            } catch (ApiErrorException $e) {
+                Log::warning('Stripe customer not found, creating new one', [
+                    'employer_id' => $employer->id,
+                    'old_customer_id' => $employer->stripe_customer_id,
+                    'error' => $e->getMessage()
+                ]);
+                // Continue to create a new customer
+            }
+        }
+
+        try {
+            // Create a new customer
+            $customerData = [
+                'email' => $employer->user->email ?? $employer->company_email,
+                'name' => $employer->company_name,
+                'description' => 'Employer ID: ' . $employer->id,
+                'metadata' => [
+                    'employer_id' => $employer->id,
+                    'user_id' => $employer->user_id,
+                ],
+            ];
+
+            // Add phone if available
+            if ($employer->company_phone_number) {
+                $customerData['phone'] = $employer->company_phone_number;
+            }
+
+            // Add address if available
+            if ($employer->company_address || $employer->company_country) {
+                $address = [];
+                if ($employer->company_address) {
+                    $address['line1'] = $employer->company_address;
+                }
+                if ($employer->company_country) {
+                    $address['country'] = $employer->company_country;
+                }
+                if ($employer->company_state) {
+                    $address['state'] = $employer->company_state;
+                }
+
+                if (!empty($address)) {
+                    $customerData['address'] = $address;
+                }
+            }
+
+            $customer = $this->stripe->customers->create($customerData);
+
+            // Save the customer ID to the employer
+            $employer->stripe_customer_id = $customer->id;
+            $employer->save();
+
+            return $customer->id;
+        } catch (ApiErrorException $e) {
+            Log::error('Stripe create customer error', [
+                'employer' => $employer->toArray(),
+                'error' => $e->getMessage()
+            ]);
+
+            throw new \Exception('Failed to create Stripe customer: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Create subscription record in database
+     *
+     * @param Employer $employer
+     * @param SubscriptionPlan $plan
+     * @param array $data
+     * @return Subscription
+     */
+    private function createSubscriptionRecord(Employer $employer, SubscriptionPlan $plan, array $data): Subscription
+    {
+        $endDate = null;
+        if ($plan->isRecurring() && $plan->duration_days) {
+            $endDate = Carbon::now()->addDays($plan->duration_days);
+            if ($plan->hasTrial()) {
+                $endDate->addDays($plan->getTrialPeriodDays());
+            }
+        }
+
+        return Subscription::create([
+            'employer_id' => $employer->id,
+            'subscription_plan_id' => $plan->id,
+            'start_date' => Carbon::now(),
+            'end_date' => $endDate,
+            'amount_paid' => $plan->price,
+            'currency' => $plan->currency,
+            'payment_method' => 'stripe',
+            'subscription_id' => $data['subscription'] ?? null,
+            'payment_reference' => $data['id'],
+            'transaction_id' => $data['payment_intent'] ?? null,
+            'job_posts_left' => $plan->job_posts_limit,
+            'featured_jobs_left' => $plan->featured_jobs_limit,
+            'cv_downloads_left' => $plan->resume_views_limit,
+            'payment_type' => $plan->payment_type,
+            'is_active' => false, // Will be activated when payment is confirmed
+        ]);
+    }
+
+    /**
      * Cancel a subscription
      *
      * @param Subscription $subscription
@@ -637,11 +555,8 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
      */
     public function cancelSubscription(Subscription $subscription): bool
     {
-        // For manual trial subscriptions, just deactivate locally
         if (!$subscription->subscription_id) {
-            $subscription->is_active = false;
-            $subscription->save();
-            return true;
+            return false;
         }
 
         try {

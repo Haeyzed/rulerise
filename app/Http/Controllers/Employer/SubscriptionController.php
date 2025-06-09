@@ -18,26 +18,17 @@ use Illuminate\Support\Facades\Log;
 class SubscriptionController extends Controller
 {
     /**
-     * Get all available subscription plans with trial eligibility
+     * Get all available subscription plans
      *
      * @return JsonResponse
      */
     public function getPlans(): JsonResponse
     {
-        $employer = Auth::user()->employer;
         $plans = SubscriptionPlan::where('is_active', true)->get();
-
-        // Add trial eligibility information to each plan
-        $plansWithTrialInfo = $plans->map(function ($plan) use ($employer) {
-            $planArray = $plan->toArray();
-            $planArray['trial_eligible'] = $plan->hasTrial() && $employer->isEligibleForTrial();
-            $planArray['trial_already_used'] = $employer->has_used_trial;
-            return $planArray;
-        });
 
         return response()->json([
             'success' => true,
-            'data' => $plansWithTrialInfo
+            'data' => $plans
         ]);
     }
 
@@ -72,90 +63,15 @@ class SubscriptionController extends Controller
     {
         $employer = Auth::user()->employer;
         $provider = $request->input('payment_provider', 'paypal');
-        $useTrial = $request->input('use_trial', false);
-
-        // Validate trial usage
-        if ($useTrial && (!$plan->hasTrial() || !$employer->isEligibleForTrial())) {
-            return response()->badRequest('Trial is not available for this plan or employer');
-        }
 
         try {
             $service = SubscriptionServiceFactory::create($provider);
-
-            // For one-time plans with trial, create trial subscription directly
-            if ($plan->isOneTime() && $useTrial && $employer->isEligibleForTrial()) {
-                $subscription = $service->createTrialSubscription($employer, $plan);
-
-                return response()->success([
-                    'subscription_id' => $subscription->id,
-                    'trial_subscription' => true,
-                    'trial_end_date' => $subscription->end_date->toDateTimeString(),
-                    'message' => 'Trial subscription activated successfully'
-                ], 'Trial subscription created successfully');
-            }
-
             $result = $service->createSubscription($employer, $plan);
 
             return response()->success($result, 'Subscription created successfully');
         } catch (Exception $e) {
             return response()->serverError($e->getMessage());
         }
-    }
-
-    /**
-     * Create a trial subscription for one-time plans
-     *
-     * @param Request $request
-     * @param SubscriptionPlan $plan
-     * @return JsonResponse
-     */
-    public function createTrial(Request $request, SubscriptionPlan $plan): JsonResponse
-    {
-        $employer = Auth::user()->employer;
-        $provider = $request->input('payment_provider', 'paypal');
-
-        // Validate trial eligibility
-        if (!$plan->hasTrial()) {
-            return response()->badRequest('This plan does not offer a trial period');
-        }
-
-        if (!$employer->isEligibleForTrial()) {
-            return response()->badRequest('You have already used your trial period');
-        }
-
-        if (!$plan->isOneTime()) {
-            return response()->badRequest('Trial subscriptions are only available for one-time plans');
-        }
-
-        try {
-            $service = SubscriptionServiceFactory::create($provider);
-            $subscription = $service->createTrialSubscription($employer, $plan);
-
-            return response()->success([
-                'subscription' => $subscription,
-                'plan' => $subscription->plan,
-                'trial_end_date' => $subscription->end_date->toDateTimeString(),
-                'message' => 'Trial subscription activated successfully'
-            ], 'Trial subscription created successfully');
-        } catch (Exception $e) {
-            return response()->serverError($e->getMessage());
-        }
-    }
-
-    /**
-     * Get trial eligibility status
-     *
-     * @return JsonResponse
-     */
-    public function getTrialEligibility(): JsonResponse
-    {
-        $employer = Auth::user()->employer;
-
-        return response()->success([
-            'is_eligible' => $employer->isEligibleForTrial(),
-            'has_used_trial' => $employer->has_used_trial,
-            'trial_used_at' => $employer->trial_used_at?->toDateTimeString(),
-        ], 'Trial eligibility retrieved successfully');
     }
 
     /**
@@ -620,9 +536,7 @@ class SubscriptionController extends Controller
                 'paypal_status' => $details['status'] ?? 'UNKNOWN'
             ],'Subscription status checked');
         } catch (Exception $e) {
-            Log::error('Error verifying PayP
-
-al subscription', [
+            Log::error('Error verifying PayPal subscription', [
                 'subscription_id' => $subscriptionId,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
