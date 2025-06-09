@@ -466,6 +466,7 @@ class EmployerService
                 'counts' => [
                     'total' => 0,
                     'unsorted' => 0,
+                    'rejected' => 0,
                     'sorted' => 0,
                     'shortlisted' => 0,
                     'offer_sent' => 0,
@@ -486,6 +487,11 @@ class EmployerService
         $sortedCount = DB::table('job_applications')
             ->whereIn('job_id', $jobIds)
             ->where('status', 'sorted')
+            ->count();
+
+        $rejectedCount = DB::table('job_applications')
+            ->whereIn('job_id', $jobIds)
+            ->where('status', 'rejected')
             ->count();
 
         $shortlistedCount = DB::table('job_applications')
@@ -532,6 +538,9 @@ class EmployerService
                 'jobApplications as unsorted_count' => function ($query) use ($jobIds) {
                     $query->whereIn('job_id', $jobIds)->where('status', 'applied');
                 },
+                'jobApplications as rejected_count' => function ($query) use ($jobIds) {
+                    $query->whereIn('job_id', $jobIds)->where('status', 'rejected');
+                },
                 'jobApplications as sorted_count' => function ($query) use ($jobIds) {
                     $query->whereIn('job_id', $jobIds)->where('status', 'sorted');
                 },
@@ -566,6 +575,7 @@ class EmployerService
             'counts' => [
                 'total' => $totalApplications,
                 'unsorted' => $unsortedCount,
+                'rejected' => $rejectedCount,
                 'sorted' => $sortedCount,
                 'shortlisted' => $shortlistedCount,
                 'offer_sent' => $offerSentCount,
