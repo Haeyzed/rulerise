@@ -272,7 +272,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
 
         $subscriptionData = [
             'plan_id' => $externalPlanId,
-            'start_time' => Carbon::now()->addMinutes(5)->toIso8601String(),
+            'start_time' => Carbon::now()->addMinutes(10)->toIso8601String(),
             'quantity' => '1',
             'subscriber' => [
                 'name' => [
