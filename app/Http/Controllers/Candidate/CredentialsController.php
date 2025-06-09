@@ -40,7 +40,7 @@ class CredentialsController extends Controller implements HasMiddleware
     public static function middleware(): array
     {
         return [
-            new Middleware(['auth:api','role:candidate','role:admin']),
+            new Middleware(['auth:api','role:candidate']),
         ];
     }
 
