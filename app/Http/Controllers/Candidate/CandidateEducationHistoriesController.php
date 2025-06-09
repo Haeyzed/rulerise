@@ -40,7 +40,7 @@ class CandidateEducationHistoriesController extends Controller implements HasMid
     public static function middleware(): array
     {
         return [
-            new Middleware(['auth:api','role:candidate']),
+            new Middleware(['auth:api','role:candidate','role:admin']),
         ];
     }
 
