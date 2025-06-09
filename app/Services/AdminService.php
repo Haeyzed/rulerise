@@ -51,6 +51,7 @@ class AdminService
         $totalCandidates = Candidate::query()->count();
         $totalEmployers = Employer::query()->count();
         $totalJobs = Job::query()->count();
+        $totalJobCategories = JobCategory::query()->count();
         $totalApplications = JobApplication::query()->count();
         $totalRevenue = Subscription::query()->sum('amount_paid');
 
@@ -62,6 +63,7 @@ class AdminService
             'totalCandidates' => $totalCandidates,
             'totalEmployers' => $totalEmployers,
             'totalJobs' => $totalJobs,
+            'totalJobCategories' => $totalJobCategories,
             'totalApplications' => $totalApplications,
             'totalRevenue' => $totalRevenue,
             'recentUsers' => $recentUsers,
