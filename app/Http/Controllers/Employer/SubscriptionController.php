@@ -71,12 +71,48 @@ class SubscriptionController extends Controller
                 if (!$service->canUseOneTimePayment($employer, $plan)) {
                     // Check if plan has trial and employer hasn't used it
                     if ($plan->hasTrial() && !$employer->has_used_trial) {
+                        // Automatically create a trial subscription
+                        $trialPlan = SubscriptionPlan::where('has_trial', true)
+                            ->where('is_active', true)->where('id', $plan->id)->first();
+
+                        if (!$trialPlan) {
+                            return response()->json([
+                                'success' => false,
+                                'message' => 'No trial plans available, contact support',
+                                'requires_trial' => true,
+                                'trial_available' => false,
+                                'plan_has_trial' => $plan->hasTrial()
+                            ], 422);
+                        }
+
+                        // Create a trial subscription record
+                        $subscription = Subscription::create([
+                            'employer_id' => $employer->id,
+                            'subscription_plan_id' => $trialPlan->id,
+                            'start_date' => now(),
+                            'end_date' => now()->addDays($trialPlan->getTrialPeriodDays()),
+                            'amount_paid' => 0,
+                            'currency' => $trialPlan->currency,
+                            'payment_method' => 'trial',
+                            'job_posts_left' => $trialPlan->job_posts_limit,
+                            'featured_jobs_left' => $trialPlan->featured_jobs_limit,
+                            'cv_downloads_left' => $trialPlan->resume_views_limit,
+                            'payment_type' => 'trial',
+                            'is_active' => true,
+                            'used_trial' => true,
+                        ]);
+
+                        // Mark trial as used
+                        $employer->markTrialAsUsed();
+
                         return response()->json([
                             'success' => false,
-                            'message' => 'You must complete a trial period before purchasing one-time plans.',
+                            'message' => 'Trial period activated. Please try again after the trial.',
                             'requires_trial' => true,
                             'trial_available' => true,
-                            'plan_has_trial' => true
+                            'plan_has_trial' => $plan->hasTrial(),
+                            'trial_activated' => true,
+                            'trial_end_date' => $subscription->end_date
                         ], 422);
                     } else {
                         return response()->json([

@@ -41,7 +41,6 @@ use Illuminate\Support\Carbon;
  * @property bool $has_used_trial
  * @property Carbon|null $trial_used_at
  * @property Carbon|null $created_at
- * @property Carbon|null $updated_at
  *
  * @property-read User $user
  */

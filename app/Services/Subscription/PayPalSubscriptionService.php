@@ -209,7 +209,6 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
                 'application_context' => [
                     'brand_name' => config('app.name'),
                     'locale' => 'en-US',
-                    'landing_page' => 'LOGIN',
                     'shipping_preference' => 'NO_SHIPPING',
                     'user_action' => 'PAY_NOW',
                     'return_url' => config('app.frontend_url') . '/employer/dashboard',
@@ -705,7 +704,7 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
             'transmission_id' => $normalizedHeaders['paypal-transmission-id'] ?? '',
             'transmission_time' => $normalizedHeaders['paypal-transmission-time'] ?? '',
             'cert_url' => $normalizedHeaders['paypal-cert-url'] ?? '',
-            'auth_algo' => $normalizedHeaders['paypal-auth-algo'] ?? '',
+            'auth_algo' => $normalizedHeaders['paypal-auth_algo'] ?? '',
             'transmission_sig' => $normalizedHeaders['paypal-transmission-sig'] ?? '',
         ];
 
