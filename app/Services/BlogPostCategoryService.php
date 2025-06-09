@@ -75,12 +75,10 @@ class BlogPostCategoryService
     public function update(BlogPostCategory $category, array $data): BlogPostCategory
     {
         return DB::transaction(function () use ($category, $data) {
-            // Re-confirm model exists (optional, for extra assurance)
-            $existingCategory = BlogPostCategory::findOrFail($category->id);
+            // Update blog post category
+            $category->update($data);
 
-            $existingCategory->update($data);
-
-            return $existingCategory->fresh();
+            return $category->fresh();
         });
     }
 

@@ -90,14 +90,4 @@ class BlogPostCategory extends Model
     {
         return $this->hasMany(BlogPost::class, 'category_id');
     }
-
-    /**
-     * Get the route key for the model.
-     *
-     * @return string
-     */
-    public function getRouteKeyName(): string
-    {
-        return 'slug';
-    }
 }
