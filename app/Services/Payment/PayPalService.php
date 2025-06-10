@@ -68,8 +68,8 @@ class PayPalService
                     'payer_selected' => 'PAYPAL',
                     'payee_preferred' => 'IMMEDIATE_PAYMENT_REQUIRED',
                 ],
-                'return_url' => $paymentData['return_url'] ?? config('app.url') . '/subscription/success',
-                'cancel_url' => $paymentData['cancel_url'] ?? config('app.url') . '/subscription/cancel',
+                'return_url' => $paymentData['return_url'] ?? config('app.frontend_url') . '/employer/dashboard',
+                'cancel_url' => $paymentData['cancel_url'] ?? config('app.frontend_url') . '/employer/dashboard',
             ],
         ];
 
