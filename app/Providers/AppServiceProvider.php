@@ -2,9 +2,6 @@
 
 namespace App\Providers;
 
-use App\Services\Payment\PayPalService;
-use App\Services\Payment\StripeService;
-use App\Services\SubscriptionService;
 use Carbon\Carbon;
 use Dedoc\Scramble\Scramble;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -23,9 +20,6 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->app->singleton(PayPalService::class);
-        $this->app->singleton(StripeService::class);
-        $this->app->singleton(SubscriptionService::class);
         //
     }
 
