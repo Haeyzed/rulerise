@@ -177,8 +177,9 @@ class JobsController extends Controller implements HasMiddleware
         try {
             $user = auth()->user();
             $employer = $user->employer;
+            $employer->jobs()->findOrFail($id)->delete();
 
-            $this->employerService->deleteEmployerJob($employer, $id);
+//            $this->employerService->deleteEmployerJob($employer, $id);
             return response()->success(null, 'Job deleted successfully');
         } catch (ModelNotFoundException|NotFoundHttpException $e) {
             return response()->notFound('Job not found');
