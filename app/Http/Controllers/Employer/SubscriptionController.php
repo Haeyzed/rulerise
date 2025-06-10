@@ -194,7 +194,7 @@ class SubscriptionController extends Controller
             $employer = Auth::user()->employer;
             $service = app(PayPalSubscriptionService::class);
 
-            $subscription = Subscription::where('id', $subscriptionId)
+            $subscription = Subscription::where('subscription_id', $subscriptionId)
                 ->where('employer_id', $employer->id)
                 ->where('payment_method', 'paypal')
                 ->first();
@@ -269,7 +269,7 @@ class SubscriptionController extends Controller
             $employer = Auth::user()->employer;
             $service = app(StripeSubscriptionService::class);
 
-            $subscription = Subscription::where('subscription_id', $subscriptionId)
+            $subscription = Subscription::where('id', $subscriptionId)
                 ->where('employer_id', $employer->id)
                 ->where('payment_method', 'stripe')
                 ->first();
