@@ -39,19 +39,36 @@ return [
         'default_gateway' => env('DEFAULT_PAYMENT_GATEWAY', 'stripe'),
     ],
 
-    'stripe' => [
-        'key' => env('STRIPE_KEY'),
-        'secret' => env('STRIPE_SECRET'),
-        'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
-    ],
+//    'stripe' => [
+//        'key' => env('STRIPE_KEY'),
+//        'secret' => env('STRIPE_SECRET'),
+//        'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
+//    ],
 
     'paypal' => [
+        'mode' => env('PAYPAL_MODE', 'sandbox'), // 'sandbox' or 'live'
         'client_id' => env('PAYPAL_CLIENT_ID'),
         'client_secret' => env('PAYPAL_CLIENT_SECRET'),
         'webhook_id' => env('PAYPAL_WEBHOOK_ID'),
-        'sandbox' => env('PAYPAL_SANDBOX', true),
-        'verify_webhook_signature' => env('PAYPAL_VERIFY_WEBHOOK_SIGNATURE', true),
     ],
+
+    'stripe' => [
+        'model' => App\Models\User::class,
+        'key' => env('STRIPE_KEY'),
+        'secret' => env('STRIPE_SECRET'),
+        'webhook' => [
+            'secret' => env('STRIPE_WEBHOOK_SECRET'),
+            'tolerance' => env('STRIPE_WEBHOOK_TOLERANCE', 300),
+        ],
+    ],
+//    'paypal' => [
+//        'mode' => env('PAYPAL_MODE'),
+//        'client_id' => env('PAYPAL_CLIENT_ID'),
+//        'client_secret' => env('PAYPAL_CLIENT_SECRET'),
+//        'webhook_id' => env('PAYPAL_WEBHOOK_ID'),
+//        'sandbox' => env('PAYPAL_SANDBOX', true),
+//        'verify_webhook_signature' => env('PAYPAL_VERIFY_WEBHOOK_SIGNATURE', true),
+//    ],
 
     'subscription' => [
         'default' => env('DEFAULT_SUBSCRIPTION_PROVIDER', 'paypal'),

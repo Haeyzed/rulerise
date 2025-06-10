@@ -5,423 +5,339 @@ namespace App\Services;
 use App\Models\Employer;
 use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
-use App\Services\Payment\PaymentGatewayInterface;
-use App\Services\Payment\PayPalGateway;
-use App\Services\Payment\StripeGateway;
+use App\Services\Payment\PayPalService;
+use App\Services\Payment\StripeService;
+use Carbon\Carbon;
 use Exception;
-use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 
-/**
- * Service class for subscription related operations
- */
 class SubscriptionService
 {
-    /**
-     * @var PaymentGatewayInterface
-     */
-    protected PaymentGatewayInterface $paymentGateway;
+    protected PayPalService $paypalService;
+    protected StripeService $stripeService;
 
-    /**
-     * Supported payment gateways
-     */
-    const GATEWAY_STRIPE = 'stripe';
-    const GATEWAY_PAYPAL = 'paypal';
-
-    /**
-     * SubscriptionService constructor.
-     * @throws Exception
-     */
-    public function __construct()
+    public function __construct(PayPalService $paypalService, StripeService $stripeService)
     {
-        // Set default payment gateway from config
-        $defaultGateway = config('services.payment.default_gateway', self::GATEWAY_STRIPE);
-        $this->setPaymentGateway($defaultGateway);
+        $this->paypalService = $paypalService;
+        $this->stripeService = $stripeService;
     }
 
-    /**
-     * Set the payment gateway to use
-     *
-     * @param string $gateway
-     * @return self
-     * @throws Exception
-     */
-    public function setPaymentGateway(string $gateway): self
+    public function subscribe(Employer $employer, SubscriptionPlan $plan, string $paymentMethod, array $paymentData = []): array
     {
-        $this->paymentGateway = match ($gateway) {
-            self::GATEWAY_STRIPE => app(StripeGateway::class),
-            self::GATEWAY_PAYPAL => app(PayPalGateway::class),
-            default => throw new Exception("Unsupported payment gateway: {$gateway}"),
-        };
+        try {
+            DB::beginTransaction();
 
-        return $this;
-    }
+            $isTrialEligible = $employer->isEligibleForTrial() && $plan->hasTrial();
 
-    /**
-     * Get active subscription for an employer
-     *
-     * @param Employer $employer
-     * @return Subscription|null
-     */
-    public function getActiveSubscription(Employer $employer): ?Subscription
-    {
-        return $employer->subscriptions()
-            ->where('is_active', true)
-            ->where(function ($query) {
-                $query->whereNull('end_date') // One-time subscriptions with no expiration
-                ->orWhere('end_date', '>=', now()); // Recurring subscriptions not yet expired
-            })
-            ->with('plan')
-            ->first();
-    }
+            $this->cancelActiveSubscriptions($employer);
 
-    /**
-     * Get subscription history for an employer
-     *
-     * @param Employer $employer
-     * @param int $perPage
-     * @return LengthAwarePaginator
-     */
-    public function getSubscriptionHistory(Employer $employer, int $perPage = 10): LengthAwarePaginator
-    {
-        return $employer->subscriptions()
-            ->with('plan')
-            ->orderBy('created_at', 'desc')
-            ->paginate($perPage);
-    }
+            $subscription = $this->createSubscription($employer, $plan, $paymentMethod, $isTrialEligible);
 
-    /**
-     * Subscribe to a plan using the specified payment gateway
-     *
-     * @param Employer $employer
-     * @param SubscriptionPlan $plan
-     * @param array $paymentData
-     * @param string $gateway
-     * @param UploadedFile|null $receiptFile
-     * @return Subscription
-     * @throws Exception
-     */
-    public function subscribeToPlan(
-        Employer $employer,
-        SubscriptionPlan $plan,
-        array $paymentData,
-        string $gateway = self::GATEWAY_STRIPE,
-        ?UploadedFile $receiptFile = null
-    ): Subscription {
-        // Set the payment gateway if different from current
-        if ($gateway !== $this->getCurrentGateway()) {
-            $this->setPaymentGateway($gateway);
+            if ($isTrialEligible) {
+                $result = $this->startTrialPeriod($employer, $subscription, $plan);
+            } else {
+                $result = $this->processPayment($subscription, $paymentMethod, $paymentData);
+            }
+
+            DB::commit();
+
+            return [
+                'success' => true,
+                'subscription' => $subscription->fresh(['plan']),
+                'is_trial' => $isTrialEligible,
+                'payment_result' => $result
+            ];
+
+        } catch (Exception $e) {
+            DB::rollBack();
+            Log::error('Subscription failed', [
+                'employer_id' => $employer->id,
+                'plan_id' => $plan->id,
+                'error' => $e->getMessage()
+            ]);
+
+            return [
+                'success' => false,
+                'message' => $e->getMessage()
+            ];
         }
+    }
 
-        // Process payment
-        $paymentResult = $this->paymentGateway->processPayment($employer, $plan, $paymentData);
-
-        if (!$paymentResult['success']) {
-            throw new Exception($paymentResult['message'] ?? 'Payment failed');
-        }
-
-        // Upload receipt if provided
-        $receiptPath = null;
-        if ($receiptFile) {
-            $receiptPath = $this->uploadReceipt($receiptFile);
-        }
-
-        // Calculate dates
+    protected function createSubscription(Employer $employer, SubscriptionPlan $plan, string $paymentMethod, bool $isTrial = false): Subscription
+    {
         $startDate = now();
-        $endDate = $startDate->copy()->addDays($plan->duration_days);
+        $endDate = null;
 
-        // Create subscription
-        $subscription = $employer->subscriptions()->create([
+        if ($plan->isRecurring()) {
+            $endDate = $this->calculateEndDate($startDate, $plan);
+        }
+
+        return Subscription::create([
+            'employer_id' => $employer->id,
             'subscription_plan_id' => $plan->id,
             'start_date' => $startDate,
             'end_date' => $endDate,
-            'amount_paid' => $plan->price,
+            'amount_paid' => $isTrial ? 0 : $plan->price,
             'currency' => $plan->currency,
-            'payment_method' => $gateway,
-            'transaction_id' => $paymentResult['transaction_id'] ?? null,
-            'payment_reference' => $paymentResult['payment_reference'] ?? null,
-            'subscription_id' => $paymentResult['subscription_id'] ?? null,
-            'receipt_path' => $receiptPath,
+            'payment_method' => $paymentMethod,
             'job_posts_left' => $plan->job_posts_limit,
             'featured_jobs_left' => $plan->featured_jobs_limit,
             'cv_downloads_left' => $plan->resume_views_limit,
             'is_active' => true,
+            'is_suspended' => false,
+            'used_trial' => $isTrial,
+            'payment_type' => $plan->payment_type,
+            'next_billing_date' => $plan->isRecurring() ? $endDate : null,
         ]);
-
-        // Deactivate previous active subscription if exists
-        $this->deactivatePreviousSubscriptions($employer, $subscription->id);
-
-        return $subscription;
     }
 
-    /**
-     * Update an existing subscription
-     *
-     * @param Subscription $subscription
-     * @param SubscriptionPlan $newPlan
-     * @param array $paymentData
-     * @param string $gateway
-     * @param UploadedFile|null $receiptFile
-     * @return Subscription
-     * @throws Exception
-     */
-    public function updateSubscription(
-        Subscription $subscription,
-        SubscriptionPlan $newPlan,
-        array $paymentData,
-        string $gateway = self::GATEWAY_STRIPE,
-        ?UploadedFile $receiptFile = null
-    ): Subscription {
-        $employer = $subscription->employer;
+    protected function startTrialPeriod(Employer $employer, Subscription $subscription, SubscriptionPlan $plan): array
+    {
+        $trialEndDate = now()->addDays($plan->getTrialPeriodDays());
 
-        // Set the payment gateway if different from current
-        if ($gateway !== $this->getCurrentGateway()) {
-            $this->setPaymentGateway($gateway);
-        }
-
-        // Process payment for the upgrade/downgrade
-        $paymentResult = $this->paymentGateway->processPayment($employer, $newPlan, $paymentData);
-
-        if (!$paymentResult['success']) {
-            throw new Exception($paymentResult['message'] ?? 'Payment failed');
-        }
-
-        // Upload receipt if provided
-        $receiptPath = $subscription->receipt_path;
-        if ($receiptFile) {
-            // Delete old receipt if exists
-            if ($subscription->receipt_path) {
-                Storage::delete($subscription->receipt_path);
-            }
-            $receiptPath = $this->uploadReceipt($receiptFile);
-        }
-
-        // Calculate new end date based on remaining days and new plan duration
-        $remainingDays = now()->diffInDays($subscription->end_date, false);
-        $remainingDays = max(0, $remainingDays); // Ensure it's not negative
-
-        $startDate = now();
-        $endDate = $startDate->copy()->addDays($newPlan->duration_days + $remainingDays);
-
-        // Update subscription
         $subscription->update([
-            'subscription_plan_id' => $newPlan->id,
-            'start_date' => $startDate,
-            'end_date' => $endDate,
-            'amount_paid' => $newPlan->price,
-            'currency' => $newPlan->currency,
-            'payment_method' => $gateway,
-            'transaction_id' => $paymentResult['transaction_id'] ?? $subscription->transaction_id,
-            'payment_reference' => $paymentResult['payment_reference'] ?? $subscription->payment_reference,
-            'subscription_id' => $paymentResult['subscription_id'] ?? $subscription->subscription_id,
-            'receipt_path' => $receiptPath,
-            'job_posts_left' => $newPlan->job_posts_limit,
-            'featured_jobs_left' => $newPlan->featured_jobs_limit,
-            'cv_downloads_left' => $newPlan->resume_views_limit,
-            'is_active' => true,
+            'end_date' => $trialEndDate,
+            'external_status' => 'trialing',
+            'next_billing_date' => $trialEndDate,
         ]);
 
-        return $subscription;
+        $employer->markTrialAsUsed();
+
+        return [
+            'status' => 'trial_started',
+            'trial_end_date' => $trialEndDate,
+            'message' => "Trial period started. You have {$plan->getTrialPeriodDays()} days to try the service."
+        ];
     }
 
-    /**
-     * Cancel a subscription
-     *
-     * @param Subscription $subscription
-     * @return bool
-     * @throws Exception
-     */
-    public function cancelSubscription(Subscription $subscription): bool
+    protected function processPayment(Subscription $subscription, string $paymentMethod, array $paymentData): array
     {
-        // Set the payment gateway based on the subscription's payment method
-        $this->setPaymentGateway($subscription->payment_method);
-
-        // For subscriptions with external payment providers, we might need to cancel on their end too
-        if (in_array($subscription->payment_method, [self::GATEWAY_STRIPE, self::GATEWAY_PAYPAL])) {
-            $this->paymentGateway->cancelSubscription($subscription->subscription_id ?? '');
+        switch (strtolower($paymentMethod)) {
+            case 'stripe':
+                return $this->stripeService->processPayment($subscription, $paymentData);
+            case 'paypal':
+                return $this->paypalService->processPayment($subscription, $paymentData);
+            default:
+                throw new Exception("Unsupported payment method: {$paymentMethod}");
         }
-
-        // Mark as inactive but don't delete the record
-        return $subscription->update([
-            'is_active' => false,
-            'end_date' => now(), // End immediately
-        ]);
     }
 
-    /**
-     * Generate payment link for a subscription
-     *
-     * @param Employer $employer
-     * @param SubscriptionPlan $plan
-     * @param string $gateway
-     * @param string $callbackUrl
-     * @return array
-     * @throws Exception
-     */
-    public function generatePaymentLink(
-        Employer $employer,
-        SubscriptionPlan $plan,
-        string $gateway = self::GATEWAY_STRIPE,
-        string $callbackUrl = ''
-    ): array {
-        // Set the payment gateway if different from current
-        if ($gateway !== $this->getCurrentGateway()) {
-            $this->setPaymentGateway($gateway);
-        }
-
-        return $this->paymentGateway->generatePaymentLink($employer, $plan, $callbackUrl);
-    }
-
-    /**
-     * Verify payment for a subscription
-     *
-     * @param string $reference
-     * @param string $gateway
-     * @return array
-     * @throws Exception
-     */
-    public function verifyPayment(string $reference, string $gateway = self::GATEWAY_STRIPE): array
+    protected function cancelActiveSubscriptions(Employer $employer): void
     {
-        // Set the payment gateway if different from current
-        if ($gateway !== $this->getCurrentGateway()) {
-            $this->setPaymentGateway($gateway);
-        }
-
-        return $this->paymentGateway->verifyPayment($reference);
-    }
-
-    /**
-     * Check if employer has enough job posts left
-     *
-     * @param Employer $employer
-     * @return bool
-     */
-    public function hasJobPostsLeft(Employer $employer): bool
-    {
-        $subscription = $this->getActiveSubscription($employer);
-        return $subscription && $subscription->job_posts_left > 0;
-    }
-
-    /**
-     * Decrement job posts left
-     *
-     * @param Employer $employer
-     * @return bool
-     */
-    public function decrementJobPostsLeft(Employer $employer): bool
-    {
-        $subscription = $this->getActiveSubscription($employer);
-
-        if (!$subscription || $subscription->job_posts_left <= 0) {
-            return false;
-        }
-
-        $subscription->job_posts_left -= 1;
-        return $subscription->save();
-    }
-
-    /**
-     * Check if employer has enough featured jobs left
-     *
-     * @param Employer $employer
-     * @return bool
-     */
-    public function hasFeaturedJobsLeft(Employer $employer): bool
-    {
-        $subscription = $this->getActiveSubscription($employer);
-        return $subscription && $subscription->featured_jobs_left > 0;
-    }
-
-    /**
-     * Decrement featured jobs left
-     *
-     * @param Employer $employer
-     * @return bool
-     */
-    public function decrementFeaturedJobsLeft(Employer $employer): bool
-    {
-        $subscription = $this->getActiveSubscription($employer);
-
-        if (!$subscription || $subscription->featured_jobs_left <= 0) {
-            return false;
-        }
-
-        $subscription->featured_jobs_left -= 1;
-        return $subscription->save();
-    }
-
-    /**
-     * Check if employer has enough CV downloads left
-     *
-     * @param Employer $employer
-     * @return bool
-     */
-    public function hasCvDownloadsLeft(Employer $employer): bool
-    {
-        $subscription = $this->getActiveSubscription($employer);
-        return $subscription && $subscription->cv_downloads_left > 0;
-    }
-
-    /**
-     * Decrement CV downloads left
-     *
-     * @param Employer $employer
-     * @return bool
-     */
-    public function decrementCvDownloadsLeft(Employer $employer): bool
-    {
-        $subscription = $this->getActiveSubscription($employer);
-
-        if (!$subscription || $subscription->cv_downloads_left <= 0) {
-            return false;
-        }
-
-        $subscription->cv_downloads_left -= 1;
-        return $subscription->save();
-    }
-
-    /**
-     * Get the current payment gateway
-     *
-     * @return string
-     */
-    protected function getCurrentGateway(): string
-    {
-        if ($this->paymentGateway instanceof StripeGateway) {
-            return self::GATEWAY_STRIPE;
-        } elseif ($this->paymentGateway instanceof PayPalGateway) {
-            return self::GATEWAY_PAYPAL;
-        }
-
-        return config('services.payment.default_gateway', self::GATEWAY_STRIPE);
-    }
-
-    /**
-     * Upload receipt file
-     *
-     * @param UploadedFile $file
-     * @return string
-     */
-    protected function uploadReceipt(UploadedFile $file): string
-    {
-        $path = $file->store('receipts', 'private');
-        return $path;
-    }
-
-    /**
-     * Deactivate previous active subscriptions
-     *
-     * @param Employer $employer
-     * @param int $exceptId
-     * @return void
-     */
-    protected function deactivatePreviousSubscriptions(Employer $employer, int $exceptId): void
-    {
-        $employer->subscriptions()
-            ->where('id', '!=', $exceptId)
+        $activeSubscriptions = $employer->subscriptions()
             ->where('is_active', true)
-            ->update(['is_active' => false]);
+            ->get();
+
+        foreach ($activeSubscriptions as $subscription) {
+            $this->cancelSubscription($subscription, 'replaced_by_new_subscription');
+        }
+    }
+
+    public function cancelSubscription(Subscription $subscription, string $reason = 'user_requested'): array
+    {
+        try {
+            DB::beginTransaction();
+
+            if ($subscription->isRecurring() && $subscription->subscription_id) {
+                $this->cancelWithPaymentGateway($subscription);
+            }
+
+            $subscription->update([
+                'is_active' => false,
+                'external_status' => 'cancelled',
+                'status_update_time' => now(),
+            ]);
+
+            DB::commit();
+
+            return [
+                'success' => true,
+                'message' => 'Subscription cancelled successfully'
+            ];
+
+        } catch (Exception $e) {
+            DB::rollBack();
+            Log::error('Subscription cancellation failed', [
+                'subscription_id' => $subscription->id,
+                'error' => $e->getMessage()
+            ]);
+
+            return [
+                'success' => false,
+                'message' => $e->getMessage()
+            ];
+        }
+    }
+
+    public function suspendSubscription(Subscription $subscription): array
+    {
+        try {
+            $subscription->update([
+                'is_suspended' => true,
+                'external_status' => 'suspended',
+                'status_update_time' => now(),
+            ]);
+
+            return [
+                'success' => true,
+                'message' => 'Subscription suspended successfully'
+            ];
+
+        } catch (Exception $e) {
+            Log::error('Subscription suspension failed', [
+                'subscription_id' => $subscription->id,
+                'error' => $e->getMessage()
+            ]);
+
+            return [
+                'success' => false,
+                'message' => $e->getMessage()
+            ];
+        }
+    }
+
+    public function reactivateSubscription(Subscription $subscription): array
+    {
+        try {
+            $subscription->update([
+                'is_suspended' => false,
+                'external_status' => 'active',
+                'status_update_time' => now(),
+            ]);
+
+            return [
+                'success' => true,
+                'message' => 'Subscription reactivated successfully'
+            ];
+
+        } catch (Exception $e) {
+            Log::error('Subscription reactivation failed', [
+                'subscription_id' => $subscription->id,
+                'error' => $e->getMessage()
+            ]);
+
+            return [
+                'success' => false,
+                'message' => $e->getMessage()
+            ];
+        }
+    }
+
+    public function upgradeSubscription(Employer $employer, SubscriptionPlan $newPlan, string $paymentMethod, array $paymentData = []): array
+    {
+        $currentSubscription = $employer->activeSubscription;
+
+        if (!$currentSubscription) {
+            return $this->subscribe($employer, $newPlan, $paymentMethod, $paymentData);
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $proratedAmount = $this->calculateProratedAmount($currentSubscription, $newPlan);
+
+            $this->cancelSubscription($currentSubscription, 'upgraded');
+
+            $newSubscription = $this->createSubscription($employer, $newPlan, $paymentMethod);
+
+            if ($proratedAmount > 0) {
+                $paymentData['amount'] = $proratedAmount;
+                $result = $this->processPayment($newSubscription, $paymentMethod, $paymentData);
+
+                $newSubscription->update([
+                    'amount_paid' => $proratedAmount
+                ]);
+            }
+
+            DB::commit();
+
+            return [
+                'success' => true,
+                'subscription' => $newSubscription->fresh(['plan']),
+                'prorated_amount' => $proratedAmount,
+                'message' => 'Subscription upgraded successfully'
+            ];
+
+        } catch (Exception $e) {
+            DB::rollBack();
+            Log::error('Subscription upgrade failed', [
+                'employer_id' => $employer->id,
+                'new_plan_id' => $newPlan->id,
+                'error' => $e->getMessage()
+            ]);
+
+            return [
+                'success' => false,
+                'message' => $e->getMessage()
+            ];
+        }
+    }
+
+    protected function calculateProratedAmount(Subscription $currentSubscription, SubscriptionPlan $newPlan): float
+    {
+        if ($currentSubscription->isOneTime() || $newPlan->isOneTime()) {
+            return $newPlan->price;
+        }
+
+        $remainingDays = $currentSubscription->daysRemaining();
+        $totalDays = $currentSubscription->plan->duration_days ?? 30;
+
+        $unusedAmount = ($remainingDays / $totalDays) * $currentSubscription->plan->price;
+        $proratedAmount = $newPlan->price - $unusedAmount;
+
+        return max(0, $proratedAmount);
+    }
+
+    protected function cancelWithPaymentGateway(Subscription $subscription): void
+    {
+        switch (strtolower($subscription->payment_method)) {
+            case 'stripe':
+                $this->stripeService->cancelSubscription($subscription);
+                break;
+            case 'paypal':
+                $this->paypalService->cancelSubscription($subscription);
+                break;
+        }
+    }
+
+    protected function calculateEndDate(Carbon $startDate, SubscriptionPlan $plan): Carbon
+    {
+        $endDate = $startDate->copy();
+
+        switch ($plan->interval_unit) {
+            case SubscriptionPlan::INTERVAL_UNIT_DAY:
+                return $endDate->addDays($plan->interval_count);
+            case SubscriptionPlan::INTERVAL_UNIT_WEEK:
+                return $endDate->addWeeks($plan->interval_count);
+            case SubscriptionPlan::INTERVAL_UNIT_MONTH:
+                return $endDate->addMonths($plan->interval_count);
+            case SubscriptionPlan::INTERVAL_UNIT_YEAR:
+                return $endDate->addYears($plan->interval_count);
+            default:
+                return $endDate->addDays($plan->duration_days ?? 30);
+        }
+    }
+
+    public function verifyPayPalSubscription(array $data): array
+    {
+        return $this->paypalService->verifySubscription($data);
+    }
+
+    public function verifyStripeSubscription(array $data): array
+    {
+        return $this->stripeService->verifySubscription($data);
+    }
+
+    public function handleWebhook(string $gateway, array $data): array
+    {
+        switch (strtolower($gateway)) {
+            case 'stripe':
+                return $this->stripeService->handleWebhook($data);
+            case 'paypal':
+                return $this->paypalService->handleWebhook($data);
+            default:
+                throw new Exception("Unsupported gateway: {$gateway}");
+        }
     }
 }

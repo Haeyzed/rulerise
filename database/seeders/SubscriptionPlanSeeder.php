@@ -12,16 +12,16 @@ class SubscriptionPlanSeeder extends Seeder
      */
     public function run(): void
     {
-        // Clear existing plans if needed
+
         SubscriptionPlan::query()->delete();
 
-        // Create 20 Resume Package (One-time) with configurable trial
-        SubscriptionPlan::query()->create([
+        // 20 Resume Package (One-time) with trial
+        SubscriptionPlan::create([
             'name' => '20 Resume Package',
-            'description' => 'One-time purchase of 20 resume views with configurable trial period, no expiration',
-            'price' => 200.00,
+            'description' => 'One-time purchase of 20 resume views with 1-day trial period, no expiration',
+            'price' => 1.00,
             'currency' => 'CAD',
-            'duration_days' => null, // No expiration for one-time purchases
+            'duration_days' => null,
             'job_posts_limit' => 5,
             'featured_jobs_limit' => 1,
             'resume_views_limit' => 20,
@@ -34,26 +34,20 @@ class SubscriptionPlanSeeder extends Seeder
             'is_featured' => false,
             'payment_type' => SubscriptionPlan::PAYMENT_TYPE_ONE_TIME,
             'has_trial' => true,
-            'trial_period_days' => 7, // Configurable trial period
+            'trial_period_days' => 1,
             'interval_unit' => SubscriptionPlan::INTERVAL_UNIT_YEAR,
             'interval_count' => 1,
-            'total_cycles' => 1, // One-time payment
+            'total_cycles' => 1,
             'payment_gateway_config' => [
                 'paypal' => [
-                    'setup_fee_failure_action' => 'CONTINUE',
-                    'payment_failure_threshold' => 3
+                    'mode' => env('PAYPAL_MODE', 'sandbox'),
+                    'client_id' => env('PAYPAL_CLIENT_ID'),
+                    'client_secret' => env('PAYPAL_CLIENT_SECRET'),
                 ],
                 'stripe' => [
-                    'payment_method_types' => ['card'],
-                    'allow_promotion_codes' => true,
-                    'billing_address_collection' => 'auto',
-                    'phone_number_collection' => [
-                        'enabled' => false
-                    ],
-                    // Automatic tax is disabled by default for better compatibility
-                    'automatic_tax' => [
-                        'enabled' => false
-                    ]
+                    'publishable_key' => env('STRIPE_KEY'),
+                    'secret_key' => env('STRIPE_SECRET'),
+                    'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
                 ]
             ],
             'features' => [
@@ -63,25 +57,26 @@ class SubscriptionPlanSeeder extends Seeder
                 'Standard candidate search',
                 'Email support',
                 'Job alerts',
-                'Configurable trial period'
+                '1-day free trial'
             ],
             'metadata' => [
                 'category' => 'one_time',
                 'target_audience' => 'small_business',
-                'recommended' => false
+                'recommended' => false,
+                'popular' => false
             ]
         ]);
 
-        // Create Monthly Unlimited Resumes Subscription with configurable trial
-        SubscriptionPlan::query()->create([
+        // Unlimited Resume Access (Monthly Recurring) with trial
+        SubscriptionPlan::create([
             'name' => 'Unlimited Resume Access',
-            'description' => 'Monthly subscription with unlimited resume views, configurable trial period, and enhanced features',
-            'price' => 300.00,
+            'description' => 'Monthly subscription with unlimited resume views, 1-day trial period, and enhanced features',
+            'price' => 1.00,
             'currency' => 'CAD',
-            'duration_days' => 30, // Monthly
+            'duration_days' => 30,
             'job_posts_limit' => 15,
             'featured_jobs_limit' => 5,
-            'resume_views_limit' => 999999, // Effectively unlimited
+            'resume_views_limit' => 999999,
             'job_alerts' => true,
             'candidate_search' => true,
             'resume_access' => true,
@@ -91,27 +86,20 @@ class SubscriptionPlanSeeder extends Seeder
             'is_featured' => true,
             'payment_type' => SubscriptionPlan::PAYMENT_TYPE_RECURRING,
             'has_trial' => true,
-            'trial_period_days' => 7, // Different trial period for this plan
+            'trial_period_days' => 1,
             'interval_unit' => SubscriptionPlan::INTERVAL_UNIT_MONTH,
             'interval_count' => 1,
-            'total_cycles' => 0, // Infinite cycles for recurring
+            'total_cycles' => 0,
             'payment_gateway_config' => [
                 'paypal' => [
-                    'auto_bill_outstanding' => true,
-                    'setup_fee_failure_action' => 'CONTINUE',
-                    'payment_failure_threshold' => 3
+                    'mode' => env('PAYPAL_MODE', 'sandbox'),
+                    'client_id' => env('PAYPAL_CLIENT_ID'),
+                    'client_secret' => env('PAYPAL_CLIENT_SECRET'),
                 ],
                 'stripe' => [
-                    'payment_method_types' => ['card'],
-                    'allow_promotion_codes' => true,
-                    'billing_address_collection' => 'required',
-                    'phone_number_collection' => [
-                        'enabled' => true
-                    ],
-                    // Automatic tax is disabled by default - enable only when properly configured
-                    'automatic_tax' => [
-                        'enabled' => false // Set to true only after configuring tax settings in Stripe dashboard
-                    ]
+                    'publishable_key' => env('STRIPE_KEY'),
+                    'secret_key' => env('STRIPE_SECRET'),
+                    'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
                 ]
             ],
             'features' => [
@@ -123,12 +111,13 @@ class SubscriptionPlanSeeder extends Seeder
                 'Advanced analytics',
                 'Candidate recommendations',
                 'Custom job alerts',
-                'Extended trial period'
+                '1-day free trial'
             ],
             'metadata' => [
                 'category' => 'recurring',
                 'target_audience' => 'enterprise',
-                'recommended' => true
+                'recommended' => true,
+                'popular' => true
             ]
         ]);
     }
