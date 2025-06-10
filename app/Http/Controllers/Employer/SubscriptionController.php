@@ -269,7 +269,7 @@ class SubscriptionController extends Controller
             $employer = Auth::user()->employer;
             $service = app(StripeSubscriptionService::class);
 
-            $subscription = Subscription::where('payment_reference', $sessionId)
+            $subscription = Subscription::where('id', $sessionId)
                 ->where('employer_id', $employer->id)
                 ->where('payment_method', 'stripe')
                 ->first();
