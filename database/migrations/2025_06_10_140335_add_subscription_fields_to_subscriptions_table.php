@@ -18,7 +18,7 @@ return new class extends Migration
 //            $table->json('subscriber_info')->nullable()->after('used_trial');
 //            $table->json('billing_info')->nullable()->after('subscriber_info');
 //            $table->string('external_status')->nullable()->after('billing_info');
-            $table->timestamp('status_update_time')->nullable()->after('external_status');
+//            $table->timestamp('status_update_time')->nullable()->after('external_status');
             $table->date('next_billing_date')->nullable()->after('status_update_time');
         });
     }
@@ -36,7 +36,7 @@ return new class extends Migration
 //                'subscriber_info',
 //                'billing_info',
 //                'external_status',
-                'status_update_time',
+//                'status_update_time',
                 'next_billing_date'
             ]);
         });
