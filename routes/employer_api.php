@@ -5,7 +5,7 @@ use App\Http\Controllers\API\Webhooks\StripeWebhookController;
 use App\Http\Controllers\Employer\CandidatesController;
 use App\Http\Controllers\Employer\PaymentController;
 use App\Http\Controllers\Employer\ResumeController;
-use App\Http\Controllers\Employer\API\SubscriptionController;
+use App\Http\Controllers\Employer\SubscriptionController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Employer\DashboardsController;
@@ -105,18 +105,25 @@ Route::middleware(['auth:api', 'role:employer,employer_staff'])->group(function 
         Route::post('upload-profile-picture', [UserAccountSettingsController::class, 'uploadProfilePicture']);
     });
 
+    // Subscription Management
     Route::prefix('subscription')->group(function () {
         // Get available plans
         Route::get('plans', [SubscriptionController::class, 'getPlans']);
 
-        // Get employer active subscription
+        // Get active subscription
         Route::get('active', [SubscriptionController::class, 'getActiveSubscription']);
 
-        // Get all employer subscriptions
+        // Get all subscriptions
         Route::get('all', [SubscriptionController::class, 'getAllSubscriptions']);
 
         // Subscribe to a plan
         Route::post('{plan}/subscribe', [SubscriptionController::class, 'subscribe']);
+
+        // Check eligibility for a plan
+        Route::post('eligibility/{plan}', [SubscriptionController::class, 'checkEligibility']);
+
+        // Activate free trial
+        Route::post('trial/activate', [SubscriptionController::class, 'activateFreeTrial']);
 
         // Cancel subscription
         Route::post('cancel', [SubscriptionController::class, 'cancel']);
@@ -127,80 +134,46 @@ Route::middleware(['auth:api', 'role:employer,employer_staff'])->group(function 
         // Reactivate subscription
         Route::post('{subscription}/reactivate', [SubscriptionController::class, 'reactivateSubscription']);
 
+        // Update subscription plan
+        Route::put('{subscription}/plan', [SubscriptionController::class, 'updateSubscriptionPlan']);
+
+        // Provider-specific routes
+        Route::prefix('{provider}')->group(function () {
+            // List plans from provider
+            Route::get('plans', [SubscriptionController::class, 'listProviderPlans']);
+
+            // Get plan details
+            Route::get('plans/{externalPlanId}', [SubscriptionController::class, 'getPlanDetails']);
+
+            // List employer subscriptions
+            Route::get('subscriptions', [SubscriptionController::class, 'listEmployerSubscriptions']);
+
+            // Get subscription details
+            Route::get('subscriptions/{subscriptionId}', [SubscriptionController::class, 'getSubscriptionDetails']);
+
+            // Get subscription transactions
+            Route::get('subscriptions/{subscriptionId}/transactions', [SubscriptionController::class, 'getSubscriptionTransactions']);
+        });
+
+        // Payment provider callbacks
+        Route::prefix('callbacks')->group(function () {
+            // PayPal callbacks
+            Route::get('paypal/success', [SubscriptionController::class, 'paypalSuccess']);
+            Route::get('paypal/cancel', [SubscriptionController::class, 'paypalCancel']);
+
+            // Stripe callbacks
+            Route::get('stripe/success', [SubscriptionController::class, 'stripeSuccess']);
+            Route::get('stripe/cancel', [SubscriptionController::class, 'stripeCancel']);
+        });
+
         // Manual verification endpoints
         Route::post('verify-paypal', [SubscriptionController::class, 'verifyPayPalSubscription']);
         Route::post('verify-stripe', [SubscriptionController::class, 'verifyStripeSubscription']);
+//        Route::prefix('verify')->group(function () {
+//            Route::post('paypal', [SubscriptionController::class, 'verifyPayPalSubscription']);
+//            Route::post('stripe', [SubscriptionController::class, 'verifyStripeSubscription']);
+//        });
     });
-
-    // Subscription Management
-//    Route::prefix('subscription')->group(function () {
-//        // Get available plans
-//        Route::get('plans', [SubscriptionController::class, 'getPlans']);
-//
-//        // Get active subscription
-//        Route::get('active', [SubscriptionController::class, 'getActiveSubscription']);
-//
-//        // Get all subscriptions
-//        Route::get('all', [SubscriptionController::class, 'getAllSubscriptions']);
-//
-//        // Subscribe to a plan
-//        Route::post('{plan}/subscribe', [SubscriptionController::class, 'subscribe']);
-//
-//        // Check eligibility for a plan
-//        Route::post('eligibility/{plan}', [SubscriptionController::class, 'checkEligibility']);
-//
-//        // Activate free trial
-//        Route::post('trial/activate', [SubscriptionController::class, 'activateFreeTrial']);
-//
-//        // Cancel subscription
-//        Route::post('cancel', [SubscriptionController::class, 'cancel']);
-//
-//        // Suspend subscription
-//        Route::post('{subscription}/suspend', [SubscriptionController::class, 'suspendSubscription']);
-//
-//        // Reactivate subscription
-//        Route::post('{subscription}/reactivate', [SubscriptionController::class, 'reactivateSubscription']);
-//
-//        // Update subscription plan
-//        Route::put('{subscription}/plan', [SubscriptionController::class, 'updateSubscriptionPlan']);
-//
-//        // Provider-specific routes
-//        Route::prefix('{provider}')->group(function () {
-//            // List plans from provider
-//            Route::get('plans', [SubscriptionController::class, 'listProviderPlans']);
-//
-//            // Get plan details
-//            Route::get('plans/{externalPlanId}', [SubscriptionController::class, 'getPlanDetails']);
-//
-//            // List employer subscriptions
-//            Route::get('subscriptions', [SubscriptionController::class, 'listEmployerSubscriptions']);
-//
-//            // Get subscription details
-//            Route::get('subscriptions/{subscriptionId}', [SubscriptionController::class, 'getSubscriptionDetails']);
-//
-//            // Get subscription transactions
-//            Route::get('subscriptions/{subscriptionId}/transactions', [SubscriptionController::class, 'getSubscriptionTransactions']);
-//        });
-//
-//        // Payment provider callbacks
-//        Route::prefix('callbacks')->group(function () {
-//            // PayPal callbacks
-//            Route::get('paypal/success', [SubscriptionController::class, 'paypalSuccess']);
-//            Route::get('paypal/cancel', [SubscriptionController::class, 'paypalCancel']);
-//
-//            // Stripe callbacks
-//            Route::get('stripe/success', [SubscriptionController::class, 'stripeSuccess']);
-//            Route::get('stripe/cancel', [SubscriptionController::class, 'stripeCancel']);
-//        });
-//
-//        // Manual verification endpoints
-//        Route::post('verify-paypal', [SubscriptionController::class, 'verifyPayPalSubscription']);
-//        Route::post('verify-stripe', [SubscriptionController::class, 'verifyStripeSubscription']);
-////        Route::prefix('verify')->group(function () {
-////            Route::post('paypal', [SubscriptionController::class, 'verifyPayPalSubscription']);
-////            Route::post('stripe', [SubscriptionController::class, 'verifyStripeSubscription']);
-////        });
-//    });
 
     // Job notification templates
     Route::prefix('job-notification-template')->group(function () {
