@@ -90,33 +90,33 @@ class ResumeService
             $industry = $filters['industry'];
             $query->where('prefer_job_industry', $industry);
         }
-//
+
 //        // Filter by experience level
-//        if (!empty($filters['experience'])) {
-//            $experienceLevel = $filters['experience'];
-//
-//            // Map the frontend values to appropriate database queries
-//            switch ($experienceLevel) {
-//                case '0_1':
-//                    $query->where('year_of_experience', '<=', 1);
-//                    break;
-//                case '1_3':
-//                    $query->where('year_of_experience', '>', 1)
-//                        ->where('year_of_experience', '<=', 3);
-//                    break;
-//                case '3_5':
-//                    $query->where('year_of_experience', '>', 3)
-//                        ->where('year_of_experience', '<=', 5);
-//                    break;
-//                case '5_10':
-//                    $query->where('year_of_experience', '>', 5)
-//                        ->where('year_of_experience', '<=', 10);
-//                    break;
-//                case '10_plus':
-//                    $query->where('year_of_experience', '>', 10);
-//                    break;
-//            }
-//        }
+        if (!empty($filters['experience'])) {
+            $experienceLevel = $filters['experience'];
+
+            // Map the frontend values to appropriate database queries
+            switch ($experienceLevel) {
+                case '0_1':
+                    $query->where('year_of_experience', '<=', 1);
+                    break;
+                case '1_3':
+                    $query->where('year_of_experience', '>', 1)
+                        ->where('year_of_experience', '<=', 3);
+                    break;
+                case '3_5':
+                    $query->where('year_of_experience', '>', 3)
+                        ->where('year_of_experience', '<=', 5);
+                    break;
+                case '5_10':
+                    $query->where('year_of_experience', '>', 5)
+                        ->where('year_of_experience', '<=', 10);
+                    break;
+                case '10_plus':
+                    $query->where('year_of_experience', '>', 10);
+                    break;
+            }
+        }
 
         // Sort by relevance, date, etc.
         $sortBy = $filters['sort_by'] ?? 'created_at';
