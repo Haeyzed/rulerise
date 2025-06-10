@@ -34,12 +34,12 @@ interface SubscriptionServiceInterface
     public function getPlanDetails(string $externalPlanId): array;
 
     /**
-     * Create a subscription for an employer with trial logic
+     * Create a subscription for an employer
      */
     public function createSubscription(Employer $employer, SubscriptionPlan $plan, array $paymentData = []): array;
 
     /**
-     * Create a one-time payment order (for plans that support it)
+     * Create a one-time payment order
      */
     public function createOneTimeOrder(Employer $employer, SubscriptionPlan $plan, array $paymentData = []): array;
 
@@ -59,16 +59,6 @@ interface SubscriptionServiceInterface
     public function getSubscriptionDetails(string $subscriptionId): array;
 
     /**
-     * Suspend a subscription (temporarily pause)
-     */
-    public function suspendSubscription(Subscription $subscription): bool;
-
-    /**
-     * Reactivate a suspended subscription
-     */
-    public function reactivateSubscription(Subscription $subscription): bool;
-
-    /**
      * Handle webhook events from the payment gateway
      */
     public function handleWebhook(string $payload, array $headers): bool;
@@ -82,14 +72,4 @@ interface SubscriptionServiceInterface
      * Validate if employer needs trial for a plan
      */
     public function shouldUseTrial(Employer $employer, SubscriptionPlan $plan): bool;
-
-    /**
-     * Update subscription plan
-     */
-    public function updateSubscriptionPlan(Subscription $subscription, SubscriptionPlan $newPlan): bool;
-
-    /**
-     * Get subscription transactions
-     */
-    public function getSubscriptionTransactions(string $subscriptionId): array;
 }
