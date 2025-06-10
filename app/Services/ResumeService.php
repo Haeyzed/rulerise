@@ -50,13 +50,13 @@ class ResumeService
         if (!empty($filters['keyword'])) {
             $keyword = $filters['keyword'];
             $query->where(function ($q) use ($keyword) {
-                $q->whereLike('current_position', "%{$keyword}%")
-                    ->orWhereLike('current_company', "%{$keyword}%")
-                    ->orWhereLike('job_title', "%{$keyword}%")
-                    ->orWhereLike('bio', "%{$keyword}%")
+                $q->whereLike('current_position', "%$keyword%")
+                    ->orWhereLike('current_company', "%$keyword%")
+                    ->orWhereLike('job_title', "%$keyword%")
+                    ->orWhereLike('bio', "%$keyword%")
                     ->orWhereJsonContains('skills', $keyword)
                     ->orWhereHas('user', function (Builder $q) use ($keyword) {
-                        $q->where(DB::raw("CONCAT(first_name, ' ', last_name)"), 'like', "%{$keyword}%");
+                        $q->where(DB::raw("CONCAT(first_name, ' ', last_name)"), 'like', "%$keyword%");
                     });
             });
         }
