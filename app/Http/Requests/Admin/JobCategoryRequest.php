@@ -29,7 +29,7 @@ class JobCategoryRequest extends FormRequest
                 Rule::unique('job_categories', 'name')->ignore($this->route('jobCategory')),
             ],
             'description' => 'nullable|string|max:500',
-            'icon' => 'nullable|string|max:50',
+            'icon' => 'nullable|string',
             'is_active' => 'boolean',
         ];
     }
