@@ -52,6 +52,7 @@ class ResumeService
             $query->where(function ($q) use ($keyword) {
                 $q->whereLike('current_position', "%{$keyword}%")
                     ->orWhereLike('current_company', "%{$keyword}%")
+                    ->orWhereLike('job_title', "%{$keyword}%")
                     ->orWhereLike('bio', "%{$keyword}%")
                     ->orWhereJsonContains('skills', $keyword)
                     ->orWhereHas('user', function (Builder $q) use ($keyword) {
