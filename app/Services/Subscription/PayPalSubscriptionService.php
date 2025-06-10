@@ -169,8 +169,8 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
                     'locale' => 'en-US',
                     'shipping_preference' => 'NO_SHIPPING',
                     'user_action' => 'PAY_NOW',
-                    'return_url' => config('app.frontend_url') . '/employer/subscription/success',
-                    'cancel_url' => config('app.frontend_url') . '/employer/subscription/cancel',
+                    'return_url' => config('app.frontend_url') . '/employer/dashboard',
+                    'cancel_url' => config('app.frontend_url') . '/employer/dashboard',
                 ]
             ]);
 
@@ -230,8 +230,8 @@ class PayPalSubscriptionService implements SubscriptionServiceInterface
                     'payer_selected' => 'PAYPAL',
                     'payee_preferred' => 'IMMEDIATE_PAYMENT_REQUIRED'
                 ],
-                'return_url' => config('app.frontend_url') . '/employer/subscription/success',
-                'cancel_url' => config('app.frontend_url') . '/employer/subscription/cancel',
+                'return_url' => config('app.frontend_url') . '/employer/dashboard',
+                'cancel_url' => config('app.frontend_url') . '/employer/dashboard',
             ]
         ];
 

@@ -159,8 +159,8 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
                     ],
                 ],
                 'mode' => 'payment',
-                'success_url' => config('app.frontend_url') . '/employer/subscription/success?session_id={CHECKOUT_SESSION_ID}',
-                'cancel_url' => config('app.frontend_url') . '/employer/subscription/cancel?session_id={CHECKOUT_SESSION_ID}',
+                'success_url' => config('app.frontend_url') . '/employer/dashboard?session_id={CHECKOUT_SESSION_ID}',
+                'cancel_url' => config('app.frontend_url') . '/employer/dashboard?session_id={CHECKOUT_SESSION_ID}',
                 'client_reference_id' => $employer->id,
                 'metadata' => [
                     'employer_id' => $employer->id,
@@ -225,8 +225,8 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
                     ],
                 ],
                 'mode' => 'subscription',
-                'success_url' => config('app.frontend_url') . '/employer/subscription/success?session_id={CHECKOUT_SESSION_ID}',
-                'cancel_url' => config('app.frontend_url') . '/employer/subscription/cancel?session_id={CHECKOUT_SESSION_ID}',
+                'success_url' => config('app.frontend_url') . '/employer/dashboard?session_id={CHECKOUT_SESSION_ID}',
+                'cancel_url' => config('app.frontend_url') . '/employer/dashboard?session_id={CHECKOUT_SESSION_ID}',
                 'client_reference_id' => $employer->id,
                 'metadata' => [
                     'employer_id' => $employer->id,
