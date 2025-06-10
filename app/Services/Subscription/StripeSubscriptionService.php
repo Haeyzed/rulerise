@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services;
+namespace App\Services\Subscription;
 
 use App\Models\Employer;
 use App\Models\Subscription;
@@ -8,18 +8,20 @@ use App\Models\SubscriptionPlan;
 use App\Notifications\SubscriptionActivatedNotification;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
-use Stripe\StripeClient;
 use Stripe\Exception\ApiErrorException;
+use Stripe\StripeClient;
 
 class StripeSubscriptionService
 {
     protected StripeClient $stripe;
+    protected string $apiKey;
     protected string $webhookSecret;
 
     public function __construct()
     {
-        $this->stripe = new StripeClient(config('services.stripe.secret'));
+        $this->apiKey = config('services.stripe.secret');
         $this->webhookSecret = config('services.stripe.webhook_secret');
+        $this->stripe = new StripeClient($this->apiKey);
     }
 
     protected function createProduct(SubscriptionPlan $plan): string
@@ -125,8 +127,8 @@ class StripeSubscriptionService
                     ],
                 ],
                 'mode' => 'subscription',
-                'success_url' => config('app.frontend_url') . '/employer/subscription/success?session_id={CHECKOUT_SESSION_ID}',
-                'cancel_url' => config('app.frontend_url') . '/employer/subscription/cancel?session_id={CHECKOUT_SESSION_ID}',
+                'success_url' => config('app.frontend_url') . '/employer/dashboard?session_id={CHECKOUT_SESSION_ID}',
+                'cancel_url' => config('app.frontend_url') . '/employer/dashboard?session_id={CHECKOUT_SESSION_ID}',
                 'client_reference_id' => $employer->id,
                 'metadata' => [
                     'employer_id' => $employer->id,
@@ -279,77 +281,6 @@ class StripeSubscriptionService
                 'error' => $e->getMessage()
             ]);
             return false;
-        }
-    }
-
-    public function suspendSubscription(string $subscriptionId): bool
-    {
-        try {
-            $this->stripe->subscriptions->update($subscriptionId, [
-                'pause_collection' => [
-                    'behavior' => 'mark_uncollectible',
-                ],
-            ]);
-
-            return true;
-        } catch (ApiErrorException $e) {
-            Log::error('Stripe suspend subscription error', [
-                'subscriptionId' => $subscriptionId,
-                'error' => $e->getMessage()
-            ]);
-            return false;
-        }
-    }
-
-    public function resumeSubscription(string $subscriptionId): bool
-    {
-        try {
-            $this->stripe->subscriptions->resume($subscriptionId, [
-                'billing_cycle_anchor' => 'now'
-            ]);
-
-            return true;
-        } catch (ApiErrorException $e) {
-            Log::error('Stripe resume subscription error', [
-                'subscriptionId' => $subscriptionId,
-                'error' => $e->getMessage()
-            ]);
-            return false;
-        }
-    }
-
-    public function listSubscriptions(string $customerId, int $limit = 10): array
-    {
-        try {
-            $subscriptions = $this->stripe->subscriptions->all([
-                'customer' => $customerId,
-                'limit' => $limit,
-            ]);
-
-            return $subscriptions->toArray();
-        } catch (ApiErrorException $e) {
-            Log::error('Stripe list subscriptions error', [
-                'customerId' => $customerId,
-                'error' => $e->getMessage()
-            ]);
-            return ['data' => []];
-        }
-    }
-
-    public function searchSubscriptions(string $query): array
-    {
-        try {
-            $subscriptions = $this->stripe->subscriptions->search([
-                'query' => $query,
-            ]);
-
-            return $subscriptions->toArray();
-        } catch (ApiErrorException $e) {
-            Log::error('Stripe search subscriptions error', [
-                'query' => $query,
-                'error' => $e->getMessage()
-            ]);
-            return ['data' => []];
         }
     }
 
