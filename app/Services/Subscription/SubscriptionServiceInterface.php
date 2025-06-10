@@ -49,6 +49,16 @@ interface SubscriptionServiceInterface
     public function cancelSubscription(Subscription $subscription): bool;
 
     /**
+     * Suspend a subscription (pause billing)
+     */
+    public function suspendSubscription(Subscription $subscription): bool;
+
+    /**
+     * Reactivate a suspended subscription
+     */
+    public function reactivateSubscription(Subscription $subscription): bool;
+
+    /**
      * List all subscriptions for an employer
      */
     public function listSubscriptions(Employer $employer): array;
