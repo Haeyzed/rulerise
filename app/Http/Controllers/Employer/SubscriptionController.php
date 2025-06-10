@@ -105,15 +105,15 @@ class SubscriptionController extends Controller
                         // Mark trial as used
                         $employer->markTrialAsUsed();
 
-                        return response()->json([
-                            'success' => false,
-                            'message' => 'Trial period activated. Please try again after the trial.',
-                            'requires_trial' => true,
-                            'trial_available' => true,
-                            'plan_has_trial' => $plan->hasTrial(),
-                            'trial_activated' => true,
-                            'trial_end_date' => $subscription->end_date
-                        ], 422);
+                        return response()->success(
+                            [
+                                'requires_trial' => true,
+                                'trial_available' => true,
+                                'plan_has_trial' => $plan->hasTrial(),
+                                'trial_activated' => true,
+                                'trial_end_date' => $subscription->end_date
+                            ],
+                            'Trial period activated. Please try again after the trial.');
                     } else {
                         return response()->json([
                             'success' => false,
