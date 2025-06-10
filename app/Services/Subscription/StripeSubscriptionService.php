@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Subscription;
+namespace App\Services;
 
 use App\Models\Employer;
 use App\Models\Subscription;
@@ -18,7 +18,7 @@ class StripeSubscriptionService
 
     public function __construct()
     {
-        $this->stripe = new \Stripe\StripeClient(config('services.stripe.secret'));
+        $this->stripe = new StripeClient(config('services.stripe.secret'));
         $this->webhookSecret = config('services.stripe.webhook_secret');
     }
 
@@ -115,37 +115,35 @@ class StripeSubscriptionService
 
             $customerId = $this->getOrCreateCustomer($employer);
 
-            // Create payment method if needed
-            $paymentMethodId = $this->getOrCreatePaymentMethod($customerId);
-
-            // Set default payment method for customer if not already set
-            if ($paymentMethodId) {
-                $this->setDefaultPaymentMethod($customerId, $paymentMethodId);
-            }
-
-            // Create subscription directly
-            $subscriptionData = [
+            $sessionParams = [
                 'customer' => $customerId,
-                'items' => [
+                'payment_method_types' => ['card'],
+                'line_items' => [
                     [
                         'price' => $externalPlanId,
                         'quantity' => 1,
                     ],
                 ],
+                'mode' => 'subscription',
+                'success_url' => config('app.frontend_url') . '/employer/subscription/success?session_id={CHECKOUT_SESSION_ID}',
+                'cancel_url' => config('app.frontend_url') . '/employer/subscription/cancel?session_id={CHECKOUT_SESSION_ID}',
+                'client_reference_id' => $employer->id,
                 'metadata' => [
                     'employer_id' => $employer->id,
                     'plan_id' => $plan->id,
                     'payment_type' => $plan->payment_type,
                 ],
+                'billing_address_collection' => 'auto',
             ];
 
             // Add trial period for recurring subscriptions if applicable
             if ($plan->isRecurring() && $plan->hasTrial() && !$employer->has_used_trial) {
-                $subscriptionData['trial_period_days'] = $plan->getTrialPeriodDays();
+                $sessionParams['subscription_data'] = [
+                    'trial_period_days' => $plan->getTrialPeriodDays(),
+                ];
             }
 
-            // Create the subscription
-            $stripeSubscription = $this->stripe->subscriptions->create($subscriptionData);
+            $session = $this->stripe->checkout->sessions->create($sessionParams);
 
             // Create subscription record
             $endDate = null;
@@ -164,18 +162,16 @@ class StripeSubscriptionService
                 'amount_paid' => $plan->price,
                 'currency' => $plan->currency,
                 'payment_method' => 'stripe',
-                'subscription_id' => $stripeSubscription->id,
-                'payment_reference' => $stripeSubscription->id,
-                'transaction_id' => $stripeSubscription->latest_invoice ?? null,
+                'subscription_id' => $session->subscription ?? null,
+                'payment_reference' => $session->id,
+                'transaction_id' => null,
                 'job_posts_left' => $plan->job_posts_limit,
                 'featured_jobs_left' => $plan->featured_jobs_limit,
                 'cv_downloads_left' => $plan->resume_views_limit,
                 'payment_type' => $plan->payment_type,
-                'is_active' => in_array($stripeSubscription->status, ['active', 'trialing']),
+                'is_active' => false,
                 'used_trial' => $plan->hasTrial() && !$employer->has_used_trial,
-                'external_status' => $stripeSubscription->status,
-                'next_billing_date' => isset($stripeSubscription->current_period_end) ?
-                    Carbon::createFromTimestamp($stripeSubscription->current_period_end) : null,
+                'external_status' => $session->status,
             ]);
 
             // Mark trial as used if applicable
@@ -183,19 +179,12 @@ class StripeSubscriptionService
                 $employer->markTrialAsUsed();
             }
 
-            // For one-time payments, set to cancel after first payment
-            if ($plan->isOneTime() && $stripeSubscription->status === 'active') {
-                $this->stripe->subscriptions->update($stripeSubscription->id, [
-                    'cancel_at_period_end' => true
-                ]);
-            }
-
             return [
                 'subscription_id' => $subscription->id,
-                'external_subscription_id' => $stripeSubscription->id,
-                'status' => $stripeSubscription->status,
-                'payment_type' => $plan->payment_type,
-                'is_active' => in_array($stripeSubscription->status, ['active', 'trialing']),
+                'external_subscription_id' => $session->id,
+                'redirect_url' => $session->url,
+                'status' => $session->status,
+                'payment_type' => $plan->payment_type
             ];
         } catch (ApiErrorException $e) {
             Log::error('Stripe create subscription error', [
@@ -252,51 +241,6 @@ class StripeSubscriptionService
         }
     }
 
-    protected function getOrCreatePaymentMethod(string $customerId): ?string
-    {
-        try {
-            // Check if customer already has payment methods
-            $paymentMethods = $this->stripe->paymentMethods->all([
-                'customer' => $customerId,
-                'type' => 'card',
-                'limit' => 1,
-            ]);
-
-            if (!empty($paymentMethods->data)) {
-                return $paymentMethods->data[0]->id;
-            }
-
-            // If no payment methods, we'll need to redirect the user to add one
-            // For now, return null and handle this in the controller
-            return null;
-        } catch (ApiErrorException $e) {
-            Log::error('Error retrieving payment methods', [
-                'customer_id' => $customerId,
-                'error' => $e->getMessage()
-            ]);
-            return null;
-        }
-    }
-
-    protected function setDefaultPaymentMethod(string $customerId, string $paymentMethodId): bool
-    {
-        try {
-            $this->stripe->customers->update($customerId, [
-                'invoice_settings' => [
-                    'default_payment_method' => $paymentMethodId
-                ]
-            ]);
-            return true;
-        } catch (ApiErrorException $e) {
-            Log::error('Error setting default payment method', [
-                'customer_id' => $customerId,
-                'payment_method_id' => $paymentMethodId,
-                'error' => $e->getMessage()
-            ]);
-            return false;
-        }
-    }
-
     public function getSubscriptionDetails(string $subscriptionId): array
     {
         try {
@@ -324,7 +268,10 @@ class StripeSubscriptionService
     public function cancelSubscription(string $subscriptionId): bool
     {
         try {
-            $this->stripe->subscriptions->cancel($subscriptionId, []);
+            $this->stripe->subscriptions->cancel($subscriptionId, [
+                'cancel_at_period_end' => false,
+            ]);
+
             return true;
         } catch (ApiErrorException $e) {
             Log::error('Stripe cancel subscription error', [
@@ -423,12 +370,12 @@ class StripeSubscriptionService
         ]);
 
         return match ($event) {
+            'checkout.session.completed' => $this->handleCheckoutSessionCompleted($object),
             'customer.subscription.created' => $this->handleSubscriptionCreated($object),
             'customer.subscription.updated' => $this->handleSubscriptionUpdated($object),
             'customer.subscription.deleted' => $this->handleSubscriptionDeleted($object),
             'invoice.paid' => $this->handleInvoicePaid($object),
             'invoice.payment_failed' => $this->handleInvoicePaymentFailed($object),
-            'payment_intent.succeeded' => $this->handlePaymentIntentSucceeded($object),
             default => true
         };
     }
@@ -461,19 +408,48 @@ class StripeSubscriptionService
         }
     }
 
+    protected function handleCheckoutSessionCompleted(array $data): bool
+    {
+        $sessionId = $data['id'] ?? '';
+        $subscriptionId = $data['subscription'] ?? null;
+
+        $subscription = Subscription::where('payment_reference', $sessionId)
+            ->where('payment_method', 'stripe')
+            ->first();
+
+        if (!$subscription) {
+            Log::error('Stripe subscription not found for session', ['sessionId' => $sessionId]);
+            return false;
+        }
+
+        if ($subscriptionId) {
+            $subscription->subscription_id = $subscriptionId;
+
+            // For one-time payments, set to cancel after first payment
+            if ($subscription->plan->isOneTime()) {
+                try {
+                    $this->stripe->subscriptions->update($subscriptionId, [
+                        'cancel_at_period_end' => true
+                    ]);
+                } catch (ApiErrorException $e) {
+                    Log::error('Failed to set one-time subscription to cancel', [
+                        'subscription_id' => $subscriptionId,
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
+        }
+
+        $subscription->save();
+        return true;
+    }
+
     protected function handleSubscriptionCreated(array $data): bool
     {
         $subscriptionId = $data['id'] ?? '';
         $customerId = $data['customer'] ?? '';
         $status = $data['status'] ?? '';
 
-        Log::info('Stripe subscription created', [
-            'subscription_id' => $subscriptionId,
-            'customer_id' => $customerId,
-            'status' => $status
-        ]);
-
-        // Find the employer by Stripe customer ID
         $employer = Employer::where('stripe_customer_id', $customerId)->first();
 
         if (!$employer) {
@@ -481,13 +457,11 @@ class StripeSubscriptionService
             return false;
         }
 
-        // Find the subscription in our database
         $subscription = Subscription::where('subscription_id', $subscriptionId)
             ->where('payment_method', 'stripe')
             ->first();
 
         if (!$subscription) {
-            // If not found by subscription_id, try to find by employer and update it
             $subscription = Subscription::where('employer_id', $employer->id)
                 ->where('payment_method', 'stripe')
                 ->whereNull('subscription_id')
@@ -496,31 +470,25 @@ class StripeSubscriptionService
 
             if ($subscription) {
                 $subscription->subscription_id = $subscriptionId;
-            } else {
-                Log::error('Stripe subscription not found', [
-                    'subscription_id' => $subscriptionId,
-                    'employer_id' => $employer->id
-                ]);
-                return false;
             }
         }
 
-        $subscription->external_status = $status;
+        if ($subscription) {
+            $subscription->external_status = $status;
 
-        // If status is trialing or active, activate the subscription
-        if (in_array($status, ['trialing', 'active'])) {
-            $subscription->is_active = true;
+            if (in_array($status, ['trialing', 'active'])) {
+                $subscription->is_active = true;
 
-            // Extract next billing date
-            if (isset($data['current_period_end'])) {
-                $subscription->next_billing_date = Carbon::createFromTimestamp($data['current_period_end']);
+                if (isset($data['current_period_end'])) {
+                    $subscription->next_billing_date = Carbon::createFromTimestamp($data['current_period_end']);
+                }
+
+                $this->sendActivationNotification($subscription);
             }
 
-            // Send notification
-            $this->sendActivationNotification($subscription);
+            $subscription->save();
         }
 
-        $subscription->save();
         return true;
     }
 
@@ -528,11 +496,6 @@ class StripeSubscriptionService
     {
         $subscriptionId = $data['id'] ?? '';
         $status = $data['status'] ?? '';
-
-        Log::info('Stripe subscription updated', [
-            'subscription_id' => $subscriptionId,
-            'status' => $status
-        ]);
 
         $subscription = Subscription::where('subscription_id', $subscriptionId)
             ->where('payment_method', 'stripe')
@@ -571,11 +534,9 @@ class StripeSubscriptionService
         $subscription->external_status = $status;
         $subscription->status_update_time = Carbon::now();
 
-        // Extract next billing date
         if (isset($data['current_period_end'])) {
             $subscription->next_billing_date = Carbon::createFromTimestamp($data['current_period_end']);
 
-            // Store billing info for future reference
             $subscription->billing_info = [
                 'current_period_start' => isset($data['current_period_start']) ?
                     Carbon::createFromTimestamp($data['current_period_start'])->toIso8601String() : null,
@@ -594,10 +555,6 @@ class StripeSubscriptionService
     protected function handleSubscriptionDeleted(array $data): bool
     {
         $subscriptionId = $data['id'] ?? '';
-
-        Log::info('Stripe subscription deleted', [
-            'subscription_id' => $subscriptionId
-        ]);
 
         $subscription = Subscription::where('subscription_id', $subscriptionId)
             ->where('payment_method', 'stripe')
@@ -625,11 +582,6 @@ class StripeSubscriptionService
             return true;
         }
 
-        Log::info('Stripe invoice paid', [
-            'subscription_id' => $subscriptionId,
-            'invoice_id' => $data['id'] ?? null
-        ]);
-
         $subscription = Subscription::where('subscription_id', $subscriptionId)
             ->where('payment_method', 'stripe')
             ->first();
@@ -643,11 +595,9 @@ class StripeSubscriptionService
         $subscription->is_active = true;
         $subscription->is_suspended = false;
 
-        // Extract next billing date
         if (isset($data['lines']['data'][0]['period']['end'])) {
             $subscription->next_billing_date = Carbon::createFromTimestamp($data['lines']['data'][0]['period']['end']);
 
-            // Store billing info for future reference
             $subscription->billing_info = [
                 'invoice_id' => $data['id'],
                 'period_start' => isset($data['lines']['data'][0]['period']['start']) ?
@@ -670,11 +620,6 @@ class StripeSubscriptionService
             return true;
         }
 
-        Log::info('Stripe invoice payment failed', [
-            'subscription_id' => $subscriptionId,
-            'invoice_id' => $data['id'] ?? null
-        ]);
-
         $subscription = Subscription::where('subscription_id', $subscriptionId)
             ->where('payment_method', 'stripe')
             ->first();
@@ -687,59 +632,6 @@ class StripeSubscriptionService
         $subscription->update([
             'external_status' => 'payment_failed',
             'status_update_time' => Carbon::now()
-        ]);
-
-        return true;
-    }
-
-    protected function handlePaymentIntentSucceeded(array $data): bool
-    {
-        $paymentIntentId = $data['id'] ?? null;
-
-        if (!$paymentIntentId) {
-            return true;
-        }
-
-        Log::info('Stripe payment intent succeeded', [
-            'payment_intent_id' => $paymentIntentId
-        ]);
-
-        // Find subscription by transaction_id (payment_intent)
-        $subscription = Subscription::where('transaction_id', $paymentIntentId)
-            ->where('payment_method', 'stripe')
-            ->first();
-
-        if (!$subscription) {
-            // If not found by transaction_id, try to find by metadata
-            if (isset($data['metadata']['subscription_id'])) {
-                $subscription = Subscription::where('id', $data['metadata']['subscription_id'])
-                    ->where('payment_method', 'stripe')
-                    ->first();
-            }
-        }
-
-        if ($subscription) {
-            // For one-time payments, activate immediately
-            if ($subscription->isOneTime() && !$subscription->is_active) {
-                $subscription->is_active = true;
-                $subscription->external_status = 'paid';
-                $subscription->save();
-
-                // Send notification
-                $this->sendActivationNotification($subscription);
-
-                Log::info('One-time Stripe payment activated via payment intent', [
-                    'subscription_id' => $subscription->id,
-                    'payment_intent_id' => $paymentIntentId
-                ]);
-            }
-
-            return true;
-        }
-
-        // If we couldn't find a subscription, log it but don't fail
-        Log::info('Stripe payment intent succeeded but no matching subscription found', [
-            'payment_intent_id' => $paymentIntentId
         ]);
 
         return true;

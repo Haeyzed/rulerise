@@ -194,7 +194,7 @@ class SubscriptionController extends Controller
             $employer = Auth::user()->employer;
             $service = app(PayPalSubscriptionService::class);
 
-            $subscription = Subscription::where('id', $subscriptionId)
+            $subscription = Subscription::where('subscription_id', $subscriptionId)
                 ->where('employer_id', $employer->id)
                 ->where('payment_method', 'paypal')
                 ->first();
@@ -256,12 +256,12 @@ class SubscriptionController extends Controller
 
     public function verifyStripeSubscription(Request $request): JsonResponse
     {
-        $subscriptionId = $request->input('subscription_id');
+        $sessionId = $request->input('subscription_id');
 
-        if (!$subscriptionId) {
+        if (!$sessionId) {
             return response()->json([
                 'success' => false,
-                'message' => 'Subscription ID is required'
+                'message' => 'Session ID is required'
             ], 400);
         }
 
@@ -269,7 +269,7 @@ class SubscriptionController extends Controller
             $employer = Auth::user()->employer;
             $service = app(StripeSubscriptionService::class);
 
-            $subscription = Subscription::where('subscription_id', $subscriptionId)
+            $subscription = Subscription::where('id', $sessionId)
                 ->where('employer_id', $employer->id)
                 ->where('payment_method', 'stripe')
                 ->first();
@@ -294,25 +294,27 @@ class SubscriptionController extends Controller
                 ]);
             }
 
-            // Get subscription details
-            $details = $service->getSubscriptionDetails($subscription->subscription_id);
+            // Get subscription details if we have a subscription ID
+            if ($subscription->subscription_id) {
+                $details = $service->getSubscriptionDetails($subscription->subscription_id);
 
-            if (isset($details['status']) && in_array($details['status'], ['active', 'trialing'])) {
-                $subscription->update([
-                    'is_active' => true,
-                    'external_status' => $details['status'],
-                    'next_billing_date' => isset($details['next_billing_date']) ? $details['next_billing_date'] : null
-                ]);
+                if (isset($details['status']) && in_array($details['status'], ['active', 'trialing'])) {
+                    $subscription->update([
+                        'is_active' => true,
+                        'external_status' => $details['status'],
+                        'next_billing_date' => isset($details['next_billing_date']) ? $details['next_billing_date'] : null
+                    ]);
 
-                return response()->json([
-                    'success' => true,
-                    'data' => [
-                        'subscription' => $subscription->fresh(),
-                        'plan' => $subscription->plan,
-                        'next_billing_date' => $subscription->next_billing_date
-                    ],
-                    'message' => 'Subscription activated successfully'
-                ]);
+                    return response()->json([
+                        'success' => true,
+                        'data' => [
+                            'subscription' => $subscription->fresh(),
+                            'plan' => $subscription->plan,
+                            'next_billing_date' => $subscription->next_billing_date
+                        ],
+                        'message' => 'Subscription activated successfully'
+                    ]);
+                }
             }
 
             return response()->json([
@@ -326,7 +328,7 @@ class SubscriptionController extends Controller
             ]);
         } catch (Exception $e) {
             Log::error('Error verifying Stripe subscription', [
-                'subscription_id' => $subscriptionId,
+                'session_id' => $sessionId,
                 'error' => $e->getMessage()
             ]);
 
@@ -356,89 +358,5 @@ class SubscriptionController extends Controller
             'data' => ['subscriptions' => $subscriptions],
             'message' => 'Subscriptions retrieved successfully'
         ]);
-    }
-
-    public function suspendSubscription(Request $request): JsonResponse
-    {
-        $employer = Auth::user()->employer;
-        $subscription = $employer->activeSubscription;
-
-        if (!$subscription) {
-            return response()->json([
-                'success' => false,
-                'message' => 'No active subscription found'
-            ], 404);
-        }
-
-        try {
-            $success = false;
-
-            if ($subscription->payment_method === 'stripe') {
-                $service = app(StripeSubscriptionService::class);
-                $success = $service->suspendSubscription($subscription->subscription_id);
-            } elseif ($subscription->payment_method === 'paypal') {
-                $service = app(PayPalSubscriptionService::class);
-                $success = $service->suspendSubscription($subscription->subscription_id);
-            }
-
-            if ($success) {
-                $subscription->update(['is_suspended' => true]);
-            }
-
-            return response()->json([
-                'success' => $success,
-                'message' => $success ? 'Subscription suspended successfully' : 'Failed to suspend subscription'
-            ], $success ? 200 : 500);
-        } catch (Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage()
-            ], 500);
-        }
-    }
-
-    public function resumeSubscription(Request $request): JsonResponse
-    {
-        $employer = Auth::user()->employer;
-        $subscription = $employer->subscriptions()
-            ->where('is_suspended', true)
-            ->latest()
-            ->first();
-
-        if (!$subscription) {
-            return response()->json([
-                'success' => false,
-                'message' => 'No suspended subscription found'
-            ], 404);
-        }
-
-        try {
-            $success = false;
-
-            if ($subscription->payment_method === 'stripe') {
-                $service = app(StripeSubscriptionService::class);
-                $success = $service->resumeSubscription($subscription->subscription_id);
-            } elseif ($subscription->payment_method === 'paypal') {
-                $service = app(PayPalSubscriptionService::class);
-                $success = $service->activateSubscription($subscription->subscription_id);
-            }
-
-            if ($success) {
-                $subscription->update([
-                    'is_suspended' => false,
-                    'is_active' => true
-                ]);
-            }
-
-            return response()->json([
-                'success' => $success,
-                'message' => $success ? 'Subscription resumed successfully' : 'Failed to resume subscription'
-            ], $success ? 200 : 500);
-        } catch (Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage()
-            ], 500);
-        }
     }
 }
