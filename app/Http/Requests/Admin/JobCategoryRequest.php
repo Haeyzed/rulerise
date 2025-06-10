@@ -26,7 +26,7 @@ class JobCategoryRequest extends FormRequest
             'name' => [
                 'required',
                 'string',
-                Rule::unique('job_categories', 'name')->ignore($this->job_category->id),
+                Rule::unique('job_categories', 'name')->ignore($this->route('jobCategory')),
             ],
             'description' => 'nullable|string|max:500',
             'icon' => 'nullable|string|max:50',
