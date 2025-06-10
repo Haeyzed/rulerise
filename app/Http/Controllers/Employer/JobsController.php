@@ -172,14 +172,13 @@ class JobsController extends Controller implements HasMiddleware
      * @param int $id
      * @return JsonResponse
      */
-    public function delete(int $id): JsonResponse
+    public function destroy(int $id): JsonResponse
     {
         try {
             $user = auth()->user();
             $employer = $user->employer;
-            $employer->jobs()->findOrFail($id)->delete();
 
-//            $this->employerService->deleteEmployerJob($employer, $id);
+            $this->employerService->deleteEmployerJob($employer, $id);
             return response()->success(null, 'Job deleted successfully');
         } catch (ModelNotFoundException|NotFoundHttpException $e) {
             return response()->notFound('Job not found');
