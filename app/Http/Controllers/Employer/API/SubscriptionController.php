@@ -101,7 +101,7 @@ class SubscriptionController extends Controller
         }
 
         $request->validate([
-            'payment_method' => ['required', Rule::in(['stripe', 'paypal'])],
+            'payment_provider' => ['required', Rule::in(['stripe', 'paypal'])],
             'payment_data' => 'array',
             'return_url' => 'url',
             'cancel_url' => 'url',
@@ -117,7 +117,7 @@ class SubscriptionController extends Controller
         $result = $this->subscriptionService->subscribe(
             $employer,
             $plan,
-            $request->payment_method,
+            $request->payment_provider,
             $request->payment_data ?? []
         );
 
