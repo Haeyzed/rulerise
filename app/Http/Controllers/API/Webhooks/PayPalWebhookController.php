@@ -3,44 +3,41 @@
 namespace App\Http\Controllers\API\Webhooks;
 
 use App\Http\Controllers\Controller;
-use App\Services\Subscription\SubscriptionServiceFactory;
+use App\Services\PayPalSubscriptionService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Log;
 
 class PayPalWebhookController extends Controller
 {
-    /**
-     * Handle PayPal webhook
-     *
-     * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function handle(Request $request)
+    protected PayPalSubscriptionService $paypalService;
+
+    public function __construct(PayPalSubscriptionService $paypalService)
+    {
+        $this->paypalService = $paypalService;
+    }
+
+    public function handle(Request $request): Response
     {
         $payload = $request->getContent();
-        $headers = $request->header();
+        $headers = $request->headers->all();
 
         Log::info('PayPal webhook received', [
-            'payload' => json_decode($payload, true),
-            'headers' => $headers
+            'headers' => $headers,
+            'payload_length' => strlen($payload)
         ]);
 
         try {
-            $service = SubscriptionServiceFactory::create('paypal');
-            $success = $service->handleWebhook($payload, $headers);
+            $success = $this->paypalService->handleWebhook($payload, $headers);
 
-            if ($success) {
-                return response()->json(['status' => 'success']);
-            } else {
-                return response()->json(['status' => 'error', 'message' => 'Failed to process webhook'], 400);
-            }
+            return response('', $success ? 200 : 400);
         } catch (\Exception $e) {
-            Log::error('PayPal webhook error', [
-                'error' => $e->getMessage()
+            Log::error('PayPal webhook processing failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
             ]);
 
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return response('Webhook processing failed', 500);
         }
     }
 }

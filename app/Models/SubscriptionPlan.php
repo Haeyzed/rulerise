@@ -158,32 +158,6 @@ class SubscriptionPlan extends Model
     }
 
     /**
-     * Get payment gateway configuration for a specific provider
-     *
-     * @param string $provider
-     * @return array
-     */
-    public function getPaymentGatewayConfig(string $provider): array
-    {
-        $config = $this->payment_gateway_config ?? [];
-        return $config[$provider] ?? [];
-    }
-
-    /**
-     * Set payment gateway configuration for a specific provider
-     *
-     * @param string $provider
-     * @param array $config
-     * @return void
-     */
-    public function setPaymentGatewayConfig(string $provider, array $config): void
-    {
-        $currentConfig = $this->payment_gateway_config ?? [];
-        $currentConfig[$provider] = $config;
-        $this->payment_gateway_config = $currentConfig;
-    }
-
-    /**
      * Get trial period in days (configurable per plan)
      *
      * @return int
@@ -191,58 +165,6 @@ class SubscriptionPlan extends Model
     public function getTrialPeriodDays(): int
     {
         return $this->hasTrial() ? $this->trial_period_days : 0;
-    }
-
-    /**
-     * Get formatted duration.
-     *
-     * @return string
-     */
-    public function getFormattedDuration(): string
-    {
-        if ($this->isOneTime()) {
-            return 'No expiration';
-        }
-
-        if (!$this->duration_days) {
-            return 'N/A';
-        }
-
-        if ($this->duration_days % 30 === 0) {
-            $months = $this->duration_days / 30;
-            return $months === 1 ? '1 month' : "$months months";
-        }
-
-        if ($this->duration_days % 7 === 0) {
-            $weeks = $this->duration_days / 7;
-            return $weeks === 1 ? '1 week' : "$weeks weeks";
-        }
-
-        return $this->duration_days === 1 ? '1 day' : "{$this->duration_days} days";
-    }
-
-    /**
-     * Get formatted trial period.
-     *
-     * @return string|null
-     */
-    public function getFormattedTrialPeriod(): ?string
-    {
-        if (!$this->hasTrial()) {
-            return null;
-        }
-
-        if ($this->trial_period_days % 30 === 0) {
-            $months = $this->trial_period_days / 30;
-            return $months === 1 ? '1 month trial' : "$months months trial";
-        }
-
-        if ($this->trial_period_days % 7 === 0) {
-            $weeks = $this->trial_period_days / 7;
-            return $weeks === 1 ? '1 week trial' : "$weeks weeks trial";
-        }
-
-        return $this->trial_period_days === 1 ? '1 day trial' : "{$this->trial_period_days} days trial";
     }
 
     /**
@@ -281,7 +203,7 @@ class SubscriptionPlan extends Model
             ],
             'tenure_type' => 'REGULAR',
             'sequence' => $this->hasTrial() ? 2 : 1,
-            'total_cycles' => $this->total_cycles,
+            'total_cycles' => $this->isOneTime() ? 1 : $this->total_cycles,
             'pricing_scheme' => [
                 'fixed_price' => [
                     'value' => (string) $this->price,
@@ -291,52 +213,6 @@ class SubscriptionPlan extends Model
         ];
 
         return $billingCycles;
-    }
-
-    /**
-     * Get Stripe price configuration
-     *
-     * @return array
-     */
-    public function getStripePriceConfig(): array
-    {
-        $config = [
-            'unit_amount' => (int) ($this->price * 100), // Convert to cents
-            'currency' => strtolower($this->currency),
-            'metadata' => [
-                'plan_id' => $this->id,
-            ]
-        ];
-
-        if ($this->isRecurring()) {
-            $config['recurring'] = [
-                'interval' => $this->getStripeInterval(),
-                'interval_count' => $this->interval_count,
-            ];
-
-            // Add trial period if enabled
-            if ($this->hasTrial()) {
-                $config['recurring']['trial_period_days'] = $this->trial_period_days;
-            }
-        }
-
-        return $config;
-    }
-
-    /**
-     * Convert interval unit to Stripe format
-     *
-     * @return string
-     */
-    private function getStripeInterval(): string
-    {
-        return match ($this->interval_unit) {
-            'DAY' => 'day',
-            'WEEK' => 'week',
-            'MONTH' => 'month',
-            'YEAR' => 'year',
-            default => 'month',
-        };
     }
 
     /**

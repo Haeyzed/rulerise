@@ -153,55 +153,6 @@ class Subscription extends Model
     }
 
     /**
-     * Check if the subscription has job posts left.
-     *
-     * @return bool
-     */
-    public function hasJobPostsLeft(): bool
-    {
-        return $this->job_posts_left > 0;
-    }
-
-    /**
-     * Check if the subscription has featured jobs left.
-     *
-     * @return bool
-     */
-    public function hasFeaturedJobsLeft(): bool
-    {
-        return $this->featured_jobs_left > 0;
-    }
-
-    /**
-     * Check if the subscription has CV downloads left.
-     *
-     * @return bool
-     */
-    public function hasCvDownloadsLeft(): bool
-    {
-        return $this->cv_downloads_left > 0;
-    }
-
-    /**
-     * Get days remaining in the subscription.
-     *
-     * @return int
-     */
-    public function daysRemaining(): int
-    {
-        // One-time payments don't have a remaining days count
-        if ($this->isOneTime()) {
-            return PHP_INT_MAX; // Effectively infinite
-        }
-
-        if ($this->isExpired()) {
-            return 0;
-        }
-
-        return now()->diffInDays($this->end_date);
-    }
-
-    /**
      * Get subscription status text.
      *
      * @return string

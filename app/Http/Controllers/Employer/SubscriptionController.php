@@ -6,7 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Employer;
 use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
-use App\Services\Subscription\SubscriptionServiceFactory;
+use App\Services\PayPalSubscriptionService;
+use App\Services\StripeSubscriptionService;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -38,25 +39,6 @@ class SubscriptionController extends Controller
             ]);
         }
 
-        // If we have a subscription ID and payment method, fetch the latest details
-        if ($subscription->subscription_id && in_array($subscription->payment_method, ['stripe', 'paypal'])) {
-            try {
-                $service = SubscriptionServiceFactory::create($subscription->payment_method);
-                $details = $service->getSubscriptionDetails($subscription->subscription_id);
-
-                // Update next billing date if available
-                if (!empty($details) && isset($details['next_billing_date'])) {
-                    $subscription->next_billing_date = $details['next_billing_date'];
-                    $subscription->save();
-                }
-            } catch (Exception $e) {
-                Log::warning('Failed to fetch subscription details', [
-                    'subscription_id' => $subscription->id,
-                    'error' => $e->getMessage()
-                ]);
-            }
-        }
-
         return response()->json([
             'success' => true,
             'data' => [
@@ -73,21 +55,9 @@ class SubscriptionController extends Controller
         $provider = $request->input('payment_provider', 'paypal');
 
         try {
-            $service = SubscriptionServiceFactory::create($provider);
-
             // Validate business rules
-            if ($plan->isOneTime() && !$service->canUseOneTimePayment($employer, $plan)) {
-                if ($plan->hasTrial() && !$employer->has_used_trial) {
-                    return $this->createTrialSubscription($employer, $plan);
-                }
-
-                return response()->json([
-                    'success' => false,
-                    'message' => 'One-time payment not available for this plan configuration.',
-                    'requires_trial' => false,
-                    'trial_available' => false,
-                    'plan_has_trial' => $plan->hasTrial()
-                ], 422);
+            if ($plan->isOneTime() && $plan->hasTrial() && !$employer->has_used_trial) {
+                return $this->createTrialSubscription($employer, $plan);
             }
 
             Log::info('Creating subscription', [
@@ -95,8 +65,14 @@ class SubscriptionController extends Controller
                 'plan_id' => $plan->id,
                 'provider' => $provider,
                 'is_one_time' => $plan->isOneTime(),
-                'needs_trial' => $service->shouldUseTrial($employer, $plan),
             ]);
+
+            // Use the appropriate service based on provider
+            if ($provider === 'stripe') {
+                $service = app(StripeSubscriptionService::class);
+            } else {
+                $service = app(PayPalSubscriptionService::class);
+            }
 
             $result = $service->createSubscription($employer, $plan);
 
@@ -145,13 +121,10 @@ class SubscriptionController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => [
-                    'requires_trial' => true,
-                    'trial_available' => true,
-                    'plan_has_trial' => $plan->hasTrial(),
                     'trial_activated' => true,
                     'trial_end_date' => $subscription->end_date
                 ],
-                'message' => 'Trial period activated. Please try again after the trial.'
+                'message' => 'Trial period activated successfully.'
             ]);
         } catch (Exception $e) {
             Log::error('Trial creation failed', [
@@ -163,45 +136,6 @@ class SubscriptionController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to activate trial'
-            ], 500);
-        }
-    }
-
-    public function checkEligibility(Request $request, SubscriptionPlan $plan): JsonResponse
-    {
-        $employer = Auth::user()->employer;
-        $provider = $request->input('payment_provider', 'paypal');
-
-        try {
-            $service = SubscriptionServiceFactory::create($provider);
-
-            $eligibility = [
-                'can_subscribe' => true,
-                'can_use_one_time' => $service->canUseOneTimePayment($employer, $plan),
-                'should_use_trial' => $service->shouldUseTrial($employer, $plan),
-                'is_eligible_for_trial' => $employer->isEligibleForTrial(),
-                'has_used_trial' => $employer->has_used_trial,
-                'plan_type' => $plan->payment_type,
-                'plan_has_trial' => $plan->hasTrial(),
-                'requires_trial_first' => false
-            ];
-
-            if ($plan->isOneTime() && !$eligibility['can_use_one_time']) {
-                if ($plan->hasTrial() && !$employer->has_used_trial) {
-                    $eligibility['can_subscribe'] = false;
-                    $eligibility['requires_trial_first'] = true;
-                }
-            }
-
-            return response()->json([
-                'success' => true,
-                'data' => $eligibility
-            ]);
-
-        } catch (Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage()
             ], 500);
         }
     }
@@ -219,62 +153,23 @@ class SubscriptionController extends Controller
         }
 
         try {
-            $service = SubscriptionServiceFactory::create($subscription->payment_method);
-            $success = $service->cancelSubscription($subscription);
+            $success = false;
+
+            if ($subscription->payment_method === 'stripe') {
+                $service = app(StripeSubscriptionService::class);
+                $success = $service->cancelSubscription($subscription->subscription_id);
+            } elseif ($subscription->payment_method === 'paypal') {
+                $service = app(PayPalSubscriptionService::class);
+                $success = $service->cancelSubscription($subscription->subscription_id);
+            }
+
+            if ($success) {
+                $subscription->update(['is_active' => false]);
+            }
 
             return response()->json([
                 'success' => $success,
                 'message' => $success ? 'Subscription cancelled successfully' : 'Failed to cancel subscription'
-            ], $success ? 200 : 500);
-        } catch (Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage()
-            ], 500);
-        }
-    }
-
-    public function suspendSubscription(Request $request, Subscription $subscription): JsonResponse
-    {
-        if ($subscription->employer_id !== Auth::user()->employer->id) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unauthorized'
-            ], 403);
-        }
-
-        try {
-            $service = SubscriptionServiceFactory::create($subscription->payment_method);
-            $success = $service->suspendSubscription($subscription);
-
-            return response()->json([
-                'success' => $success,
-                'message' => $success ? 'Subscription suspended successfully' : 'Failed to suspend subscription'
-            ], $success ? 200 : 500);
-        } catch (Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage()
-            ], 500);
-        }
-    }
-
-    public function reactivateSubscription(Request $request, Subscription $subscription): JsonResponse
-    {
-        if ($subscription->employer_id !== Auth::user()->employer->id) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unauthorized'
-            ], 403);
-        }
-
-        try {
-            $service = SubscriptionServiceFactory::create($subscription->payment_method);
-            $success = $service->reactivateSubscription($subscription);
-
-            return response()->json([
-                'success' => $success,
-                'message' => $success ? 'Subscription reactivated successfully' : 'Failed to reactivate subscription'
             ], $success ? 200 : 500);
         } catch (Exception $e) {
             return response()->json([
@@ -297,7 +192,7 @@ class SubscriptionController extends Controller
 
         try {
             $employer = Auth::user()->employer;
-            $service = SubscriptionServiceFactory::create('paypal');
+            $service = app(PayPalSubscriptionService::class);
 
             $subscription = Subscription::where('subscription_id', $subscriptionId)
                 ->where('employer_id', $employer->id)
@@ -312,11 +207,6 @@ class SubscriptionController extends Controller
             }
 
             $details = $service->getSubscriptionDetails($subscriptionId);
-
-            Log::info('PayPal subscription verification', [
-                'subscription_id' => $subscriptionId,
-                'details' => $details
-            ]);
 
             // Update next billing date if available
             if (!empty($details) && isset($details['next_billing_date'])) {
@@ -366,33 +256,23 @@ class SubscriptionController extends Controller
 
     public function verifyStripeSubscription(Request $request): JsonResponse
     {
-        $subscriptionId = $request->input('subscription_id');
-        $sessionId = $request->input('session_id');
+        $sessionId = $request->input('subscription_id');
 
-        if (!$subscriptionId && !$sessionId) {
+        if (!$sessionId) {
             return response()->json([
                 'success' => false,
-                'message' => 'Subscription ID or Session ID is required'
+                'message' => 'Session ID is required'
             ], 400);
         }
 
         try {
             $employer = Auth::user()->employer;
-            $service = SubscriptionServiceFactory::create('stripe');
+            $service = app(StripeSubscriptionService::class);
 
-            $subscription = null;
-
-            if ($subscriptionId) {
-                $subscription = Subscription::where('id', $subscriptionId)
-                    ->where('employer_id', $employer->id)
-                    ->where('payment_method', 'stripe')
-                    ->first();
-            } elseif ($sessionId) {
-                $subscription = Subscription::where('payment_reference', $sessionId)
-                    ->where('employer_id', $employer->id)
-                    ->where('payment_method', 'stripe')
-                    ->first();
-            }
+            $subscription = Subscription::where('payment_reference', $sessionId)
+                ->where('employer_id', $employer->id)
+                ->where('payment_method', 'stripe')
+                ->first();
 
             if (!$subscription) {
                 return response()->json([
@@ -401,77 +281,54 @@ class SubscriptionController extends Controller
                 ], 404);
             }
 
-            $details = [];
-            $shouldBeActive = false;
-            $stripeStatus = 'unknown';
-            $nextBillingDate = null;
-
-            // Always check subscription details since we're using subscription mode
-            if ($subscription->subscription_id) {
-                $details = $service->getSubscriptionDetails($subscription->subscription_id);
-
-                // Extract next billing date
-                if (isset($details['next_billing_date'])) {
-                    $nextBillingDate = $details['next_billing_date'];
-                    $subscription->next_billing_date = $nextBillingDate;
-                }
-            } elseif ($sessionId) {
-                $sessionDetails = $service->getCheckoutSessionDetails($sessionId);
-
-                if (isset($sessionDetails['subscription']['id'])) {
-                    $subscription->subscription_id = $sessionDetails['subscription']['id'];
-                    $subscription->save();
-                    $details = $service->getSubscriptionDetails($sessionDetails['subscription']['id']);
-
-                    // Extract next billing date
-                    if (isset($details['next_billing_date'])) {
-                        $nextBillingDate = $details['next_billing_date'];
-                        $subscription->next_billing_date = $nextBillingDate;
-                    }
-                } else {
-                    $details = $sessionDetails;
-                }
-            }
-
-            $stripeStatus = $details['status'] ?? 'unknown';
-            if (in_array($stripeStatus, ['active', 'trialing'])) {
-                $shouldBeActive = true;
-            }
-
-            if ($shouldBeActive && !$subscription->is_active) {
-                $subscription->update([
-                    'is_active' => true,
-                    'external_status' => $stripeStatus,
-                    'next_billing_date' => $nextBillingDate
-                ]);
-
+            // Check if subscription is already active
+            if ($subscription->is_active) {
                 return response()->json([
                     'success' => true,
                     'data' => [
-                        'subscription' => $subscription->fresh(),
+                        'subscription' => $subscription,
                         'plan' => $subscription->plan,
                         'next_billing_date' => $subscription->next_billing_date
                     ],
-                    'message' => 'Subscription activated successfully'
+                    'message' => 'Subscription is already active'
                 ]);
             }
 
-            // Save any updates to the subscription
-            $subscription->save();
+            // Get subscription details if we have a subscription ID
+            if ($subscription->subscription_id) {
+                $details = $service->getSubscriptionDetails($subscription->subscription_id);
+
+                if (isset($details['status']) && in_array($details['status'], ['active', 'trialing'])) {
+                    $subscription->update([
+                        'is_active' => true,
+                        'external_status' => $details['status'],
+                        'next_billing_date' => isset($details['next_billing_date']) ? $details['next_billing_date'] : null
+                    ]);
+
+                    return response()->json([
+                        'success' => true,
+                        'data' => [
+                            'subscription' => $subscription->fresh(),
+                            'plan' => $subscription->plan,
+                            'next_billing_date' => $subscription->next_billing_date
+                        ],
+                        'message' => 'Subscription activated successfully'
+                    ]);
+                }
+            }
 
             return response()->json([
                 'success' => true,
                 'data' => [
                     'subscription' => $subscription,
                     'plan' => $subscription->plan,
-                    'stripe_status' => $stripeStatus,
-                    'next_billing_date' => $subscription->next_billing_date
+                    'stripe_status' => $subscription->external_status ?? 'pending'
                 ],
                 'message' => 'Subscription status checked'
             ]);
         } catch (Exception $e) {
             Log::error('Error verifying Stripe subscription', [
-                'subscription_id' => $subscriptionId ?? $sessionId,
+                'session_id' => $sessionId,
                 'error' => $e->getMessage()
             ]);
 
@@ -496,88 +353,10 @@ class SubscriptionController extends Controller
 
         $subscriptions = $query->orderBy('created_at', 'desc')->get();
 
-        // For active subscriptions, try to fetch the latest billing info
-        foreach ($subscriptions as $subscription) {
-            if ($subscription->is_active && $subscription->subscription_id &&
-                in_array($subscription->payment_method, ['stripe', 'paypal'])) {
-                try {
-                    $service = SubscriptionServiceFactory::create($subscription->payment_method);
-                    $details = $service->getSubscriptionDetails($subscription->subscription_id);
-
-                    // Update next billing date if available
-                    if (!empty($details) && isset($details['next_billing_date'])) {
-                        $subscription->next_billing_date = $details['next_billing_date'];
-                        $subscription->save();
-                    }
-                } catch (Exception $e) {
-                    Log::warning('Failed to fetch subscription details', [
-                        'subscription_id' => $subscription->id,
-                        'error' => $e->getMessage()
-                    ]);
-                }
-            }
-        }
-
         return response()->json([
             'success' => true,
             'data' => ['subscriptions' => $subscriptions],
             'message' => 'Subscriptions retrieved successfully'
-        ]);
-    }
-
-    public function paypalSuccess(Request $request): JsonResponse
-    {
-        $subscriptionId = $request->input('subscription_id');
-        $token = $request->input('token');
-
-        Log::info('PayPal success callback', [
-            'subscription_id' => $subscriptionId,
-            'token' => $token,
-            'query' => $request->all()
-        ]);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Payment successful. Please wait while we verify your subscription.'
-        ]);
-    }
-
-    public function paypalCancel(Request $request): JsonResponse
-    {
-        Log::info('PayPal cancel callback', [
-            'query' => $request->all()
-        ]);
-
-        return response()->json([
-            'success' => false,
-            'message' => 'Payment was cancelled.'
-        ]);
-    }
-
-    public function stripeSuccess(Request $request): JsonResponse
-    {
-        $sessionId = $request->input('session_id');
-
-        Log::info('Stripe success callback', [
-            'session_id' => $sessionId,
-            'query' => $request->all()
-        ]);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Payment successful. Please wait while we verify your subscription.'
-        ]);
-    }
-
-    public function stripeCancel(Request $request): JsonResponse
-    {
-        Log::info('Stripe cancel callback', [
-            'query' => $request->all()
-        ]);
-
-        return response()->json([
-            'success' => false,
-            'message' => 'Payment was cancelled.'
         ]);
     }
 }
