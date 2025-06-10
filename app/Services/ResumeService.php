@@ -64,8 +64,7 @@ class ResumeService
         if (!empty($filters['location'])) {
             $location = $filters['location'];
             $query->where(function ($q) use ($location) {
-                $q->whereLike('location', "%{$location}%")
-                    ->orWhereHas('user', function (Builder $q) use ($location) {
+                $q->whereHas('user', function (Builder $q) use ($location) {
                         $q->whereLike('country',  "%{$location}%")
                             ->orWhereLike('state', "%{$location}%")
                             ->orWhereLike('city', "%{$location}%");
