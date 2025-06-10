@@ -401,61 +401,41 @@ class SubscriptionController extends Controller
                 ], 404);
             }
 
-            $isOneTimePayment = $subscription->isOneTime();
             $details = [];
             $shouldBeActive = false;
             $stripeStatus = 'unknown';
             $nextBillingDate = null;
 
-            if ($isOneTimePayment) {
-                if ($subscription->payment_reference) {
-                    $sessionDetails = $service->getCheckoutSessionDetails($subscription->payment_reference);
-                    $details = $sessionDetails;
+            // Always check subscription details since we're using subscription mode
+            if ($subscription->subscription_id) {
+                $details = $service->getSubscriptionDetails($subscription->subscription_id);
 
-                    $sessionStatus = $sessionDetails['status'] ?? '';
-                    $paymentStatus = $sessionDetails['payment_status'] ?? '';
-
-                    if ($sessionStatus === 'complete' && $paymentStatus === 'paid') {
-                        $shouldBeActive = true;
-                        $stripeStatus = 'paid';
-                    }
-
-                    if (isset($sessionDetails['payment_intent'])) {
-                        $paymentIntent = $sessionDetails['payment_intent'];
-                        $subscription->transaction_id = is_array($paymentIntent) ? ($paymentIntent['id'] ?? null) : $paymentIntent;
-                    }
+                // Extract next billing date
+                if (isset($details['next_billing_date'])) {
+                    $nextBillingDate = $details['next_billing_date'];
+                    $subscription->next_billing_date = $nextBillingDate;
                 }
-            } else {
-                if ($subscription->subscription_id) {
-                    $details = $service->getSubscriptionDetails($subscription->subscription_id);
+            } elseif ($sessionId) {
+                $sessionDetails = $service->getCheckoutSessionDetails($sessionId);
+
+                if (isset($sessionDetails['subscription']['id'])) {
+                    $subscription->subscription_id = $sessionDetails['subscription']['id'];
+                    $subscription->save();
+                    $details = $service->getSubscriptionDetails($sessionDetails['subscription']['id']);
 
                     // Extract next billing date
                     if (isset($details['next_billing_date'])) {
                         $nextBillingDate = $details['next_billing_date'];
                         $subscription->next_billing_date = $nextBillingDate;
                     }
-                } elseif ($sessionId) {
-                    $sessionDetails = $service->getCheckoutSessionDetails($sessionId);
-
-                    if (isset($sessionDetails['subscription']['id'])) {
-                        $subscription->subscription_id = $sessionDetails['subscription']['id'];
-                        $subscription->save();
-                        $details = $service->getSubscriptionDetails($sessionDetails['subscription']['id']);
-
-                        // Extract next billing date
-                        if (isset($details['next_billing_date'])) {
-                            $nextBillingDate = $details['next_billing_date'];
-                            $subscription->next_billing_date = $nextBillingDate;
-                        }
-                    } else {
-                        $details = $sessionDetails;
-                    }
+                } else {
+                    $details = $sessionDetails;
                 }
+            }
 
-                $stripeStatus = $details['status'] ?? 'unknown';
-                if (in_array($stripeStatus, ['active', 'trialing'])) {
-                    $shouldBeActive = true;
-                }
+            $stripeStatus = $details['status'] ?? 'unknown';
+            if (in_array($stripeStatus, ['active', 'trialing'])) {
+                $shouldBeActive = true;
             }
 
             if ($shouldBeActive && !$subscription->is_active) {
@@ -485,7 +465,6 @@ class SubscriptionController extends Controller
                     'subscription' => $subscription,
                     'plan' => $subscription->plan,
                     'stripe_status' => $stripeStatus,
-                    'is_one_time' => $isOneTimePayment,
                     'next_billing_date' => $subscription->next_billing_date
                 ],
                 'message' => 'Subscription status checked'

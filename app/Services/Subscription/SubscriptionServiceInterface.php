@@ -34,14 +34,9 @@ interface SubscriptionServiceInterface
     public function getPlanDetails(string $externalPlanId): array;
 
     /**
-     * Create a subscription for an employer
+     * Create a subscription for an employer (handles both one-time and recurring)
      */
     public function createSubscription(Employer $employer, SubscriptionPlan $plan, array $paymentData = []): array;
-
-    /**
-     * Create a one-time payment order
-     */
-    public function createOneTimeOrder(Employer $employer, SubscriptionPlan $plan, array $paymentData = []): array;
 
     /**
      * Cancel a subscription

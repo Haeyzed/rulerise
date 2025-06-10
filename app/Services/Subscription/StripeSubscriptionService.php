@@ -73,7 +73,16 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
                 'metadata' => ['plan_id' => $plan->id],
             ];
 
-            if ($plan->isRecurring()) {
+            if ($plan->isOneTime()) {
+                // For one-time payments, create a recurring price with interval_count = 999999
+                // This effectively makes it a one-time payment since it won't recur
+                $priceData['recurring'] = [
+                    'interval' => 'year',
+                    'interval_count' => 1,
+                    'usage_type' => 'licensed',
+                ];
+            } else {
+                // For recurring payments, use the plan's interval settings
                 $priceData['recurring'] = [
                     'interval' => $this->getStripeInterval($plan->interval_unit),
                     'interval_count' => $plan->interval_count,
@@ -120,26 +129,6 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
 
     public function createSubscription(Employer $employer, SubscriptionPlan $plan, array $paymentData = []): array
     {
-        if ($plan->isOneTime()) {
-            if (!$this->canUseOneTimePayment($employer, $plan)) {
-                throw new \Exception('One-time payments require trial period to be used first');
-            }
-            return $this->createOneTimeOrder($employer, $plan, $paymentData);
-        }
-
-        return $this->createRecurringSubscription($employer, $plan, $paymentData);
-    }
-
-    public function createOneTimeOrder(Employer $employer, SubscriptionPlan $plan, array $paymentData = []): array
-    {
-        if (!$plan->isOneTime()) {
-            throw new \Exception('This method is only for one-time payment plans');
-        }
-
-        if (!$this->canUseOneTimePayment($employer, $plan)) {
-            throw new \Exception('Employer must use trial period before one-time payments');
-        }
-
         try {
             $externalPlanId = $plan->external_stripe_id ?? $this->createPlan($plan);
 
@@ -158,98 +147,20 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
                         'quantity' => 1,
                     ],
                 ],
-                'mode' => 'payment',
+                'mode' => 'subscription', // Always use subscription mode
                 'success_url' => config('app.frontend_url') . '/employer/dashboard?session_id={CHECKOUT_SESSION_ID}',
                 'cancel_url' => config('app.frontend_url') . '/employer/dashboard?session_id={CHECKOUT_SESSION_ID}',
                 'client_reference_id' => $employer->id,
                 'metadata' => [
                     'employer_id' => $employer->id,
                     'plan_id' => $plan->id,
-                    'payment_type' => 'one_time',
+                    'payment_type' => $plan->payment_type,
                 ],
                 'billing_address_collection' => 'auto',
             ];
 
-            $session = $this->stripe->checkout->sessions->create($sessionParams);
-
-            $subscription = Subscription::create([
-                'employer_id' => $employer->id,
-                'subscription_plan_id' => $plan->id,
-                'start_date' => Carbon::now(),
-                'end_date' => null, // One-time payments don't expire
-                'amount_paid' => $plan->price,
-                'currency' => $plan->currency,
-                'payment_method' => 'stripe',
-                'subscription_id' => null, // One-time payments don't have subscription IDs
-                'payment_reference' => $session->id,
-                'transaction_id' => $session->payment_intent ?? null,
-                'job_posts_left' => $plan->job_posts_limit,
-                'featured_jobs_left' => $plan->featured_jobs_limit,
-                'cv_downloads_left' => $plan->resume_views_limit,
-                'payment_type' => $plan->payment_type,
-                'is_active' => false,
-                'used_trial' => false,
-                'external_status' => $session->status,
-            ]);
-
-            return [
-                'subscription_id' => $subscription->id,
-                'external_subscription_id' => $session->id,
-                'redirect_url' => $session->url,
-                'status' => $session->status,
-                'payment_type' => 'one_time'
-            ];
-        } catch (ApiErrorException $e) {
-            Log::error('Stripe create one-time order error', [
-                'employer' => $employer->id,
-                'plan' => $plan->toArray(),
-                'error' => $e->getMessage(),
-                'error_code' => $e->getStripeCode(),
-            ]);
-
-            $errorMessage = match ($e->getStripeCode()) {
-                'tax_calculation_failed' => 'Tax calculation failed. Please contact support.',
-                'invalid_request_error' => 'Invalid request. Please check your configuration.',
-                default => 'Failed to create Stripe one-time payment: ' . $e->getMessage()
-            };
-
-            throw new \Exception($errorMessage);
-        }
-    }
-
-    protected function createRecurringSubscription(Employer $employer, SubscriptionPlan $plan, array $paymentData = []): array
-    {
-        try {
-            $externalPlanId = $plan->external_stripe_id ?? $this->createPlan($plan);
-
-            if (!$plan->external_stripe_id) {
-                $plan->update(['external_stripe_id' => $externalPlanId]);
-            }
-
-            $customerId = $this->getOrCreateCustomer($employer);
-
-            $sessionParams = [
-                'customer' => $customerId,
-                'payment_method_types' => ['card'],
-                'line_items' => [
-                    [
-                        'price' => $externalPlanId,
-                        'quantity' => 1,
-                    ],
-                ],
-                'mode' => 'subscription',
-                'success_url' => config('app.frontend_url') . '/employer/dashboard?session_id={CHECKOUT_SESSION_ID}',
-                'cancel_url' => config('app.frontend_url') . '/employer/dashboard?session_id={CHECKOUT_SESSION_ID}',
-                'client_reference_id' => $employer->id,
-                'metadata' => [
-                    'employer_id' => $employer->id,
-                    'plan_id' => $plan->id,
-                    'payment_type' => 'recurring',
-                ],
-                'billing_address_collection' => 'auto',
-            ];
-
-            if ($this->shouldUseTrial($employer, $plan)) {
+            // Add trial period for recurring subscriptions if applicable
+            if ($plan->isRecurring() && $this->shouldUseTrial($employer, $plan)) {
                 $sessionParams['subscription_data'] = [
                     'trial_period_days' => $plan->getTrialPeriodDays(),
                 ];
@@ -259,18 +170,19 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
                     'plan_id' => $plan->id,
                     'trial_days' => $plan->getTrialPeriodDays()
                 ]);
-            } else {
-                Log::info('Creating Stripe subscription without trial', [
-                    'employer_id' => $employer->id,
-                    'plan_id' => $plan->id,
-                    'has_used_trial' => $employer->has_used_trial
-                ]);
             }
+
+            Log::info('Creating Stripe subscription', [
+                'employer_id' => $employer->id,
+                'plan_id' => $plan->id,
+                'plan_type' => $plan->payment_type,
+                'needs_trial' => $this->shouldUseTrial($employer, $plan)
+            ]);
 
             $session = $this->stripe->checkout->sessions->create($sessionParams);
 
             $endDate = null;
-            if ($plan->duration_days) {
+            if ($plan->isRecurring() && $plan->duration_days) {
                 $endDate = Carbon::now()->addDays($plan->duration_days);
                 if ($this->shouldUseTrial($employer, $plan)) {
                     $endDate->addDays($plan->getTrialPeriodDays());
@@ -287,7 +199,7 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
                 'payment_method' => 'stripe',
                 'subscription_id' => $session->subscription ?? null,
                 'payment_reference' => $session->id,
-                'transaction_id' => null, // Will be updated when payment is processed
+                'transaction_id' => null,
                 'job_posts_left' => $plan->job_posts_limit,
                 'featured_jobs_left' => $plan->featured_jobs_limit,
                 'cv_downloads_left' => $plan->resume_views_limit,
@@ -306,10 +218,10 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
                 'external_subscription_id' => $session->id,
                 'redirect_url' => $session->url,
                 'status' => $session->status,
-                'payment_type' => 'recurring'
+                'payment_type' => $plan->payment_type
             ];
         } catch (ApiErrorException $e) {
-            Log::error('Stripe create recurring subscription error', [
+            Log::error('Stripe create subscription error', [
                 'employer' => $employer->id,
                 'plan' => $plan->toArray(),
                 'error' => $e->getMessage(),
@@ -697,51 +609,48 @@ class StripeSubscriptionService implements SubscriptionServiceInterface
             $subscription->transaction_id = $paymentIntentId;
         }
 
-        // For one-time payments, activate immediately when payment is successful
-        if ($mode === 'payment' && $paymentStatus === 'paid') {
-            $subscription->is_active = true;
-            $subscription->external_status = 'paid';
+        // Since we're always using subscription mode, handle activation via subscription events
+        if ($mode === 'subscription' && $subscriptionId) {
+            try {
+                $stripeSubscription = $this->stripe->subscriptions->retrieve($subscriptionId);
 
-            // Send notification
-            $this->sendActivationNotification($subscription);
+                // If subscription is already active or trialing, activate it
+                if (in_array($stripeSubscription->status, ['active', 'trialing'])) {
+                    $subscription->is_active = true;
+                    $subscription->external_status = $stripeSubscription->status;
 
-            Log::info('One-time Stripe payment activated', [
-                'subscription_id' => $subscription->id,
-                'session_id' => $sessionId
-            ]);
-        }
-        // For recurring subscriptions, they will be activated via subscription events
-        else if ($mode === 'subscription') {
-            // If we have a subscription ID, get the subscription details to check status
-            if ($subscriptionId) {
-                try {
-                    $stripeSubscription = $this->stripe->subscriptions->retrieve($subscriptionId);
+                    // Extract next billing date
+                    if (isset($stripeSubscription->current_period_end)) {
+                        $subscription->next_billing_date = Carbon::createFromTimestamp($stripeSubscription->current_period_end);
+                    }
 
-                    // If subscription is already active or trialing, activate it
-                    if (in_array($stripeSubscription->status, ['active', 'trialing'])) {
-                        $subscription->is_active = true;
-                        $subscription->external_status = $stripeSubscription->status;
+                    // For one-time payments, cancel the subscription after the first payment
+                    if ($subscription->plan->isOneTime() && $stripeSubscription->status === 'active') {
+                        $this->stripe->subscriptions->update($subscriptionId, [
+                            'cancel_at_period_end' => true
+                        ]);
 
-                        // Extract next billing date
-                        if (isset($stripeSubscription->current_period_end)) {
-                            $subscription->next_billing_date = Carbon::createFromTimestamp($stripeSubscription->current_period_end);
-                        }
-
-                        // Send notification
-                        $this->sendActivationNotification($subscription);
-
-                        Log::info('Stripe subscription activated via checkout completion', [
+                        Log::info('One-time Stripe subscription set to cancel after period', [
                             'subscription_id' => $subscription->id,
-                            'stripe_subscription_id' => $subscriptionId,
-                            'status' => $stripeSubscription->status
+                            'stripe_subscription_id' => $subscriptionId
                         ]);
                     }
-                } catch (ApiErrorException $e) {
-                    Log::error('Error retrieving Stripe subscription', [
-                        'subscription_id' => $subscriptionId,
-                        'error' => $e->getMessage()
+
+                    // Send notification
+                    $this->sendActivationNotification($subscription);
+
+                    Log::info('Stripe subscription activated via checkout completion', [
+                        'subscription_id' => $subscription->id,
+                        'stripe_subscription_id' => $subscriptionId,
+                        'status' => $stripeSubscription->status,
+                        'is_one_time' => $subscription->plan->isOneTime()
                     ]);
                 }
+            } catch (ApiErrorException $e) {
+                Log::error('Error retrieving Stripe subscription', [
+                    'subscription_id' => $subscriptionId,
+                    'error' => $e->getMessage()
+                ]);
             }
         }
 
