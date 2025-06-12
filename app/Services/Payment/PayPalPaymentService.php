@@ -44,6 +44,81 @@ class PayPalPaymentService
     }
 
     /**
+     * Create PayPal product (required before creating plan)
+     */
+    public function createProduct(Plan $plan): string
+    {
+        $response = Http::withToken($this->getAccessToken())
+            ->post($this->baseUrl . '/v1/catalogs/products', [
+                'name' => $plan->name,
+                'description' => $plan->description ?? $plan->name,
+                'type' => 'SERVICE',
+                'category' => 'SOFTWARE',
+            ]);
+
+        if (!$response->successful()) {
+            Log::error('PayPal create product error', [
+                'plan' => $plan->toArray(),
+                'response' => $response->json()
+            ]);
+            throw new \Exception('Failed to create PayPal product');
+        }
+
+        return $response->json('id');
+    }
+
+    /**
+     * Create PayPal billing plan
+     */
+    public function createPlan(Plan $plan): string
+    {
+        $productId = $this->createProduct($plan);
+
+        $billingCycles = [];
+
+        // Add regular billing cycle
+        $billingCycles[] = [
+            'frequency' => [
+                'interval_unit' => $plan->billing_cycle === 'yearly' ? 'YEAR' : 'MONTH',
+                'interval_count' => 1
+            ],
+            'tenure_type' => 'REGULAR',
+            'sequence' => 1,
+            'total_cycles' => 0, // Infinite
+            'pricing_scheme' => [
+                'fixed_price' => [
+                    'value' => (string)$plan->price,
+                    'currency_code' => $plan->currency
+                ]
+            ]
+        ];
+
+        $response = Http::withToken($this->getAccessToken())
+            ->post($this->baseUrl . '/v1/billing/plans', [
+                'product_id' => $productId,
+                'name' => $plan->name,
+                'description' => $plan->description ?? $plan->name,
+                'status' => 'ACTIVE',
+                'billing_cycles' => $billingCycles,
+                'payment_preferences' => [
+                    'auto_bill_outstanding' => true,
+                    'setup_fee_failure_action' => 'CONTINUE',
+                    'payment_failure_threshold' => 3
+                ]
+            ]);
+
+        if (!$response->successful()) {
+            Log::error('PayPal create plan error', [
+                'plan' => $plan->toArray(),
+                'response' => $response->json()
+            ]);
+            throw new \Exception('Failed to create PayPal plan');
+        }
+
+        return $response->json('id');
+    }
+
+    /**
      * Create one-time payment
      */
     public function createOneTimePayment(Employer $employer, Plan $plan): array
@@ -126,8 +201,11 @@ class PayPalPaymentService
     public function createSubscription(Employer $employer, Plan $plan): array
     {
         try {
+            // Create or get existing plan
+            $externalPlanId = $plan->paypal_plan_id ?? $this->createPlan($plan);
+
             if (!$plan->paypal_plan_id) {
-                throw new \Exception('Plan does not have PayPal plan ID configured');
+                $plan->update(['paypal_plan_id' => $externalPlanId]);
             }
 
             $accessToken = $this->getAccessToken();
@@ -231,6 +309,70 @@ class PayPalPaymentService
     }
 
     /**
+     * Suspend subscription
+     */
+    public function suspendSubscription(Subscription $subscription): bool
+    {
+        try {
+            $accessToken = $this->getAccessToken();
+
+            $response = Http::withToken($accessToken)
+                ->post($this->baseUrl . "/v1/billing/subscriptions/{$subscription->subscription_id}/suspend", [
+                    'reason' => 'User requested suspension'
+                ]);
+
+            if ($response->successful()) {
+                $subscription->update([
+                    'status' => 'suspended',
+                    'is_active' => false,
+                ]);
+                return true;
+            }
+
+            return false;
+        } catch (\Exception $e) {
+            Log::error('Failed to suspend PayPal subscription', [
+                'subscription_id' => $subscription->subscription_id,
+                'error' => $e->getMessage()
+            ]);
+
+            return false;
+        }
+    }
+
+    /**
+     * Resume subscription
+     */
+    public function resumeSubscription(Subscription $subscription): bool
+    {
+        try {
+            $accessToken = $this->getAccessToken();
+
+            $response = Http::withToken($accessToken)
+                ->post($this->baseUrl . "/v1/billing/subscriptions/{$subscription->subscription_id}/activate", [
+                    'reason' => 'User requested reactivation'
+                ]);
+
+            if ($response->successful()) {
+                $subscription->update([
+                    'status' => 'active',
+                    'is_active' => true,
+                ]);
+                return true;
+            }
+
+            return false;
+        } catch (\Exception $e) {
+            Log::error('Failed to resume PayPal subscription', [
+                'subscription_id' => $subscription->subscription_id,
+                'error' => $e->getMessage()
+            ]);
+
+            return false;
+        }
+    }
+
+    /**
      * Capture one-time payment
      */
     public function capturePayment(string $orderId): array
@@ -290,6 +432,10 @@ class PayPalPaymentService
                     $this->handleSubscriptionCancelled($event['resource']);
                     break;
 
+                case 'BILLING.SUBSCRIPTION.SUSPENDED':
+                    $this->handleSubscriptionSuspended($event['resource']);
+                    break;
+
                 case 'PAYMENT.SALE.COMPLETED':
                     $this->handlePaymentCompleted($event['resource']);
                     break;
@@ -322,6 +468,19 @@ class PayPalPaymentService
 
         if ($subscriptionRecord) {
             $subscriptionRecord->cancel();
+        }
+    }
+
+    private function handleSubscriptionSuspended(array $subscription): void
+    {
+        $subscriptionRecord = Subscription::where('subscription_id', $subscription['id'])->first();
+
+        if ($subscriptionRecord) {
+            $subscriptionRecord->update([
+                'status' => 'suspended',
+                'is_active' => false,
+                'metadata' => $subscription,
+            ]);
         }
     }
 

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Employer\CreatePaymentRequest;
 use App\Http\Requests\Employer\CreateSubscriptionRequest;
 use App\Models\Plan;
+use App\Models\Subscription;
 use App\Services\Payment\PayPalPaymentService;
 use App\Services\Payment\StripePaymentService;
 use Illuminate\Http\JsonResponse;
@@ -139,6 +140,79 @@ class PaymentController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Subscription cancelled successfully'
+        ]);
+    }
+
+    /**
+     * Suspend subscription
+     */
+    public function suspendSubscription(Request $request): JsonResponse
+    {
+        $employer = Auth::user()->employer;
+        $subscription = $employer->activeSubscription()->first();
+
+        if (!$subscription) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No active subscription found'
+            ], 404);
+        }
+
+        $success = match ($subscription->payment_provider) {
+            'stripe' => $this->stripeService->suspendSubscription($subscription),
+            'paypal' => $this->paypalService->suspendSubscription($subscription),
+            default => false
+        };
+
+        if (!$success) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to suspend subscription'
+            ], 400);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Subscription suspended successfully'
+        ]);
+    }
+
+    /**
+     * Resume subscription
+     */
+    public function resumeSubscription(Request $request): JsonResponse
+    {
+        $employer = Auth::user()->employer;
+        $subscriptionId = $request->input('subscription_id');
+
+        $subscription = $employer->subscriptions()
+            ->where('id', $subscriptionId)
+            ->where('status', 'suspended')
+            ->first();
+
+        if (!$subscription) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No suspended subscription found'
+            ], 404);
+        }
+
+        $success = match ($subscription->payment_provider) {
+            'stripe' => $this->stripeService->resumeSubscription($subscription),
+            'paypal' => $this->paypalService->resumeSubscription($subscription),
+            default => false
+        };
+
+        if (!$success) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to resume subscription'
+            ], 400);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Subscription resumed successfully'
         ]);
     }
 

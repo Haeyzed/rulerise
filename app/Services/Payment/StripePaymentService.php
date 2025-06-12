@@ -213,6 +213,69 @@ class StripePaymentService
     }
 
     /**
+     * Suspend subscription
+     */
+    public function suspendSubscription(Subscription $subscription): bool
+    {
+        try {
+            // Stripe doesn't have a direct "suspend" action, so we pause the billing
+            $this->stripe->subscriptions->update($subscription->subscription_id, [
+                'pause_collection' => [
+                    'behavior' => 'void',
+                ],
+                'metadata' => array_merge($subscription->metadata ?? [], [
+                    'suspended_at' => now()->toIso8601String(),
+                    'suspended_reason' => 'User requested suspension',
+                ]),
+            ]);
+
+            $subscription->update([
+                'status' => 'suspended',
+                'is_active' => false,
+            ]);
+
+            return true;
+        } catch (ApiErrorException $e) {
+            Log::error('Failed to suspend Stripe subscription', [
+                'subscription_id' => $subscription->subscription_id,
+                'error' => $e->getMessage()
+            ]);
+
+            return false;
+        }
+    }
+
+    /**
+     * Resume subscription
+     */
+    public function resumeSubscription(Subscription $subscription): bool
+    {
+        try {
+            // Resume the subscription by removing the pause_collection
+            $this->stripe->subscriptions->update($subscription->subscription_id, [
+                'pause_collection' => '',
+                'metadata' => array_merge($subscription->metadata ?? [], [
+                    'resumed_at' => now()->toIso8601String(),
+                ]),
+            ]);
+
+            $subscription->update([
+                'status' => 'active',
+                'is_active' => true,
+            ]);
+
+            return true;
+        } catch (ApiErrorException $e) {
+            Log::error('Failed to resume Stripe subscription', [
+                'subscription_id' => $subscription->subscription_id,
+                'error' => $e->getMessage()
+            ]);
+
+            return false;
+        }
+    }
+
+    /**
      * Handle webhook events
      */
     public function handleWebhook(array $event): void
