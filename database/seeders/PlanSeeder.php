@@ -33,6 +33,8 @@ class PlanSeeder extends Seeder
                 ],
                 'is_active' => true,
                 'is_popular' => false,
+                'trial_days' => 7,
+                'has_trial' => true,
             ],
             [
                 'name' => 'Professional',
@@ -56,6 +58,8 @@ class PlanSeeder extends Seeder
                 ],
                 'is_active' => true,
                 'is_popular' => true,
+                'trial_days' => 14,
+                'has_trial' => true,
             ],
             [
                 'name' => 'Enterprise',
@@ -80,6 +84,8 @@ class PlanSeeder extends Seeder
                 ],
                 'is_active' => true,
                 'is_popular' => false,
+                'trial_days' => 30,
+                'has_trial' => true,
             ],
             [
                 'name' => 'Single Job Post',
@@ -101,6 +107,8 @@ class PlanSeeder extends Seeder
                 ],
                 'is_active' => true,
                 'is_popular' => false,
+                'trial_days' => 0,
+                'has_trial' => false,
             ],
         ];
 
