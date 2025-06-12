@@ -3,7 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Employer;
-use App\Models\Subscription;
+use App\Models\OldSubscription;
 use App\Models\SubscriptionPlan;
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
@@ -17,11 +17,11 @@ class SubscriptionSeeder extends Seeder
     public function run(): void
     {
         // Clear existing subscriptions if needed
-        Subscription::query()->delete();
+        OldSubscription::query()->delete();
 
         // Get all employers
         $employers = Employer::all();
-        
+
         if ($employers->isEmpty()) {
             $this->command->info('No employers found. Please run EmployerSeeder first.');
             return;
@@ -29,7 +29,7 @@ class SubscriptionSeeder extends Seeder
 
         // Get all subscription plans
         $plans = SubscriptionPlan::all();
-        
+
         if ($plans->isEmpty()) {
             $this->command->info('No subscription plans found. Please run SubscriptionPlanSeeder first.');
             return;
@@ -42,12 +42,12 @@ class SubscriptionSeeder extends Seeder
         foreach ($employers as $index => $employer) {
             // Assign different plans to different employers
             $plan = $plans[$index % count($plans)];
-            
+
             // Create an active subscription
             $startDate = Carbon::now()->subDays(rand(1, 30));
             $endDate = $startDate->copy()->addDays($plan->duration_days);
-            
-            Subscription::create([
+
+            OldSubscription::create([
                 'employer_id' => $employer->id,
                 'subscription_plan_id' => $plan->id,
                 'start_date' => $startDate,
@@ -64,16 +64,16 @@ class SubscriptionSeeder extends Seeder
                 'cv_downloads_left' => $plan->resume_views_limit,
                 'is_active' => true,
             ]);
-            
+
             // For some employers, also create expired subscriptions
             if ($index % 3 == 0) {
                 $oldStartDate = Carbon::now()->subDays(rand(60, 120));
                 $oldEndDate = $oldStartDate->copy()->addDays($plan->duration_days);
-                
+
                 // Get a different plan for the expired subscription
                 $oldPlan = $plans[($index + 1) % count($plans)];
-                
-                Subscription::create([
+
+                OldSubscription::create([
                     'employer_id' => $employer->id,
                     'subscription_plan_id' => $oldPlan->id,
                     'start_date' => $oldStartDate,
@@ -91,16 +91,16 @@ class SubscriptionSeeder extends Seeder
                     'is_active' => false,
                 ]);
             }
-            
+
             // For some employers, create cancelled subscriptions
             if ($index % 5 == 0) {
                 $cancelledStartDate = Carbon::now()->subDays(rand(15, 45));
                 $cancelledEndDate = $cancelledStartDate->copy()->addDays($plan->duration_days);
-                
+
                 // Get a different plan for the cancelled subscription
                 $cancelledPlan = $plans[($index + 2) % count($plans)];
-                
-                Subscription::create([
+
+                OldSubscription::create([
                     'employer_id' => $employer->id,
                     'subscription_plan_id' => $cancelledPlan->id,
                     'start_date' => $cancelledStartDate,
@@ -119,21 +119,21 @@ class SubscriptionSeeder extends Seeder
                 ]);
             }
         }
-        
+
         // Create a few free trial subscriptions
         $freePlan = SubscriptionPlan::where('name', 'Free Trial')->first();
-        
+
         if ($freePlan) {
             // Get 3 random employers who don't have active subscriptions
             $employersWithoutSubs = Employer::whereDoesntHave('subscriptions', function ($query) {
                 $query->where('is_active', true);
             })->inRandomOrder()->take(3)->get();
-            
+
             foreach ($employersWithoutSubs as $employer) {
                 $startDate = Carbon::now()->subDays(rand(1, 5));
                 $endDate = $startDate->copy()->addDays($freePlan->duration_days);
-                
-                Subscription::create([
+
+                OldSubscription::create([
                     'employer_id' => $employer->id,
                     'subscription_plan_id' => $freePlan->id,
                     'start_date' => $startDate,
@@ -152,7 +152,7 @@ class SubscriptionSeeder extends Seeder
                 ]);
             }
         }
-        
+
         $this->command->info('Subscriptions seeded successfully!');
     }
 }

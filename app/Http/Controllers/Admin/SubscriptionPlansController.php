@@ -71,7 +71,7 @@ class SubscriptionPlansController extends Controller implements HasMiddleware
 
             $plans = SubscriptionPlan::all();
 
-            return response()->success($plans, 'Subscription Plans retrieved successfully.');
+            return response()->success($plans, 'OldSubscription Plans retrieved successfully.');
         } catch (Exception $e) {
             return response()->serverError($e->getMessage());
         }
@@ -96,7 +96,7 @@ class SubscriptionPlansController extends Controller implements HasMiddleware
 
             $plan = $this->adminService->createSubscriptionPlan($data);
 
-            return response()->created($plan, 'Subscription plan created successfully');
+            return response()->created($plan, 'OldSubscription plan created successfully');
         } catch (Exception $e) {
             return response()->serverError($e->getMessage());
         }
@@ -119,7 +119,7 @@ class SubscriptionPlansController extends Controller implements HasMiddleware
 
             $plan = SubscriptionPlan::query()->findOrFail($id);
 
-            return response()->success($plan, 'Subscription plan retrieved successfully');
+            return response()->success($plan, 'OldSubscription plan retrieved successfully');
         } catch (Exception $e) {
             return response()->serverError($e->getMessage());
         }
@@ -142,7 +142,7 @@ class SubscriptionPlansController extends Controller implements HasMiddleware
 
             $plan = SubscriptionPlan::query()->findOrFail($id);
             $plan = $this->adminService->updateSubscriptionPlan($plan, $request->validated());
-            return response()->success($plan, 'Subscription plan updated successfully');
+            return response()->success($plan, 'OldSubscription plan updated successfully');
         } catch (Exception $e) {
             return response()->serverError($e->getMessage());
         }
@@ -166,7 +166,7 @@ class SubscriptionPlansController extends Controller implements HasMiddleware
             $plan = SubscriptionPlan::query()->findOrFail($id);
             $plan->delete();
 
-            return response()->success(null, 'Subscription plan deleted successfully');
+            return response()->success(null, 'OldSubscription plan deleted successfully');
         } catch (Exception $e) {
             return response()->serverError($e->getMessage());
         }
@@ -196,7 +196,7 @@ class SubscriptionPlansController extends Controller implements HasMiddleware
 
             $status = $isActive ? 'activated' : 'deactivated';
 
-            return response()->success($plan,"Subscription plan {$status} successfully");
+            return response()->success($plan,"OldSubscription plan {$status} successfully");
         } catch (Exception $e) {
             return response()->serverError($e->getMessage());
         }

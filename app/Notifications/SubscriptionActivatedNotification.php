@@ -2,7 +2,7 @@
 
 namespace App\Notifications;
 
-use App\Models\Subscription;
+use App\Models\OldSubscription;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -13,14 +13,14 @@ class SubscriptionActivatedNotification extends Notification// implements Should
 {
     use Queueable;
 
-    protected Subscription $subscription;
+    protected OldSubscription $subscription;
 
     /**
      * Create a new notification instance.
      *
-     * @param Subscription $subscription
+     * @param OldSubscription $subscription
      */
-    public function __construct(Subscription $subscription)
+    public function __construct(OldSubscription $subscription)
     {
         $this->subscription = $subscription;
     }
@@ -45,7 +45,7 @@ class SubscriptionActivatedNotification extends Notification// implements Should
         $user = $employer->user;
 
         return (new MailMessage)
-            ->subject('Subscription Activated: ' . $plan->name)
+            ->subject('OldSubscription Activated: ' . $plan->name)
             ->markdown('emails.subscriptions.activated', [
                 'subscription' => $this->subscription,
                 'plan' => $plan,

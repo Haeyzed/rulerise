@@ -3,7 +3,7 @@
 namespace App\Services\Subscription;
 
 use App\Models\Employer;
-use App\Models\Subscription;
+use App\Models\OldSubscription;
 use App\Models\SubscriptionPlan;
 use App\Notifications\SubscriptionActivatedNotification;
 use Carbon\Carbon;
@@ -156,7 +156,7 @@ class StripeSubscriptionService
                 }
             }
 
-            $subscription = Subscription::create([
+            $subscription = OldSubscription::create([
                 'employer_id' => $employer->id,
                 'subscription_plan_id' => $plan->id,
                 'start_date' => Carbon::now(),
@@ -344,7 +344,7 @@ class StripeSubscriptionService
         $sessionId = $data['id'] ?? '';
         $subscriptionId = $data['subscription'] ?? null;
 
-        $subscription = Subscription::where('payment_reference', $sessionId)
+        $subscription = OldSubscription::where('payment_reference', $sessionId)
             ->where('payment_method', 'stripe')
             ->first();
 
@@ -388,12 +388,12 @@ class StripeSubscriptionService
             return false;
         }
 
-        $subscription = Subscription::where('subscription_id', $subscriptionId)
+        $subscription = OldSubscription::where('subscription_id', $subscriptionId)
             ->where('payment_method', 'stripe')
             ->first();
 
         if (!$subscription) {
-            $subscription = Subscription::where('employer_id', $employer->id)
+            $subscription = OldSubscription::where('employer_id', $employer->id)
                 ->where('payment_method', 'stripe')
                 ->whereNull('subscription_id')
                 ->latest()
@@ -428,7 +428,7 @@ class StripeSubscriptionService
         $subscriptionId = $data['id'] ?? '';
         $status = $data['status'] ?? '';
 
-        $subscription = Subscription::where('subscription_id', $subscriptionId)
+        $subscription = OldSubscription::where('subscription_id', $subscriptionId)
             ->where('payment_method', 'stripe')
             ->first();
 
@@ -487,7 +487,7 @@ class StripeSubscriptionService
     {
         $subscriptionId = $data['id'] ?? '';
 
-        $subscription = Subscription::where('subscription_id', $subscriptionId)
+        $subscription = OldSubscription::where('subscription_id', $subscriptionId)
             ->where('payment_method', 'stripe')
             ->first();
 
@@ -513,7 +513,7 @@ class StripeSubscriptionService
             return true;
         }
 
-        $subscription = Subscription::where('subscription_id', $subscriptionId)
+        $subscription = OldSubscription::where('subscription_id', $subscriptionId)
             ->where('payment_method', 'stripe')
             ->first();
 
@@ -551,7 +551,7 @@ class StripeSubscriptionService
             return true;
         }
 
-        $subscription = Subscription::where('subscription_id', $subscriptionId)
+        $subscription = OldSubscription::where('subscription_id', $subscriptionId)
             ->where('payment_method', 'stripe')
             ->first();
 
@@ -568,7 +568,7 @@ class StripeSubscriptionService
         return true;
     }
 
-    private function sendActivationNotification(Subscription $subscription): void
+    private function sendActivationNotification(OldSubscription $subscription): void
     {
         try {
             $employer = $subscription->employer;

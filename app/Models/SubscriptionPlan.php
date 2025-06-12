@@ -39,7 +39,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  *
- * @property-read \Illuminate\Database\Eloquent\Collection|\App\Models\Subscription[] $subscriptions
+ * @property-read \Illuminate\Database\Eloquent\Collection|\App\Models\OldSubscription[] $subscriptions
  */
 class SubscriptionPlan extends Model
 {
@@ -124,7 +124,7 @@ class SubscriptionPlan extends Model
      */
     public function subscriptions(): HasMany
     {
-        return $this->hasMany(Subscription::class, 'subscription_plan_id');
+        return $this->hasMany(OldSubscription::class, 'subscription_plan_id');
     }
 
     /**
@@ -166,55 +166,6 @@ class SubscriptionPlan extends Model
     {
         return $this->hasTrial() ? $this->trial_period_days : 0;
     }
-
-    /**
-     * Get PayPal billing cycles configuration
-     *
-     * @return array
-     */
-    public function getPayPalBillingCycles(): array
-    {
-        $billingCycles = [];
-
-        // Add trial period if enabled
-        if ($this->hasTrial()) {
-            $billingCycles[] = [
-                'frequency' => [
-                    'interval_unit' => 'DAY',
-                    'interval_count' => $this->trial_period_days
-                ],
-                'tenure_type' => 'TRIAL',
-                'sequence' => 1,
-                'total_cycles' => 1,
-                'pricing_scheme' => [
-                    'fixed_price' => [
-                        'value' => '0',
-                        'currency_code' => strtoupper($this->currency)
-                    ]
-                ]
-            ];
-        }
-
-        // Add regular billing cycle
-        $billingCycles[] = [
-            'frequency' => [
-                'interval_unit' => $this->interval_unit,
-                'interval_count' => $this->interval_count
-            ],
-            'tenure_type' => 'REGULAR',
-            'sequence' => $this->hasTrial() ? 2 : 1,
-            'total_cycles' => $this->isOneTime() ? 1 : $this->total_cycles,
-            'pricing_scheme' => [
-                'fixed_price' => [
-                    'value' => (string) $this->price,
-                    'currency_code' => strtoupper($this->currency)
-                ]
-            ]
-        ];
-
-        return $billingCycles;
-    }
-
     /**
      * Get formatted price with currency.
      *

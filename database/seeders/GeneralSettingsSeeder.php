@@ -36,7 +36,7 @@ class GeneralSettingsSeeder extends Seeder
                 'value' => true,
                 'description' => 'Send email to users after registration'
             ],
-            
+
             // Security Settings
             [
                 'key' => 'security_session_lifetime',
@@ -58,15 +58,15 @@ class GeneralSettingsSeeder extends Seeder
                 'value' => true,
                 'description' => 'Require strong passwords'
             ],
-            
+
             // Currency Configuration
             [
                 'key' => 'default_currency',
                 'value' => 'USD',
                 'description' => 'Default currency for the application'
             ],
-            
-            // Subscription Settings
+
+            // OldSubscription Settings
             [
                 'key' => 'subscription_trial_days',
                 'value' => 14,
@@ -77,7 +77,7 @@ class GeneralSettingsSeeder extends Seeder
                 'value' => true,
                 'description' => 'Allow users to cancel subscription'
             ],
-            
+
             // Notification Settings
             [
                 'key' => 'notification_admin_new_user',
@@ -94,7 +94,7 @@ class GeneralSettingsSeeder extends Seeder
                 'value' => true,
                 'description' => 'Notify admin when new candidate registers'
             ],
-            
+
             // CV Package Settings
             [
                 'key' => 'cv_package_basic_enabled',
@@ -121,7 +121,7 @@ class GeneralSettingsSeeder extends Seeder
                 'value' => true,
                 'description' => 'Enable Unlimited Resume Access'
             ],
-            
+
             // System Settings
             [
                 'key' => 'system_site_name',
@@ -153,7 +153,7 @@ class GeneralSettingsSeeder extends Seeder
                 'value' => 'H:i',
                 'description' => 'Time format'
             ],
-            
+
             // SEO Settings
             [
                 'key' => 'seo_meta_title',

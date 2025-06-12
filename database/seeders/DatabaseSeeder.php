@@ -23,6 +23,7 @@ class DatabaseSeeder extends Seeder
 //            AdminSeeder::class,
 //            JobCategorySeeder::class,
             SubscriptionPlanSeeder::class,
+            PlanSeeder::class,
 //            SubscriptionSeeder::class,
         ]);
     }

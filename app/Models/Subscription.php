@@ -5,172 +5,93 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Support\Carbon;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * Subscription model representing an employer's subscription to a plan
- *
  * @property int $id
  * @property int $employer_id
- * @property int $subscription_plan_id
- * @property Carbon $start_date
- * @property Carbon|null $end_date
- * @property float $amount_paid
+ * @property int $plan_id
+ * @property string $subscription_id
+ * @property string $payment_provider
+ * @property string $status
+ * @property float $amount
  * @property string $currency
- * @property string|null $payment_method
- * @property string|null $transaction_id
- * @property string|null $payment_reference
- * @property string|null $subscription_id
- * @property string|null $receipt_path
- * @property int $job_posts_left
- * @property int $featured_jobs_left
- * @property int $cv_downloads_left
+ * @property \Carbon\Carbon $start_date
+ * @property \Carbon\Carbon|null $end_date
+ * @property \Carbon\Carbon|null $next_billing_date
+ * @property \Carbon\Carbon|null $canceled_at
+ * @property array|null $metadata
  * @property bool $is_active
- * @property string $payment_type
- * @property bool $is_suspended
- * @property bool $used_trial
- * @property array|null $subscriber_info
- * @property array|null $billing_info
- * @property string|null $external_status
- * @property Carbon|null $status_update_time
- * @property Carbon|null $next_billing_date
- * @property Carbon|null $created_at
- * @property Carbon|null $updated_at
- *
- * @property-read Employer $employer
- * @property-read SubscriptionPlan $plan
  */
 class Subscription extends Model
 {
     use HasFactory;
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var array<int, string>
-     */
     protected $fillable = [
         'employer_id',
-        'subscription_plan_id',
+        'plan_id',
+        'subscription_id',
+        'payment_provider',
+        'status',
+        'amount',
+        'currency',
         'start_date',
         'end_date',
-        'amount_paid',
-        'currency',
-        'payment_method',
-        'transaction_id',
-        'payment_reference',
-        'subscription_id',
-        'receipt_path',
-        'job_posts_left',
-        'featured_jobs_left',
-        'cv_downloads_left',
-        'is_active',
-        'is_suspended',
-        'used_trial',
-        'subscriber_info',
-        'billing_info',
-        'external_status',
-        'status_update_time',
         'next_billing_date',
-        'payment_type',
+        'cv_downloads_left',
+        'canceled_at',
+        'metadata',
+        'is_active',
     ];
 
-    /**
-     * The attributes that should be cast.
-     *
-     * @var array<string, string>
-     */
     protected $casts = [
-        'start_date' => 'date',
-        'end_date' => 'date',
-        'next_billing_date' => 'date',
-        'status_update_time' => 'datetime',
-        'amount_paid' => 'float',
-        'job_posts_left' => 'integer',
-        'featured_jobs_left' => 'integer',
-        'cv_downloads_left' => 'integer',
+        'amount' => 'decimal:2',
+        'start_date' => 'datetime',
+        'end_date' => 'datetime',
+        'next_billing_date' => 'datetime',
+        'canceled_at' => 'datetime',
+        'metadata' => 'array',
         'is_active' => 'boolean',
-        'is_suspended' => 'boolean',
-        'used_trial' => 'boolean',
-        'subscriber_info' => 'json',
-        'billing_info' => 'json',
     ];
 
-    /**
-     * Get the employer that owns the subscription.
-     */
     public function employer(): BelongsTo
     {
         return $this->belongsTo(Employer::class);
     }
 
-    /**
-     * Get the plan that the subscription belongs to.
-     */
     public function plan(): BelongsTo
     {
-        return $this->belongsTo(SubscriptionPlan::class, 'subscription_plan_id');
+        return $this->belongsTo(Plan::class);
     }
 
-    /**
-     * Check if the subscription is a one-time payment
-     *
-     * @return bool
-     */
-    public function isOneTime(): bool
+    public function payments(): HasMany
     {
-        return $this->payment_type === SubscriptionPlan::PAYMENT_TYPE_ONE_TIME;
+        return $this->hasMany(Payment::class);
     }
 
-    /**
-     * Check if the subscription is a recurring payment
-     *
-     * @return bool
-     */
-    public function isRecurring(): bool
+    public function isActive(): bool
     {
-        return $this->payment_type === SubscriptionPlan::PAYMENT_TYPE_RECURRING;
+        return $this->is_active &&
+            $this->status === 'active' &&
+            ($this->end_date === null || $this->end_date->isFuture());
     }
 
-    /**
-     * Check if the subscription is expired.
-     *
-     * @return bool
-     */
-    public function isExpired(): bool
+    public function cancel(): void
     {
-        // One-time payments don't expire
-        if ($this->isOneTime()) {
-            return false;
-        }
-
-        // If end_date is null, it doesn't expire
-        if ($this->end_date === null) {
-            return false;
-        }
-
-        return $this->end_date < now();
+        $this->update([
+            'status' => 'canceled',
+            'canceled_at' => now(),
+            'is_active' => false,
+        ]);
     }
 
-    /**
-     * Get subscription status text.
-     *
-     * @return string
-     */
-    public function getStatusText(): string
+    public function scopeActive($query)
     {
-        if (!$this->is_active) {
-            return 'Cancelled';
-        }
-
-        if ($this->is_suspended) {
-            return 'Suspended';
-        }
-
-        if ($this->isExpired() && !$this->isOneTime()) {
-            return 'Expired';
-        }
-
-        return 'Active';
+        return $query->where('is_active', true)
+            ->where('status', 'active')
+            ->where(function ($q) {
+                $q->whereNull('end_date')
+                    ->orWhere('end_date', '>=', now());
+            });
     }
 }

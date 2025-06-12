@@ -3,351 +3,202 @@
 namespace App\Http\Controllers\Employer;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\CreatePaymentRequest;
+use App\Http\Requests\CreateSubscriptionRequest;
 use App\Models\Employer;
+use App\Models\Plan;
 use App\Models\Subscription;
-use App\Models\SubscriptionPlan;
-use App\Services\Payment\PaymentService;
-use Exception;
+use App\Services\Payment\StripePaymentService;
+use App\Services\Payment\PayPalPaymentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Validator;
 
 class PaymentController extends Controller
 {
-    /**
-     * @var PaymentService
-     */
-    protected PaymentService $paymentService;
+    public function __construct(
+        private StripePaymentService $stripeService,
+        private PayPalPaymentService $paypalService
+    ) {}
 
     /**
-     * Constructor
-     *
-     * @param PaymentService $paymentService
+     * Get available plans
      */
-    public function __construct(PaymentService $paymentService)
+    public function getPlans(): JsonResponse
     {
-        $this->paymentService = $paymentService;
-    }
+        $plans = Plan::active()->orderBy('price')->get();
 
-    /**
-     * Get available payment providers
-     *
-     * @return JsonResponse
-     */
-    public function getProviders(): JsonResponse
-    {
         return response()->json([
             'success' => true,
-            'data' => [
-                'providers' => $this->paymentService->getAvailableProviders(),
-            ]
+            'data' => $plans
         ]);
     }
 
     /**
-     * Get available subscription plans
-     *
-     * @return JsonResponse
+     * Create one-time payment
      */
-    public function getSubscriptionPlans(): JsonResponse
+    public function createOneTimePayment(CreatePaymentRequest $request): JsonResponse
     {
-        $plans = SubscriptionPlan::where('is_active', true)->get();
+        $employer = Auth::user()->employer;
+        $plan = Plan::findOrFail($request->plan_id);
+
+        if (!$plan->isOneTime()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This plan is not available for one-time payment'
+            ], 400);
+        }
+
+        $result = match ($request->payment_provider) {
+            'stripe' => $this->stripeService->createOneTimePayment($employer, $plan),
+            'paypal' => $this->paypalService->createOneTimePayment($employer, $plan),
+            default => ['success' => false, 'error' => 'Invalid payment provider']
+        };
+
+        if (!$result['success']) {
+            return response()->json([
+                'success' => false,
+                'message' => $result['error']
+            ], 400);
+        }
 
         return response()->json([
             'success' => true,
-            'data' => [
-                'plans' => $plans
-            ]
+            'data' => $result
+        ]);
+    }
+
+    /**
+     * Create subscription
+     */
+    public function createSubscription(CreateSubscriptionRequest $request): JsonResponse
+    {
+        $employer = Auth::user()->employer;
+        $plan = Plan::findOrFail($request->plan_id);
+
+        if (!$plan->isRecurring()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This plan is not available for subscription'
+            ], 400);
+        }
+
+        // Check if employer already has active subscription
+        if ($employer->hasActiveSubscription()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You already have an active subscription'
+            ], 400);
+        }
+
+        $result = match ($request->payment_provider) {
+            'stripe' => $this->stripeService->createSubscription($employer, $plan),
+            'paypal' => $this->paypalService->createSubscription($employer, $plan),
+            default => ['success' => false, 'error' => 'Invalid payment provider']
+        };
+
+        if (!$result['success']) {
+            return response()->json([
+                'success' => false,
+                'message' => $result['error']
+            ], 400);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $result
+        ]);
+    }
+
+    /**
+     * Cancel subscription
+     */
+    public function cancelSubscription(Request $request): JsonResponse
+    {
+        $employer = Auth::user()->employer;
+        $subscription = $employer->activeSubscription()->first();
+
+        if (!$subscription) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No active subscription found'
+            ], 404);
+        }
+
+        $success = match ($subscription->payment_provider) {
+            'stripe' => $this->stripeService->cancelSubscription($subscription),
+            'paypal' => $this->paypalService->cancelSubscription($subscription),
+            default => false
+        };
+
+        if (!$success) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to cancel subscription'
+            ], 400);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Subscription cancelled successfully'
         ]);
     }
 
     /**
      * Get employer's subscriptions
-     *
-     * @param Request $request
-     * @return JsonResponse
      */
-    public function getEmployerSubscriptions(Request $request): JsonResponse
+    public function getSubscriptions(): JsonResponse
     {
-        $user = Auth::user();
-        $employer = $user->employer;
-
-        if (!$employer) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Employer profile not found',
-            ], 404);
-        }
-
+        $employer = Auth::user()->employer;
         $subscriptions = $employer->subscriptions()
             ->with('plan')
-            ->latest()
+            ->orderBy('created_at', 'desc')
             ->get();
-
-        $activeSubscription = $employer->activeSubscription;
 
         return response()->json([
             'success' => true,
-            'data' => [
-                'subscriptions' => $subscriptions,
-                'active_subscription' => $activeSubscription ? $activeSubscription->load('plan') : null,
-            ]
+            'data' => $subscriptions
         ]);
     }
 
     /**
-     * Create payment intent/order
-     *
-     * @param Request $request
-     * @return JsonResponse
+     * Get employer's payments
      */
-    public function createPaymentIntent(Request $request): JsonResponse
+    public function getPayments(): JsonResponse
     {
-        try {
-            $validator = Validator::make($request->all(), [
-                'plan_id' => 'required|exists:subscription_plans,id',
-                'provider' => 'required|string|in:stripe,paypal',
-            ]);
+        $employer = Auth::user()->employer;
+        $payments = $employer->payments()
+            ->with('plan')
+            ->orderBy('created_at', 'desc')
+            ->get();
 
-            if ($validator->fails()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Validation failed',
-                    'errors' => $validator->errors(),
-                ], 422);
-            }
-
-            $user = Auth::user();
-            $employer = $user->employer;
-
-            if (!$employer) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Employer profile not found',
-                ], 404);
-            }
-
-            $plan = SubscriptionPlan::findOrFail($request->plan_id);
-            $provider = $request->provider;
-
-            $result = $this->paymentService->createPaymentIntent(
-                $employer,
-                $plan,
-                $provider,
-                $request->except(['plan_id', 'provider'])
-            );
-
-            return response()->json([
-                'success' => true,
-                'data' => $result,
-            ]);
-        } catch (Exception $e) {
-            Log::error('Payment intent creation failed: ' . $e->getMessage());
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to create payment: ' . $e->getMessage(),
-            ], 500);
-        }
-    }
-
-    /**
-     * Process a successful payment
-     *
-     * @param Request $request
-     * @return JsonResponse
-     */
-    public function processPayment(Request $request): JsonResponse
-    {
-        try {
-            $validator = Validator::make($request->all(), [
-                'provider' => 'required|string|in:stripe,paypal',
-                // Other fields depend on the provider
-            ]);
-
-            if ($validator->fails()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Validation failed',
-                    'errors' => $validator->errors(),
-                ], 422);
-            }
-
-            $provider = $request->provider;
-
-            $subscription = $this->paymentService->processPayment(
-                $provider,
-                $request->except('provider')
-            );
-
-            return response()->success($subscription->load('plan'), 'Payment processed successfully');
-        } catch (Exception $e) {
-            Log::error('Payment processing failed: ' . $e->getMessage());
-
-            return response()->serverError('Failed to process payment: ' . $e->getMessage());
-        }
-    }
-
-    /**
-     * Handle PayPal payment success
-     *
-     * @param Request $request
-     * @return JsonResponse
-     */
-    public function handlePayPalSuccess(Request $request): JsonResponse
-    {
-        try {
-            $validator = Validator::make($request->all(), [
-                'token' => 'required|string',
-            ]);
-
-            if ($validator->fails()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Validation failed',
-                    'errors' => $validator->errors(),
-                ], 422);
-            }
-
-            $subscription = $this->paymentService->processPayment('paypal', [
-                'order_id' => $request->token,
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Payment processed successfully',
-                'data' => [
-                    'subscription' => $subscription->load('plan'),
-                ],
-            ]);
-        } catch (Exception $e) {
-            Log::error('PayPal payment processing failed: ' . $e->getMessage());
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to process payment: ' . $e->getMessage(),
-            ], 500);
-        }
-    }
-
-    /**
-     * Handle PayPal payment cancellation
-     *
-     * @param Request $request
-     * @return JsonResponse
-     */
-    public function handlePayPalCancel(Request $request): JsonResponse
-    {
         return response()->json([
-            'success' => false,
-            'message' => 'Payment was cancelled by the user',
+            'success' => true,
+            'data' => $payments
         ]);
     }
 
     /**
-     * Handle Stripe webhook
-     *
-     * @param Request $request
-     * @return JsonResponse
+     * Capture PayPal payment
      */
-    public function handleStripeWebhook(Request $request): JsonResponse
+    public function capturePayPalPayment(Request $request): JsonResponse
     {
-        try {
-            $payload = $request->all();
-            $success = $this->paymentService->handleWebhook('stripe', $payload);
+        $request->validate([
+            'order_id' => 'required|string'
+        ]);
 
-            if ($success) {
-                return response()->json(['success' => true]);
-            }
+        $result = $this->paypalService->capturePayment($request->order_id);
 
+        if (!$result['success']) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to process webhook',
-            ], 500);
-        } catch (Exception $e) {
-            Log::error('Stripe webhook handling failed: ' . $e->getMessage());
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to process webhook: ' . $e->getMessage(),
-            ], 500);
+                'message' => $result['error']
+            ], 400);
         }
-    }
 
-    /**
-     * Handle PayPal webhook
-     *
-     * @param Request $request
-     * @return JsonResponse
-     */
-    public function handlePayPalWebhook(Request $request): JsonResponse
-    {
-        try {
-            $payload = $request->all();
-            $success = $this->paymentService->handleWebhook('paypal', $payload);
-
-            if ($success) {
-                return response()->json(['success' => true]);
-            }
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to process webhook',
-            ], 500);
-        } catch (Exception $e) {
-            Log::error('PayPal webhook handling failed: ' . $e->getMessage());
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to process webhook: ' . $e->getMessage(),
-            ], 500);
-        }
-    }
-
-    /**
-     * Cancel a subscription
-     *
-     * @param Request $request
-     * @param int $subscriptionId
-     * @return JsonResponse
-     */
-    public function cancelSubscription(Request $request, int $subscriptionId): JsonResponse
-    {
-        try {
-            $user = Auth::user();
-            $employer = $user->employer;
-
-            if (!$employer) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Employer profile not found',
-                ], 404);
-            }
-
-            $subscription = $employer->subscriptions()->findOrFail($subscriptionId);
-
-            $success = $this->paymentService->cancelSubscription($subscription);
-
-            if ($success) {
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Subscription cancelled successfully',
-                ]);
-            }
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to cancel subscription',
-            ], 500);
-        } catch (Exception $e) {
-            Log::error('Subscription cancellation failed: ' . $e->getMessage());
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to cancel subscription: ' . $e->getMessage(),
-            ], 500);
-        }
+        return response()->json([
+            'success' => true,
+            'data' => $result
+        ]);
     }
 }

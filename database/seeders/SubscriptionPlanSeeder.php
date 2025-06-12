@@ -39,22 +39,6 @@ class SubscriptionPlanSeeder extends Seeder
             'interval_count' => 1,
             'total_cycles' => 1, // One-time payment
             'payment_gateway_config' => [
-                'paypal' => [
-                    'setup_fee_failure_action' => 'CONTINUE',
-                    'payment_failure_threshold' => 3
-                ],
-                'stripe' => [
-                    'payment_method_types' => ['card'],
-                    'allow_promotion_codes' => true,
-                    'billing_address_collection' => 'auto',
-                    'phone_number_collection' => [
-                        'enabled' => false
-                    ],
-                    // Automatic tax is disabled by default for better compatibility
-                    'automatic_tax' => [
-                        'enabled' => false
-                    ]
-                ]
             ],
             'features' => [
                 'Access to 20 full resumes',
@@ -64,15 +48,10 @@ class SubscriptionPlanSeeder extends Seeder
                 'Email support',
                 'Job alerts',
                 'Configurable trial period'
-            ],
-            'metadata' => [
-                'category' => 'one_time',
-                'target_audience' => 'small_business',
-                'recommended' => false
             ]
         ]);
 
-        // Create Monthly Unlimited Resumes Subscription with configurable trial
+        // Create Monthly Unlimited Resumes OldSubscription with configurable trial
         SubscriptionPlan::query()->create([
             'name' => 'Unlimited Resume Access',
             'description' => 'Monthly subscription with unlimited resume views, configurable trial period, and enhanced features',
@@ -96,23 +75,6 @@ class SubscriptionPlanSeeder extends Seeder
             'interval_count' => 1,
             'total_cycles' => 0, // Infinite cycles for recurring
             'payment_gateway_config' => [
-                'paypal' => [
-                    'auto_bill_outstanding' => true,
-                    'setup_fee_failure_action' => 'CONTINUE',
-                    'payment_failure_threshold' => 3
-                ],
-                'stripe' => [
-                    'payment_method_types' => ['card'],
-                    'allow_promotion_codes' => true,
-                    'billing_address_collection' => 'required',
-                    'phone_number_collection' => [
-                        'enabled' => true
-                    ],
-                    // Automatic tax is disabled by default - enable only when properly configured
-                    'automatic_tax' => [
-                        'enabled' => false // Set to true only after configuring tax settings in Stripe dashboard
-                    ]
-                ]
             ],
             'features' => [
                 'Unlimited resume access',
@@ -125,11 +87,6 @@ class SubscriptionPlanSeeder extends Seeder
                 'Custom job alerts',
                 'Extended trial period'
             ],
-            'metadata' => [
-                'category' => 'recurring',
-                'target_audience' => 'enterprise',
-                'recommended' => true
-            ]
         ]);
     }
 }

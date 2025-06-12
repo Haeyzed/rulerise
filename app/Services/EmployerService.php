@@ -8,7 +8,7 @@ use App\Models\Employer;
 use App\Models\Job;
 use App\Models\JobApplication;
 use App\Models\JobNotificationTemplate;
-use App\Models\Subscription;
+use App\Models\OldSubscription;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
 use App\Services\Storage\StorageService;
@@ -276,7 +276,7 @@ class EmployerService
      */
     public function getEmployerTransactions(int $employerId, array $filters = []): LengthAwarePaginator
     {
-        $query = Subscription::where('employer_id', $employerId)
+        $query = OldSubscription::where('employer_id', $employerId)
             ->with('plan');
 
         // Apply search filter
@@ -362,7 +362,7 @@ class EmployerService
             ->where('status', 'hired')
             ->count();
 
-        // Subscription status
+        // OldSubscription status
         $hasActiveSubscription = $employer->hasActiveSubscription();
         $activeSubscription = $employer->activeSubscription()->with('plan')->first();
 
@@ -1342,10 +1342,10 @@ class EmployerService
      * @param Employer $employer
      * @param SubscriptionPlan $plan
      * @param array $paymentData
-     * @return Subscription
+     * @return OldSubscription
      * @throws Exception
      */
-    public function subscribeToPlan(Employer $employer, SubscriptionPlan $plan, array $paymentData): Subscription
+    public function subscribeToPlan(Employer $employer, SubscriptionPlan $plan, array $paymentData): OldSubscription
     {
         // Process payment (this would integrate with a payment gateway)
         $paymentSuccessful = true; // Placeholder for payment processing

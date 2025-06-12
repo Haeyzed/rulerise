@@ -8,7 +8,7 @@ use App\Models\GeneralSetting;
 use App\Models\Job;
 use App\Models\JobApplication;
 use App\Models\JobCategory;
-use App\Models\Subscription;
+use App\Models\OldSubscription;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
 use App\Models\WebsiteCustomization;
@@ -53,7 +53,7 @@ class AdminService
         $totalJobs = Job::query()->count();
         $totalJobCategories = JobCategory::query()->count();
         $totalApplications = JobApplication::query()->count();
-        $totalRevenue = Subscription::query()->sum('amount_paid');
+        $totalRevenue = OldSubscription::query()->sum('amount_paid');
 
         $recentUsers = User::query()->latest()->limit(5)->get();
         $recentJobs = Job::with('employer')->latest()->limit(5)->get();

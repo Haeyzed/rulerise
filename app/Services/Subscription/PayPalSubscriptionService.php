@@ -3,7 +3,7 @@
 namespace App\Services\Subscription;
 
 use App\Models\Employer;
-use App\Models\Subscription;
+use App\Models\OldSubscription;
 use App\Models\SubscriptionPlan;
 use App\Notifications\SubscriptionActivatedNotification;
 use Carbon\Carbon;
@@ -160,7 +160,7 @@ class PayPalSubscriptionService
             }
         }
 
-        $subscription = Subscription::create([
+        $subscription = OldSubscription::create([
             'employer_id' => $employer->id,
             'subscription_plan_id' => $plan->id,
             'start_date' => Carbon::now(),
@@ -355,7 +355,7 @@ class PayPalSubscriptionService
     {
         $subscriptionId = $data['resource']['id'] ?? '';
 
-        $subscription = Subscription::where('subscription_id', $subscriptionId)
+        $subscription = OldSubscription::where('subscription_id', $subscriptionId)
             ->where('payment_method', 'paypal')
             ->first();
 
@@ -389,7 +389,7 @@ class PayPalSubscriptionService
     {
         $subscriptionId = $data['resource']['id'] ?? '';
 
-        $subscription = Subscription::where('subscription_id', $subscriptionId)
+        $subscription = OldSubscription::where('subscription_id', $subscriptionId)
             ->where('payment_method', 'paypal')
             ->first();
 
@@ -409,7 +409,7 @@ class PayPalSubscriptionService
     {
         $subscriptionId = $data['resource']['id'] ?? '';
 
-        $subscription = Subscription::where('subscription_id', $subscriptionId)
+        $subscription = OldSubscription::where('subscription_id', $subscriptionId)
             ->where('payment_method', 'paypal')
             ->first();
 
@@ -430,7 +430,7 @@ class PayPalSubscriptionService
     {
         $subscriptionId = $data['resource']['id'] ?? '';
 
-        $subscription = Subscription::where('subscription_id', $subscriptionId)
+        $subscription = OldSubscription::where('subscription_id', $subscriptionId)
             ->where('payment_method', 'paypal')
             ->first();
 
@@ -449,7 +449,7 @@ class PayPalSubscriptionService
     {
         $subscriptionId = $data['resource']['id'] ?? '';
 
-        $subscription = Subscription::where('subscription_id', $subscriptionId)
+        $subscription = OldSubscription::where('subscription_id', $subscriptionId)
             ->where('payment_method', 'paypal')
             ->first();
 
@@ -471,7 +471,7 @@ class PayPalSubscriptionService
         $subscriptionId = $data['resource']['billing_agreement_id'] ?? null;
 
         if ($subscriptionId) {
-            $subscription = Subscription::where('subscription_id', $subscriptionId)
+            $subscription = OldSubscription::where('subscription_id', $subscriptionId)
                 ->where('payment_method', 'paypal')
                 ->first();
 
@@ -492,7 +492,7 @@ class PayPalSubscriptionService
         return true;
     }
 
-    private function sendActivationNotification(Subscription $subscription): void
+    private function sendActivationNotification(OldSubscription $subscription): void
     {
         try {
             $employer = $subscription->employer;

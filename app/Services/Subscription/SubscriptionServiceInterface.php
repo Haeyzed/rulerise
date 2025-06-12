@@ -3,7 +3,7 @@
 namespace App\Services\Subscription;
 
 use App\Models\Employer;
-use App\Models\Subscription;
+use App\Models\OldSubscription;
 use App\Models\SubscriptionPlan;
 
 interface SubscriptionServiceInterface
@@ -41,17 +41,17 @@ interface SubscriptionServiceInterface
     /**
      * Cancel a subscription
      */
-    public function cancelSubscription(Subscription $subscription): bool;
+    public function cancelSubscription(OldSubscription $subscription): bool;
 
     /**
      * Suspend a subscription (pause billing)
      */
-    public function suspendSubscription(Subscription $subscription): bool;
+    public function suspendSubscription(OldSubscription $subscription): bool;
 
     /**
      * Reactivate a suspended subscription
      */
-    public function reactivateSubscription(Subscription $subscription): bool;
+    public function reactivateSubscription(OldSubscription $subscription): bool;
 
     /**
      * List all subscriptions for an employer
