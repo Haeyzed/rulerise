@@ -6,6 +6,9 @@ use App\Models\Employer;
 use App\Models\Plan;
 use App\Models\Payment;
 use App\Models\Subscription;
+use App\Notifications\PaymentFailed;
+use App\Notifications\PaymentSuccessful;
+use App\Notifications\TrialEnding;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
@@ -647,6 +650,9 @@ class PayPalPaymentService
             }
 
             $subscriptionRecord->update($updateData);
+
+            // Activate the subscription (this will send the notification)
+            $subscriptionRecord->activate();
         }
     }
 
@@ -675,7 +681,7 @@ class PayPalPaymentService
             $subscription = Subscription::where('subscription_id', $payment['billing_agreement_id'])->first();
 
             if ($subscription) {
-                Payment::create([
+                $paymentRecord = Payment::create([
                     'employer_id' => $subscription->employer_id,
                     'plan_id' => $subscription->plan_id,
                     'subscription_id' => $subscription->id,
@@ -688,6 +694,9 @@ class PayPalPaymentService
                     'paid_at' => Carbon::parse($payment['create_time']),
                     'provider_response' => $payment,
                 ]);
+
+                // Send payment successful notification
+                $subscription->employer->notify(new PaymentSuccessful($paymentRecord));
 
                 // If this is the first payment after trial, end the trial
                 if ($subscription->isInTrial()) {
@@ -712,6 +721,23 @@ class PayPalPaymentService
                     $subscription->update([
                         'status' => 'payment_failed',
                     ]);
+
+                    // Create a failed payment record
+                    $paymentRecord = Payment::create([
+                        'employer_id' => $subscription->employer_id,
+                        'plan_id' => $subscription->plan_id,
+                        'subscription_id' => $subscription->id,
+                        'payment_id' => $payment['id'],
+                        'payment_provider' => 'paypal',
+                        'payment_type' => 'recurring',
+                        'status' => 'failed',
+                        'amount' => $payment['amount']['total'] ?? 0,
+                        'currency' => strtoupper($payment['amount']['currency'] ?? 'USD'),
+                        'provider_response' => $payment,
+                    ]);
+
+                    // Send payment failed notification
+                    $subscription->employer->notify(new PaymentFailed($paymentRecord));
                 }
             }
         }

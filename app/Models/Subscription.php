@@ -2,6 +2,10 @@
 
 namespace App\Models;
 
+use App\Notifications\SubscriptionActivated;
+use App\Notifications\SubscriptionCancelled;
+use App\Notifications\SubscriptionResumed;
+use App\Notifications\SubscriptionSuspended;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -116,6 +120,9 @@ class Subscription extends Model
             'canceled_at' => now(),
             'is_active' => false,
         ]);
+
+        // Send cancellation notification
+        $this->employer->notify(new SubscriptionCancelled($this));
     }
 
     public function suspend(): void
@@ -124,6 +131,9 @@ class Subscription extends Model
             'status' => 'suspended',
             'is_active' => false,
         ]);
+
+        // Send suspension notification
+        $this->employer->notify(new SubscriptionSuspended($this));
     }
 
     public function resume(): void
@@ -132,6 +142,20 @@ class Subscription extends Model
             'status' => 'active',
             'is_active' => true,
         ]);
+
+        // Send resumption notification
+        $this->employer->notify(new SubscriptionResumed($this));
+    }
+
+    public function activate(): void
+    {
+        $this->update([
+            'status' => 'active',
+            'is_active' => true,
+        ]);
+
+        // Send activation notification
+        $this->employer->notify(new SubscriptionActivated($this));
     }
 
     public function scopeActive($query)

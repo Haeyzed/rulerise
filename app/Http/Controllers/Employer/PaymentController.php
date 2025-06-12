@@ -7,6 +7,7 @@ use App\Http\Requests\Employer\CreatePaymentRequest;
 use App\Http\Requests\Employer\CreateSubscriptionRequest;
 use App\Models\Plan;
 use App\Models\Subscription;
+use App\Notifications\SubscriptionCreated;
 use App\Services\Payment\PayPalPaymentService;
 use App\Services\Payment\StripePaymentService;
 use Illuminate\Http\JsonResponse;
@@ -101,6 +102,11 @@ class PaymentController extends Controller
                 'success' => false,
                 'message' => $result['error']
             ], 400);
+        }
+
+        // Send subscription created notification
+        if (isset($result['subscription']) && $result['subscription'] instanceof Subscription) {
+            $employer->notify(new SubscriptionCreated($result['subscription']));
         }
 
         return response()->json([

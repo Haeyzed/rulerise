@@ -28,6 +28,7 @@ return new class extends Migration
             $table->json('features')->nullable();
             $table->string('stripe_price_id')->nullable();
             $table->string('paypal_plan_id')->nullable();
+            $table->string('paypal_product_id')->nullable();
             $table->boolean('is_active')->default(true);
             $table->boolean('is_popular')->default(false);
             $table->integer('trial_days')->default(0);

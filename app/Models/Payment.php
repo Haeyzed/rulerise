@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Notifications\PaymentFailed;
+use App\Notifications\PaymentSuccessful;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -76,6 +78,27 @@ class Payment extends Model
     public function isFailed(): bool
     {
         return $this->status === 'failed';
+    }
+
+    public function markAsCompleted(): void
+    {
+        $this->update([
+            'status' => 'completed',
+            'paid_at' => now(),
+        ]);
+
+        // Send successful payment notification
+        $this->employer->notify(new PaymentSuccessful($this));
+    }
+
+    public function markAsFailed(): void
+    {
+        $this->update([
+            'status' => 'failed',
+        ]);
+
+        // Send failed payment notification
+        $this->employer->notify(new PaymentFailed($this));
     }
 
     public function scopeCompleted($query)

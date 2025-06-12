@@ -6,6 +6,9 @@ use App\Models\Employer;
 use App\Models\Plan;
 use App\Models\Payment;
 use App\Models\Subscription;
+use App\Notifications\PaymentFailed;
+use App\Notifications\PaymentSuccessful;
+use App\Notifications\TrialEnding;
 use Stripe\StripeClient;
 use Stripe\Exception\ApiErrorException;
 use Illuminate\Support\Facades\Log;
@@ -395,6 +398,9 @@ class StripePaymentService
                 'paid_at' => now(),
                 'provider_response' => $paymentIntent,
             ]);
+
+            // Send payment successful notification
+            $payment->employer->notify(new PaymentSuccessful($payment));
         }
     }
 
@@ -407,6 +413,9 @@ class StripePaymentService
                 'status' => 'failed',
                 'provider_response' => $paymentIntent,
             ]);
+
+            // Send payment failed notification
+            $payment->employer->notify(new PaymentFailed($payment));
         }
     }
 
@@ -417,7 +426,7 @@ class StripePaymentService
 
             if ($subscription) {
                 // Create payment record for recurring payment
-                Payment::create([
+                $payment = Payment::create([
                     'employer_id' => $subscription->employer_id,
                     'plan_id' => $subscription->plan_id,
                     'subscription_id' => $subscription->id,
@@ -431,6 +440,9 @@ class StripePaymentService
                     'provider_response' => $invoice,
                 ]);
 
+                // Send payment successful notification
+                $subscription->employer->notify(new PaymentSuccessful($payment));
+
                 // If this is the first payment after trial, end the trial
                 if ($subscription->isInTrial()) {
                     $subscription->endTrial();
@@ -439,53 +451,14 @@ class StripePaymentService
         }
     }
 
-    private function handleSubscriptionUpdated(array $subscription): void
-    {
-        $subscriptionRecord = Subscription::where('subscription_id', $subscription['id'])->first();
-
-        if ($subscriptionRecord) {
-            $updateData = [
-                'status' => $subscription['status'],
-                'end_date' => Carbon::createFromTimestamp($subscription['current_period_end']),
-                'next_billing_date' => Carbon::createFromTimestamp($subscription['current_period_end']),
-                'is_active' => in_array($subscription['status'], ['active', 'trialing']),
-                'metadata' => $subscription,
-            ];
-
-            // Handle trial status changes
-            if (isset($subscription['trial_end'])) {
-                $isInTrial = $subscription['status'] === 'trialing';
-                $trialEnd = Carbon::createFromTimestamp($subscription['trial_end']);
-
-                $updateData['is_trial'] = $isInTrial;
-                $updateData['trial_end_date'] = $trialEnd;
-
-                // If trial has ended
-                if ($isInTrial && $trialEnd->isPast()) {
-                    $updateData['trial_ended'] = true;
-                    $updateData['is_trial'] = false;
-                }
-            }
-
-            $subscriptionRecord->update($updateData);
-        }
-    }
-
-    private function handleSubscriptionDeleted(array $subscription): void
-    {
-        $subscriptionRecord = Subscription::where('subscription_id', $subscription['id'])->first();
-
-        if ($subscriptionRecord) {
-            $subscriptionRecord->cancel();
-        }
-    }
-
     private function handleTrialWillEnd(array $subscription): void
     {
         $subscriptionRecord = Subscription::where('subscription_id', $subscription['id'])->first();
 
         if ($subscriptionRecord && $subscriptionRecord->isInTrial()) {
-            // You could send a notification to the user here
+            // Send trial ending notification
+            $subscriptionRecord->employer->notify(new TrialEnding($subscriptionRecord));
+
             Log::info('Trial will end soon', [
                 'subscription_id' => $subscription['id'],
                 'trial_end' => Carbon::createFromTimestamp($subscription['trial_end'])->format('Y-m-d H:i:s')
