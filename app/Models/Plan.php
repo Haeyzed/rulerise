@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $slug
  * @property string|null $description
  * @property float $price
+ * @property string $currency
  * @property string $billing_cycle
  * @property int|null $job_posts_limit
  * @property int $featured_jobs_limit
@@ -23,6 +24,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string|null $paypal_plan_id
  * @property bool $is_active
  * @property bool $is_popular
+ * @property int $trial_days
+ * @property bool $has_trial
  */
 class Plan extends Model
 {
@@ -44,8 +47,11 @@ class Plan extends Model
         'features',
         'stripe_price_id',
         'paypal_plan_id',
+        'paypal_product_id',
         'is_active',
         'is_popular',
+        'trial_days',
+        'has_trial',
     ];
 
     protected $casts = [
@@ -56,11 +62,13 @@ class Plan extends Model
         'features' => 'array',
         'is_active' => 'boolean',
         'is_popular' => 'boolean',
+        'has_trial' => 'boolean',
+        'trial_days' => 'integer',
     ];
 
     public function subscriptions(): HasMany
     {
-        return $this->hasMany(OldSubscription::class);
+        return $this->hasMany(Subscription::class);
     }
 
     public function payments(): HasMany
@@ -76,6 +84,21 @@ class Plan extends Model
     public function isOneTime(): bool
     {
         return $this->billing_cycle === 'one_time';
+    }
+
+    public function hasTrial(): bool
+    {
+        return $this->has_trial && $this->trial_days > 0;
+    }
+
+    public function getTrialPeriodDays(): int
+    {
+        return $this->hasTrial() ? $this->trial_days : 0;
+    }
+
+    public function getCurrencyCode(): string
+    {
+        return strtoupper($this->currency);
     }
 
     public function scopeActive($query)

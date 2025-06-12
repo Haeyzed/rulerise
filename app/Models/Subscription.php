@@ -19,6 +19,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property \Carbon\Carbon $start_date
  * @property \Carbon\Carbon|null $end_date
  * @property \Carbon\Carbon|null $next_billing_date
+ * @property \Carbon\Carbon|null $trial_start_date
+ * @property \Carbon\Carbon|null $trial_end_date
+ * @property bool $is_trial
+ * @property bool $trial_ended
  * @property \Carbon\Carbon|null $canceled_at
  * @property array|null $metadata
  * @property bool $is_active
@@ -38,6 +42,10 @@ class Subscription extends Model
         'start_date',
         'end_date',
         'next_billing_date',
+        'trial_start_date',
+        'trial_end_date',
+        'is_trial',
+        'trial_ended',
         'cv_downloads_left',
         'canceled_at',
         'metadata',
@@ -49,9 +57,13 @@ class Subscription extends Model
         'start_date' => 'datetime',
         'end_date' => 'datetime',
         'next_billing_date' => 'datetime',
+        'trial_start_date' => 'datetime',
+        'trial_end_date' => 'datetime',
         'canceled_at' => 'datetime',
         'metadata' => 'array',
         'is_active' => 'boolean',
+        'is_trial' => 'boolean',
+        'trial_ended' => 'boolean',
     ];
 
     public function employer(): BelongsTo
@@ -76,12 +88,49 @@ class Subscription extends Model
             ($this->end_date === null || $this->end_date->isFuture());
     }
 
+    public function isSuspended(): bool
+    {
+        return $this->status === 'suspended';
+    }
+
+    public function isInTrial(): bool
+    {
+        return $this->is_trial &&
+            !$this->trial_ended &&
+            $this->trial_end_date &&
+            $this->trial_end_date->isFuture();
+    }
+
+    public function endTrial(): void
+    {
+        $this->update([
+            'is_trial' => false,
+            'trial_ended' => true,
+        ]);
+    }
+
     public function cancel(): void
     {
         $this->update([
             'status' => 'canceled',
             'canceled_at' => now(),
             'is_active' => false,
+        ]);
+    }
+
+    public function suspend(): void
+    {
+        $this->update([
+            'status' => 'suspended',
+            'is_active' => false,
+        ]);
+    }
+
+    public function resume(): void
+    {
+        $this->update([
+            'status' => 'active',
+            'is_active' => true,
         ]);
     }
 
@@ -93,5 +142,18 @@ class Subscription extends Model
                 $q->whereNull('end_date')
                     ->orWhere('end_date', '>=', now());
             });
+    }
+
+    public function scopeSuspended($query)
+    {
+        return $query->where('status', 'suspended');
+    }
+
+    public function scopeInTrial($query)
+    {
+        return $query->where('is_trial', true)
+            ->where('trial_ended', false)
+            ->whereNotNull('trial_end_date')
+            ->where('trial_end_date', '>=', now());
     }
 }

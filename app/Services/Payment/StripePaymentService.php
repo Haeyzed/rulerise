@@ -60,6 +60,64 @@ class StripePaymentService
     }
 
     /**
+     * Create or get Stripe price
+     */
+    public function createPrice(Plan $plan): array
+    {
+        try {
+            // Create product if needed
+            $productName = $plan->name;
+            $productDescription = $plan->description ?? $plan->name;
+
+            $product = $this->stripe->products->create([
+                'name' => $productName,
+                'description' => $productDescription,
+                'metadata' => [
+                    'plan_id' => $plan->id,
+                ],
+            ]);
+
+            // Create price
+            $priceData = [
+                'product' => $product->id,
+                'unit_amount' => (int)($plan->price * 100), // Convert to cents
+                'currency' => strtolower($plan->getCurrencyCode()),
+                'metadata' => [
+                    'plan_id' => $plan->id,
+                ],
+            ];
+
+            // Add recurring data if it's a subscription
+            if ($plan->isRecurring()) {
+                $priceData['recurring'] = [
+                    'interval' => $plan->billing_cycle === 'yearly' ? 'year' : 'month',
+                    'interval_count' => 1,
+                ];
+            }
+
+            $price = $this->stripe->prices->create($priceData);
+
+            // Update plan with Stripe price ID
+            $plan->update(['stripe_price_id' => $price->id]);
+
+            return [
+                'success' => true,
+                'price' => $price,
+            ];
+        } catch (ApiErrorException $e) {
+            Log::error('Failed to create Stripe price', [
+                'plan_id' => $plan->id,
+                'error' => $e->getMessage()
+            ]);
+
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
      * Create one-time payment
      */
     public function createOneTimePayment(Employer $employer, Plan $plan): array
@@ -68,8 +126,8 @@ class StripePaymentService
             $customerId = $this->createOrGetCustomer($employer);
 
             $paymentIntent = $this->stripe->paymentIntents->create([
-                'amount' => $plan->price * 100, // Convert to cents
-                'currency' => $plan->currency,
+                'amount' => (int)($plan->price * 100), // Convert to cents
+                'currency' => strtolower($plan->getCurrencyCode()),
                 'customer' => $customerId,
                 'metadata' => [
                     'employer_id' => $employer->id,
@@ -88,7 +146,7 @@ class StripePaymentService
                 'payment_type' => 'one_time',
                 'status' => 'pending',
                 'amount' => $plan->price,
-                'currency' => $plan->currency,
+                'currency' => $plan->getCurrencyCode(),
                 'provider_response' => $paymentIntent->toArray(),
             ]);
 
@@ -113,7 +171,7 @@ class StripePaymentService
     }
 
     /**
-     * Create recurring subscription
+     * Create recurring subscription with trial support
      */
     public function createSubscription(Employer $employer, Plan $plan): array
     {
@@ -121,10 +179,13 @@ class StripePaymentService
             $customerId = $this->createOrGetCustomer($employer);
 
             if (!$plan->stripe_price_id) {
-                throw new \Exception('Plan does not have Stripe price ID configured');
+                $priceResult = $this->createPrice($plan);
+                if (!$priceResult['success']) {
+                    throw new \Exception('Failed to create Stripe price: ' . $priceResult['error']);
+                }
             }
 
-            $subscription = $this->stripe->subscriptions->create([
+            $subscriptionData = [
                 'customer' => $customerId,
                 'items' => [
                     ['price' => $plan->stripe_price_id],
@@ -136,7 +197,19 @@ class StripePaymentService
                     'employer_id' => $employer->id,
                     'plan_id' => $plan->id,
                 ],
-            ]);
+            ];
+
+            // Add trial period if plan has trial
+            if ($plan->hasTrial()) {
+                $subscriptionData['trial_period_days'] = $plan->getTrialPeriodDays();
+            }
+
+            $subscription = $this->stripe->subscriptions->create($subscriptionData);
+
+            // Determine if subscription is in trial
+            $isInTrial = $subscription->status === 'trialing';
+            $trialStart = $isInTrial ? Carbon::createFromTimestamp($subscription->trial_start) : null;
+            $trialEnd = $isInTrial ? Carbon::createFromTimestamp($subscription->trial_end) : null;
 
             // Create subscription record
             $subscriptionRecord = Subscription::create([
@@ -146,17 +219,21 @@ class StripePaymentService
                 'payment_provider' => 'stripe',
                 'status' => $subscription->status,
                 'amount' => $plan->price,
-                'currency' => $plan->currency,
+                'currency' => $plan->getCurrencyCode(),
                 'start_date' => Carbon::createFromTimestamp($subscription->current_period_start),
                 'end_date' => Carbon::createFromTimestamp($subscription->current_period_end),
                 'next_billing_date' => Carbon::createFromTimestamp($subscription->current_period_end),
+                'trial_start_date' => $trialStart,
+                'trial_end_date' => $trialEnd,
+                'is_trial' => $isInTrial,
+                'trial_ended' => false,
                 'cv_downloads_left' => $plan->resume_views_limit,
                 'metadata' => $subscription->toArray(),
-                'is_active' => $subscription->status === 'active',
+                'is_active' => in_array($subscription->status, ['active', 'trialing']),
             ]);
 
-            // Create initial payment record
-            if ($subscription->latest_invoice->payment_intent) {
+            // Create initial payment record if not in trial
+            if (!$isInTrial && $subscription->latest_invoice->payment_intent) {
                 Payment::create([
                     'employer_id' => $employer->id,
                     'plan_id' => $plan->id,
@@ -166,7 +243,7 @@ class StripePaymentService
                     'payment_type' => 'recurring',
                     'status' => $subscription->latest_invoice->payment_intent->status === 'succeeded' ? 'completed' : 'pending',
                     'amount' => $plan->price,
-                    'currency' => $plan->currency,
+                    'currency' => $plan->getCurrencyCode(),
                     'provider_response' => $subscription->latest_invoice->payment_intent->toArray(),
                 ]);
             }
@@ -176,6 +253,8 @@ class StripePaymentService
                 'subscription_id' => $subscription->id,
                 'client_secret' => $subscription->latest_invoice->payment_intent->client_secret ?? null,
                 'subscription' => $subscriptionRecord,
+                'is_trial' => $isInTrial,
+                'trial_end_date' => $trialEnd,
             ];
         } catch (ApiErrorException $e) {
             Log::error('Stripe subscription creation failed', [
@@ -229,11 +308,7 @@ class StripePaymentService
                 ]),
             ]);
 
-            $subscription->update([
-                'status' => 'suspended',
-                'is_active' => false,
-            ]);
-
+            $subscription->suspend();
             return true;
         } catch (ApiErrorException $e) {
             Log::error('Failed to suspend Stripe subscription', [
@@ -259,11 +334,7 @@ class StripePaymentService
                 ]),
             ]);
 
-            $subscription->update([
-                'status' => 'active',
-                'is_active' => true,
-            ]);
-
+            $subscription->resume();
             return true;
         } catch (ApiErrorException $e) {
             Log::error('Failed to resume Stripe subscription', [
@@ -300,6 +371,10 @@ class StripePaymentService
 
                 case 'customer.subscription.deleted':
                     $this->handleSubscriptionDeleted($event['data']['object']);
+                    break;
+
+                case 'customer.subscription.trial_will_end':
+                    $this->handleTrialWillEnd($event['data']['object']);
                     break;
             }
         } catch (\Exception $e) {
@@ -355,6 +430,11 @@ class StripePaymentService
                     'paid_at' => Carbon::createFromTimestamp($invoice['status_transitions']['paid_at']),
                     'provider_response' => $invoice,
                 ]);
+
+                // If this is the first payment after trial, end the trial
+                if ($subscription->isInTrial()) {
+                    $subscription->endTrial();
+                }
             }
         }
     }
@@ -364,13 +444,30 @@ class StripePaymentService
         $subscriptionRecord = Subscription::where('subscription_id', $subscription['id'])->first();
 
         if ($subscriptionRecord) {
-            $subscriptionRecord->update([
+            $updateData = [
                 'status' => $subscription['status'],
                 'end_date' => Carbon::createFromTimestamp($subscription['current_period_end']),
                 'next_billing_date' => Carbon::createFromTimestamp($subscription['current_period_end']),
-                'is_active' => $subscription['status'] === 'active',
+                'is_active' => in_array($subscription['status'], ['active', 'trialing']),
                 'metadata' => $subscription,
-            ]);
+            ];
+
+            // Handle trial status changes
+            if (isset($subscription['trial_end'])) {
+                $isInTrial = $subscription['status'] === 'trialing';
+                $trialEnd = Carbon::createFromTimestamp($subscription['trial_end']);
+
+                $updateData['is_trial'] = $isInTrial;
+                $updateData['trial_end_date'] = $trialEnd;
+
+                // If trial has ended
+                if ($isInTrial && $trialEnd->isPast()) {
+                    $updateData['trial_ended'] = true;
+                    $updateData['is_trial'] = false;
+                }
+            }
+
+            $subscriptionRecord->update($updateData);
         }
     }
 
@@ -380,6 +477,19 @@ class StripePaymentService
 
         if ($subscriptionRecord) {
             $subscriptionRecord->cancel();
+        }
+    }
+
+    private function handleTrialWillEnd(array $subscription): void
+    {
+        $subscriptionRecord = Subscription::where('subscription_id', $subscription['id'])->first();
+
+        if ($subscriptionRecord && $subscriptionRecord->isInTrial()) {
+            // You could send a notification to the user here
+            Log::info('Trial will end soon', [
+                'subscription_id' => $subscription['id'],
+                'trial_end' => Carbon::createFromTimestamp($subscription['trial_end'])->format('Y-m-d H:i:s')
+            ]);
         }
     }
 }

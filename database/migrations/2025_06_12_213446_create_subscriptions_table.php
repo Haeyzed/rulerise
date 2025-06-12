@@ -19,10 +19,14 @@ return new class extends Migration
             $table->enum('payment_provider', ['stripe', 'paypal']);
             $table->enum('status', ['active', 'canceled', 'expired', 'past_due', 'incomplete']);
             $table->decimal('amount', 10, 2);
-            $table->string('currency', 3)->default('USD');
+            $table->string('currency', 3)->default('CAD');
             $table->timestamp('start_date');
             $table->timestamp('end_date')->nullable();
             $table->timestamp('next_billing_date')->nullable();
+            $table->timestamp('trial_start_date')->nullable();
+            $table->timestamp('trial_end_date')->nullable();
+            $table->boolean('is_trial')->default(false);
+            $table->boolean('trial_ended')->default(false);
             $table->integer('cv_downloads_left')->default(0);
             $table->timestamp('canceled_at')->nullable();
             $table->json('metadata')->nullable();
