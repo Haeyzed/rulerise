@@ -12,35 +12,41 @@ use Carbon\Carbon;
 
 class PayPalPaymentService
 {
-    private string $baseUrl;
-    private string $clientId;
-    private string $clientSecret;
+    protected string $baseUrl;
+    protected string $clientId;
+    protected string $clientSecret;
+    protected string $webhookId;
+    protected ?string $accessToken = null;
 
     public function __construct()
     {
-        $this->baseUrl = config('services.paypal.mode') === 'live'
-            ? 'https://api.paypal.com'
-            : 'https://api.sandbox.paypal.com';
+        $this->baseUrl = config('services.paypal.sandbox')
+            ? 'https://api-m.sandbox.paypal.com'
+            : 'https://api-m.paypal.com';
         $this->clientId = config('services.paypal.client_id');
         $this->clientSecret = config('services.paypal.client_secret');
+        $this->webhookId = config('services.paypal.webhook_id');
     }
 
-    /**
-     * Get PayPal access token
-     */
-    private function getAccessToken(): string
+    protected function getAccessToken(): string
     {
+        if ($this->accessToken) {
+            return $this->accessToken;
+        }
+
         $response = Http::withBasicAuth($this->clientId, $this->clientSecret)
             ->asForm()
-            ->post($this->baseUrl . '/v1/oauth2/token', [
+            ->post("{$this->baseUrl}/v1/oauth2/token", [
                 'grant_type' => 'client_credentials'
             ]);
 
         if (!$response->successful()) {
+            Log::error('PayPal access token error', ['response' => $response->json()]);
             throw new \Exception('Failed to get PayPal access token');
         }
 
-        return $response->json()['access_token'];
+        $this->accessToken = $response->json('access_token');
+        return $this->accessToken;
     }
 
     /**
