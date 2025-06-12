@@ -231,8 +231,8 @@ class PayPalPaymentService
                                 'locale' => 'en-US',
                                 'landing_page' => 'LOGIN',
                                 'user_action' => 'PAY_NOW',
-                                'return_url' => url('/dashboard'),
-                                'cancel_url' => url('/dashboard'),
+                                'return_url' => config('app.frontend_url'.'/employer/dashboard'),
+                                'cancel_url' => config('app.frontend_url'.'/employer/dashboard'),
                             ]
                         ]
                     ]
@@ -311,8 +311,8 @@ class PayPalPaymentService
                         'payer_selected' => 'PAYPAL',
                         'payee_preferred' => 'IMMEDIATE_PAYMENT_REQUIRED',
                     ],
-                    'return_url' => url('/dashboard'),
-                    'cancel_url' => url('/dashboard'),
+                    'return_url' => config('app.frontend_url'.'/employer/dashboard'),
+                    'cancel_url' => config('app.frontend_url'.'/employer/dashboard'),
                 ],
                 'custom_id' => "employer_{$employer->id}_plan_{$plan->id}",
             ];
