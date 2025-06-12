@@ -9,6 +9,8 @@ class PlanSeeder extends Seeder
 {
     public function run(): void
     {
+        // Clear existing plans if needed
+        Plan::query()->delete();
         $plans = [
             [
                 'name' => 'Basic',
