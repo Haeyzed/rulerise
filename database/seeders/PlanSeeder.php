@@ -67,7 +67,7 @@ class PlanSeeder extends Seeder
                 'candidate_database_access' => true,
                 'analytics_access' => true,
                 'priority_support' => true,
-                'resume_views_limit' => null,
+                'resume_views_limit' => 0,
                 'features' => [
                     'Unlimited job posts',
                     '20 featured jobs',
