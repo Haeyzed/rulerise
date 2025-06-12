@@ -3,13 +3,11 @@
 namespace App\Http\Controllers\Employer;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\CreatePaymentRequest;
-use App\Http\Requests\CreateSubscriptionRequest;
-use App\Models\Employer;
+use App\Http\Requests\Employer\CreatePaymentRequest;
+use App\Http\Requests\Employer\CreateSubscriptionRequest;
 use App\Models\Plan;
-use App\Models\Subscription;
-use App\Services\Payment\StripePaymentService;
 use App\Services\Payment\PayPalPaymentService;
+use App\Services\Payment\StripePaymentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
