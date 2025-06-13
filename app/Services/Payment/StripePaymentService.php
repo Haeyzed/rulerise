@@ -200,8 +200,8 @@ class StripePaymentService
                 ],
                 'mode' => 'subscription',
                 'payment_method_types' => ['card'],
-                'success_url' => config('app.frontend_url') . '/employer/dashboard?status=subscription_success',
-                'cancel_url' => config('app.frontend_url') . '/employer/dashboard?status=subscription_cancelled',
+                'success_url' => config('app.frontend_url') . '/employer/dashboard?session_id={CHECKOUT_SESSION_ID}',
+                'cancel_url' => config('app.frontend_url') . '/employer/dashboard?session_id={CHECKOUT_SESSION_ID}',
                 'metadata' => [
                     'employer_id' => $employer->id,
                     'plan_id' => $plan->id,
