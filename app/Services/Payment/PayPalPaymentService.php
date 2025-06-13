@@ -661,6 +661,15 @@ class PayPalPaymentService
         $subscriptionRecord = Subscription::where('subscription_id', $subscription['id'])->first();
 
         if ($subscriptionRecord) {
+            $updateData = [
+                'status' => 'canceled',
+                'is_active' => false,
+                'metadata' => array_merge($subscriptionRecord->metadata ?? [], $subscription),
+            ];
+
+            $subscriptionRecord->update($updateData);
+
+            // Activate the subscription (this will send the notification)
             $subscriptionRecord->cancel();
         }
     }
