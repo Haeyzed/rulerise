@@ -205,6 +205,9 @@ class PayPalPaymentService
     /**
      * Create one-time payment
      */
+    /**
+     * Create one-time payment
+     */
     public function createOneTimePayment(Employer $employer, Plan $plan): array
     {
         try {
@@ -231,8 +234,8 @@ class PayPalPaymentService
                                 'locale' => 'en-US',
                                 'landing_page' => 'LOGIN',
                                 'user_action' => 'PAY_NOW',
-                                'return_url' => config('app.frontend_url'.'/employer/dashboard'),
-                                'cancel_url' => config('app.frontend_url'.'/employer/dashboard'),
+                                'return_url' => config('app.frontend_url') . '/employer/dashboard?status=payment_success',
+                                'cancel_url' => config('app.frontend_url') . '/employer/dashboard?status=payment_cancelled',
                             ]
                         ]
                     ]
@@ -267,6 +270,106 @@ class PayPalPaymentService
             ];
         } catch (\Exception $e) {
             Log::error('PayPal one-time payment creation failed', [
+                'employer_id' => $employer->id,
+                'plan_id' => $plan->id,
+                'error' => $e->getMessage()
+            ]);
+
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * Create recurring subscription (PayPal handles trial through billing cycles)
+     */
+    public function createSubscription(Employer $employer, Plan $plan): array
+    {
+        try {
+            // Ensure PayPal plan exists
+            if (!$plan->paypal_plan_id) {
+                $result = $this->createPlan($plan);
+                if (!$result['success']) {
+                    throw new \Exception('Failed to create PayPal plan: ' . $result['error']);
+                }
+            }
+
+            $subscriptionData = [
+                'plan_id' => $plan->paypal_plan_id,
+                'subscriber' => [
+                    'name' => [
+                        'given_name' => $employer->user->first_name ?? 'User',
+                        'surname' => $employer->user->last_name ?? 'User',
+                    ],
+                    'email_address' => $employer->user->email,
+                ],
+                'application_context' => [
+                    'brand_name' => config('app.name'),
+                    'locale' => 'en-US',
+                    'shipping_preference' => 'NO_SHIPPING',
+                    'user_action' => 'SUBSCRIBE_NOW',
+                    'payment_method' => [
+                        'payer_selected' => 'PAYPAL',
+                        'payee_preferred' => 'IMMEDIATE_PAYMENT_REQUIRED',
+                    ],
+                    'return_url' => config('app.frontend_url') . '/employer/dashboard?status=subscription_success',
+                    'cancel_url' => config('app.frontend_url') . '/employer/dashboard?status=subscription_cancelled',
+                ],
+                'custom_id' => "employer_{$employer->id}_plan_{$plan->id}",
+            ];
+
+            $response = Http::withToken($this->getAccessToken())
+                ->withHeaders([
+                    'PayPal-Request-Id' => 'SUBSCRIPTION-' . Str::uuid()->toString(),
+                    'Prefer' => 'return=representation'
+                ])
+                ->post($this->baseUrl . '/v1/billing/subscriptions', $subscriptionData);
+
+            if (!$response->successful()) {
+                throw new \Exception('PayPal subscription creation failed: ' . $response->body());
+            }
+
+            $subscription = $response->json();
+
+            // PayPal will handle trial through billing cycles, so we determine trial status from plan
+            $isInTrial = $plan->hasTrial();
+            $trialStart = $isInTrial ? now() : null;
+            $trialEnd = $isInTrial ? now()->addDays($plan->getTrialPeriodDays()) : null;
+
+            // Create subscription record
+            $subscriptionRecord = Subscription::create([
+                'employer_id' => $employer->id,
+                'plan_id' => $plan->id,
+                'subscription_id' => $subscription['id'],
+                'payment_provider' => 'paypal',
+                'status' => strtolower($subscription['status']),
+                'amount' => $plan->price,
+                'currency' => $plan->getCurrencyCode(),
+                'start_date' => now(),
+                'next_billing_date' => $this->getNextBillingDate($plan, $isInTrial),
+                'trial_start_date' => $trialStart,
+                'trial_end_date' => $trialEnd,
+                'is_trial' => $isInTrial,
+                'trial_ended' => false,
+                'cv_downloads_left' => $plan->resume_views_limit,
+                'metadata' => $subscription,
+                'is_active' => false, // Will be activated after approval
+            ]);
+
+            $approvalUrl = collect($subscription['links'])->firstWhere('rel', 'approve')['href'] ?? null;
+
+            return [
+                'success' => true,
+                'subscription_id' => $subscription['id'],
+                'approval_url' => $approvalUrl,
+                'subscription' => $subscriptionRecord,
+                'is_trial' => $isInTrial,
+                'trial_end_date' => $trialEnd,
+            ];
+        } catch (\Exception $e) {
+            Log::error('PayPal subscription creation failed', [
                 'employer_id' => $employer->id,
                 'plan_id' => $plan->id,
                 'error' => $e->getMessage()

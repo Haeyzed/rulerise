@@ -109,9 +109,24 @@ class PaymentController extends Controller
             $employer->notify(new SubscriptionCreated($result['subscription']));
         }
 
+        // Format the response to be consistent between payment providers
+        $responseData = [
+            'success' => true,
+            'subscription_id' => $result['subscription']->id,
+            'approval_url' => $result['approval_url'] ?? null,
+            'is_trial' => $result['is_trial'] ?? false,
+        ];
+
+        // Add provider-specific data
+        if ($request->payment_provider === 'stripe') {
+            $responseData['checkout_session_id'] = $result['checkout_session_id'] ?? null;
+        } else {
+            $responseData['paypal_subscription_id'] = $result['subscription_id'] ?? null;
+        }
+
         return response()->json([
             'success' => true,
-            'data' => $result
+            'data' => $responseData
         ]);
     }
 
