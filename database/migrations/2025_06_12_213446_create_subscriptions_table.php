@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('employer_id')->constrained()->onDelete('cascade');
             $table->foreignId('plan_id')->constrained()->onDelete('cascade');
-            $table->string('subscription_id')->unique();
+            $table->string('subscription_id')->unique()->nullable();
             $table->enum('payment_provider', ['stripe', 'paypal']);
             $table->string('status');//, ['active', 'canceled', 'expired', 'past_due', 'incomplete']);
             $table->decimal('amount', 10, 2);
