@@ -54,6 +54,7 @@ class Subscription extends Model
         'canceled_at',
         'metadata',
         'is_active',
+        'is_suspended'
     ];
 
     protected $casts = [

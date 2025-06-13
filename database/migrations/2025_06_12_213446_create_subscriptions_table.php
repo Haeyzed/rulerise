@@ -31,9 +31,11 @@ return new class extends Migration
             $table->timestamp('canceled_at')->nullable();
             $table->json('metadata')->nullable();
             $table->boolean('is_active')->default(true);
+            $table->boolean('is_suspended')->default(false);
             $table->timestamps();
 
             $table->index(['employer_id', 'is_active']);
+            $table->index(['employer_id', 'is_suspended']);
             $table->index(['status', 'next_billing_date']);
         });
     }
