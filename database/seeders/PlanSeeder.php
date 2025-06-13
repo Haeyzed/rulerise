@@ -32,7 +32,6 @@ class PlanSeeder extends Seeder
                     'Standard job visibility'
                 ],
                 'is_active' => true,
-                'is_suspended' => false,
                 'is_popular' => false,
                 'trial_days' => 1,
                 'has_trial' => true,
@@ -56,7 +55,6 @@ class PlanSeeder extends Seeder
                     'Basic support'
                 ],
                 'is_active' => true,
-                'is_suspended' => false,
                 'is_popular' => false,
                 'trial_days' => 1,
                 'has_trial' => false,
