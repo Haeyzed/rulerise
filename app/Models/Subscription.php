@@ -123,7 +123,7 @@ class Subscription extends Model
         ]);
 
         // Send cancellation notification
-        $this->employer->notify(new SubscriptionCancelled($this));
+        $this->employer->user->notify(new SubscriptionCancelled($this));
     }
 
     public function suspend(): void
@@ -134,7 +134,7 @@ class Subscription extends Model
         ]);
 
         // Send suspension notification
-        $this->employer->notify(new SubscriptionSuspended($this));
+        $this->employer->user->notify(new SubscriptionSuspended($this));
     }
 
     public function resume(): void
@@ -145,7 +145,7 @@ class Subscription extends Model
         ]);
 
         // Send resumption notification
-        $this->employer->notify(new SubscriptionResumed($this));
+        $this->employer->user->notify(new SubscriptionResumed($this));
     }
 
     public function activate(): void
@@ -156,7 +156,7 @@ class Subscription extends Model
         ]);
 
         // Send activation notification
-        $this->employer->notify(new SubscriptionActivated($this));
+        $this->employer->user->notify(new SubscriptionActivated($this));
     }
 
     public function scopeActive($query)
