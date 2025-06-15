@@ -13,6 +13,7 @@ use App\Services\Payment\StripePaymentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 
 class PaymentController extends Controller
 {
@@ -216,14 +217,6 @@ class PaymentController extends Controller
             ];
         }
 
-        // Optional: Add price comparison validation
-//        if ($newPlan->price <= $activeSubscription->plan->price) {
-//            return [
-//                'valid' => false,
-//                'message' => 'You can only upgrade to a higher-priced plan. This appears to be a downgrade.'
-//            ];
-//        }
-
         return ['valid' => true];
     }
 
@@ -242,6 +235,12 @@ class PaymentController extends Controller
 
             // Option 2: Suspend existing subscription
             // $this->suspendExistingSubscription($activeSubscription);
+
+            Log::info('Upgrade requested - existing subscription found', [
+                'employer_id' => $employer->id,
+                'existing_subscription_id' => $activeSubscription->id,
+                'existing_plan_id' => $activeSubscription->plan_id,
+            ]);
         }
     }
 
@@ -257,12 +256,12 @@ class PaymentController extends Controller
         };
 
         if ($success) {
-            \Log::info('Existing subscription cancelled during upgrade', [
+            Log::info('Existing subscription cancelled during upgrade', [
                 'subscription_id' => $subscription->id,
                 'employer_id' => $subscription->employer_id
             ]);
         } else {
-            \Log::error('Failed to cancel existing subscription during upgrade', [
+            Log::error('Failed to cancel existing subscription during upgrade', [
                 'subscription_id' => $subscription->id,
                 'employer_id' => $subscription->employer_id
             ]);
@@ -281,12 +280,12 @@ class PaymentController extends Controller
         };
 
         if ($success) {
-            \Log::info('Existing subscription suspended during upgrade', [
+            Log::info('Existing subscription suspended during upgrade', [
                 'subscription_id' => $subscription->id,
                 'employer_id' => $subscription->employer_id
             ]);
         } else {
-            \Log::error('Failed to suspend existing subscription during upgrade', [
+            Log::error('Failed to suspend existing subscription during upgrade', [
                 'subscription_id' => $subscription->id,
                 'employer_id' => $subscription->employer_id
             ]);
@@ -309,7 +308,7 @@ class PaymentController extends Controller
         };
 
         if ($result['success']) {
-            \Log::info('Trial subscription created for one-time plan', [
+            Log::info('Trial subscription created for one-time plan', [
                 'employer_id' => $employer->id,
                 'plan_id' => $plan->id,
                 'trial_days' => $plan->getTrialPeriodDays()
@@ -441,24 +440,6 @@ class PaymentController extends Controller
             'success' => true,
             'data' => $subscriptions,
             'message' => 'Subscriptions retrieved successfully'
-        ]);
-    }
-
-    /**
-     * Get employer's payments
-     */
-    public function getPayments(): JsonResponse
-    {
-        $employer = Auth::user()->employer;
-        $payments = $employer->payments()
-            ->with('plan')
-            ->orderBy('created_at', 'desc')
-            ->get();
-
-        return response()->json([
-            'success' => true,
-            'data' => $payments,
-            'message' => 'Payments retrieved successfully'
         ]);
     }
 

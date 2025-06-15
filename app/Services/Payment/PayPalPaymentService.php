@@ -4,12 +4,9 @@ namespace App\Services\Payment;
 
 use App\Models\Employer;
 use App\Models\Plan;
-use App\Models\Payment;
 use App\Models\Subscription;
 use App\Notifications\PaymentFailed;
 use App\Notifications\PaymentSuccessful;
-use App\Notifications\SubscriptionCancelled;
-use App\Notifications\SubscriptionSuspended;
 use App\Notifications\TrialEnding;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -234,8 +231,8 @@ class PayPalPaymentService
                                 'locale' => 'en-US',
                                 'landing_page' => 'LOGIN',
                                 'user_action' => 'PAY_NOW',
-                                'return_url' => config('app.frontend_url') . '/employer/dashboard?payment_success=true',
-                                'cancel_url' => config('app.frontend_url') . '/employer/dashboard?payment_cancelled=true',
+                                'return_url' => config('app.frontend_url') . '/employer/dashboard?payment_status=success',
+                                'cancel_url' => config('app.frontend_url') . '/employer/dashboard?payment_status=cancelled',
                             ]
                         ]
                     ]
@@ -247,17 +244,25 @@ class PayPalPaymentService
 
             $order = $response->json();
 
-            // Create payment record
-            $payment = Payment::create([
+            // Create subscription record for one-time payment (for consistency)
+            $subscription = Subscription::create([
                 'employer_id' => $employer->id,
                 'plan_id' => $plan->id,
-                'payment_id' => $order['id'],
+                'subscription_id' => $order['id'],
                 'payment_provider' => 'paypal',
-                'payment_type' => 'one_time',
                 'status' => 'pending',
                 'amount' => $plan->price,
                 'currency' => $plan->getCurrencyCode(),
-                'provider_response' => $order,
+                'start_date' => now(),
+                'end_date' => $plan->isOneTime() ? now()->addDays($plan->duration_days ?? 30) : null,
+                'next_billing_date' => null,
+                'trial_start_date' => null,
+                'trial_end_date' => null,
+                'is_trial' => false,
+                'trial_ended' => false,
+                'cv_downloads_left' => $plan->resume_views_limit,
+                'metadata' => array_merge($order, ['payment_type' => 'one_time']),
+                'is_active' => false, // Will be activated after approval
             ]);
 
             $approvalUrl = collect($order['links'])->firstWhere('rel', 'approve')['href'] ?? null;
@@ -266,7 +271,7 @@ class PayPalPaymentService
                 'success' => true,
                 'order_id' => $order['id'],
                 'approval_url' => $approvalUrl,
-                'payment' => $payment,
+                'subscription' => $subscription,
             ];
         } catch (\Exception $e) {
             Log::error('PayPal one-time payment creation failed', [
@@ -314,8 +319,8 @@ class PayPalPaymentService
                         'payer_selected' => 'PAYPAL',
                         'payee_preferred' => 'IMMEDIATE_PAYMENT_REQUIRED',
                     ],
-                    'return_url' => config('app.frontend_url') . '/employer/dashboard?subscription_success=true',
-                    'cancel_url' => config('app.frontend_url') . '/employer/dashboard?subscription_cancelled=true',
+                    'return_url' => config('app.frontend_url') . '/employer/dashboard?payment_status=success',
+                    'cancel_url' => config('app.frontend_url') . '/employer/dashboard?payment_status=cancelled',
                 ],
                 'custom_id' => "employer_{$employer->id}_plan_{$plan->id}",
             ];
@@ -388,6 +393,13 @@ class PayPalPaymentService
     public function cancelSubscription(Subscription $subscription): bool
     {
         try {
+            if (!$subscription->subscription_id) {
+                Log::error('Cannot cancel PayPal subscription: missing subscription_id', [
+                    'subscription_record_id' => $subscription->id
+                ]);
+                return false;
+            }
+
             $response = Http::withToken($this->getAccessToken())
                 ->post($this->baseUrl . "/v1/billing/subscriptions/{$subscription->subscription_id}/cancel", [
                     'reason' => 'User requested cancellation'
@@ -420,6 +432,13 @@ class PayPalPaymentService
     public function suspendSubscription(Subscription $subscription): bool
     {
         try {
+            if (!$subscription->subscription_id) {
+                Log::error('Cannot suspend PayPal subscription: missing subscription_id', [
+                    'subscription_record_id' => $subscription->id
+                ]);
+                return false;
+            }
+
             $response = Http::withToken($this->getAccessToken())
                 ->post($this->baseUrl . "/v1/billing/subscriptions/{$subscription->subscription_id}/suspend", [
                     'reason' => 'Suspended by user'
@@ -452,6 +471,13 @@ class PayPalPaymentService
     public function resumeSubscription(Subscription $subscription): bool
     {
         try {
+            if (!$subscription->subscription_id) {
+                Log::error('Cannot resume PayPal subscription: missing subscription_id', [
+                    'subscription_record_id' => $subscription->id
+                ]);
+                return false;
+            }
+
             $response = Http::withToken($this->getAccessToken())
                 ->post($this->baseUrl . "/v1/billing/subscriptions/{$subscription->subscription_id}/activate", [
                     'reason' => 'Reactivating the subscription'
@@ -497,23 +523,23 @@ class PayPalPaymentService
 
             $capturedOrder = $response->json();
 
-            // Update payment record
-            $payment = Payment::where('payment_id', $orderId)->first();
-            if ($payment) {
-                $payment->update([
-                    'status' => 'completed',
-                    'paid_at' => now(),
-                    'provider_response' => $capturedOrder,
+            // Update subscription record
+            $subscription = Subscription::where('subscription_id', $orderId)->first();
+            if ($subscription) {
+                $subscription->update([
+                    'status' => 'active',
+                    'is_active' => true,
+                    'metadata' => array_merge($subscription->metadata ?? [], $capturedOrder),
                 ]);
 
-                // Send payment successful notification
-                $payment->employer->notify(new PaymentSuccessful($payment));
+                // Activate the subscription
+                $subscription->activate();
             }
 
             return [
                 'success' => true,
                 'order' => $capturedOrder,
-                'payment' => $payment,
+                'subscription' => $subscription,
             ];
         } catch (\Exception $e) {
             Log::error('PayPal payment capture failed', [
@@ -558,13 +584,16 @@ class PayPalPaymentService
                 case 'BILLING.SUBSCRIPTION.PAYMENT.FAILED':
                     $this->handlePaymentFailed($event['resource']);
                     break;
+
+                default:
+                    Log::info('Unhandled PayPal webhook event', ['type' => $event['event_type']]);
             }
         } catch (\Exception $e) {
             Log::error('PayPal webhook handling failed', [
                 'event_type' => $event['event_type'],
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'error' => $e->getMessage()
             ]);
+            throw $e;
         }
     }
 
@@ -577,35 +606,17 @@ class PayPalPaymentService
                 'status' => strtolower($subscription['status'] ?? $subscriptionRecord->status),
                 'metadata' => array_merge($subscriptionRecord->metadata ?? [], $subscription),
             ]);
-
-            Log::info('PayPal subscription created webhook handled', [
-                'subscription_id' => $subscription['id'],
-                'status' => $subscription['status'] ?? 'unknown'
-            ]);
-        } else {
-            Log::warning('PayPal subscription created webhook - subscription not found', [
-                'subscription_id' => $subscription['id']
-            ]);
         }
     }
 
     private function handleSubscriptionActivated(array $subscription): void
     {
-        $subscriptionRecord = Subscription::where('subscription_id', $subscription['id'])
-            ->with(['plan', 'employer'])
-            ->first();
+        $subscriptionRecord = Subscription::where('subscription_id', $subscription['id'])->first();
 
         if (!$subscriptionRecord) {
-            Log::warning('PayPal subscription activated webhook - subscription not found', [
-                'subscription_id' => $subscription['id']
-            ]);
-            return;
-        }
-
-        if (!$subscriptionRecord->plan) {
-            Log::error('PayPal subscription activated webhook - plan not found', [
+            Log::warning('Subscription not found for PayPal webhook', [
                 'subscription_id' => $subscription['id'],
-                'plan_id' => $subscriptionRecord->plan_id
+                'event_type' => 'BILLING.SUBSCRIPTION.ACTIVATED'
             ]);
             return;
         }
@@ -625,30 +636,16 @@ class PayPalPaymentService
 
         // Activate the subscription (this will send the notification)
         $subscriptionRecord->activate();
-
-        Log::info('PayPal subscription activated webhook handled', [
-            'subscription_id' => $subscription['id'],
-            'plan_name' => $subscriptionRecord->plan->name
-        ]);
     }
 
     private function handleSubscriptionCancelled(array $subscription): void
     {
-        $subscriptionRecord = Subscription::where('subscription_id', $subscription['id'])
-            ->with(['plan', 'employer'])
-            ->first();
+        $subscriptionRecord = Subscription::where('subscription_id', $subscription['id'])->first();
 
         if (!$subscriptionRecord) {
-            Log::warning('PayPal subscription cancelled webhook - subscription not found', [
-                'subscription_id' => $subscription['id']
-            ]);
-            return;
-        }
-
-        if (!$subscriptionRecord->plan) {
-            Log::error('PayPal subscription cancelled webhook - plan not found', [
+            Log::warning('Subscription not found for PayPal webhook', [
                 'subscription_id' => $subscription['id'],
-                'plan_id' => $subscriptionRecord->plan_id
+                'event_type' => 'BILLING.SUBSCRIPTION.CANCELLED'
             ]);
             return;
         }
@@ -663,30 +660,16 @@ class PayPalPaymentService
 
         // Cancel the subscription (this will send the notification)
         $subscriptionRecord->cancel();
-
-        Log::info('PayPal subscription cancelled webhook handled', [
-            'subscription_id' => $subscription['id'],
-            'plan_name' => $subscriptionRecord->plan->name
-        ]);
     }
 
     private function handleSubscriptionSuspended(array $subscription): void
     {
-        $subscriptionRecord = Subscription::where('subscription_id', $subscription['id'])
-            ->with(['plan', 'employer'])
-            ->first();
+        $subscriptionRecord = Subscription::where('subscription_id', $subscription['id'])->first();
 
         if (!$subscriptionRecord) {
-            Log::warning('PayPal subscription suspended webhook - subscription not found', [
-                'subscription_id' => $subscription['id']
-            ]);
-            return;
-        }
-
-        if (!$subscriptionRecord->plan) {
-            Log::error('PayPal subscription suspended webhook - plan not found', [
+            Log::warning('Subscription not found for PayPal webhook', [
                 'subscription_id' => $subscription['id'],
-                'plan_id' => $subscriptionRecord->plan_id
+                'event_type' => 'BILLING.SUBSCRIPTION.SUSPENDED'
             ]);
             return;
         }
@@ -702,54 +685,26 @@ class PayPalPaymentService
 
         // Suspend the subscription (this will send the notification)
         $subscriptionRecord->suspend();
-
-        Log::info('PayPal subscription suspended webhook handled', [
-            'subscription_id' => $subscription['id'],
-            'plan_name' => $subscriptionRecord->plan->name
-        ]);
     }
 
     private function handlePaymentCompleted(array $payment): void
     {
         // Handle recurring payment completion
         if (isset($payment['billing_agreement_id'])) {
-            $subscription = Subscription::where('subscription_id', $payment['billing_agreement_id'])
-                ->with(['plan', 'employer'])
-                ->first();
+            $subscription = Subscription::where('subscription_id', $payment['billing_agreement_id'])->first();
 
-            if ($subscription && $subscription->plan && $subscription->employer) {
-                $paymentRecord = Payment::create([
-                    'employer_id' => $subscription->employer_id,
-                    'plan_id' => $subscription->plan_id,
-                    'subscription_id' => $subscription->id,
-                    'payment_id' => $payment['id'],
-                    'payment_provider' => 'paypal',
-                    'payment_type' => 'recurring',
-                    'status' => 'completed',
+            if ($subscription) {
+                // Send payment successful notification
+                $subscription->employer->notify(new PaymentSuccessful($subscription, [
                     'amount' => $payment['amount']['total'],
                     'currency' => strtoupper($payment['amount']['currency']),
-                    'paid_at' => Carbon::parse($payment['create_time']),
-                    'provider_response' => $payment,
-                ]);
-
-                // Send payment successful notification
-                $subscription->employer->notify(new PaymentSuccessful($paymentRecord));
+                    'payment_id' => $payment['id'],
+                ]));
 
                 // If this is the first payment after trial, end the trial
                 if ($subscription->isInTrial()) {
                     $subscription->endTrial();
                 }
-
-                Log::info('PayPal payment completed webhook handled', [
-                    'payment_id' => $payment['id'],
-                    'subscription_id' => $payment['billing_agreement_id'],
-                    'amount' => $payment['amount']['total']
-                ]);
-            } else {
-                Log::warning('PayPal payment completed webhook - subscription or related models not found', [
-                    'billing_agreement_id' => $payment['billing_agreement_id'],
-                    'payment_id' => $payment['id']
-                ]);
             }
         }
     }
@@ -763,41 +718,20 @@ class PayPalPaymentService
 
             // Update subscription status if available
             if (isset($payment['billing_agreement_id'])) {
-                $subscription = Subscription::where('subscription_id', $payment['billing_agreement_id'])
-                    ->with(['plan', 'employer'])
-                    ->first();
+                $subscription = Subscription::where('subscription_id', $payment['billing_agreement_id'])->first();
 
-                if ($subscription && $subscription->plan && $subscription->employer) {
+                if ($subscription) {
                     $subscription->update([
                         'status' => 'payment_failed',
                     ]);
 
-                    // Create a failed payment record
-                    $paymentRecord = Payment::create([
-                        'employer_id' => $subscription->employer_id,
-                        'plan_id' => $subscription->plan_id,
-                        'subscription_id' => $subscription->id,
-                        'payment_id' => $payment['id'],
-                        'payment_provider' => 'paypal',
-                        'payment_type' => 'recurring',
-                        'status' => 'failed',
+                    // Send payment failed notification
+                    $subscription->employer->notify(new PaymentFailed($subscription, [
                         'amount' => $payment['amount']['total'] ?? 0,
                         'currency' => strtoupper($payment['amount']['currency'] ?? 'USD'),
-                        'provider_response' => $payment,
-                    ]);
-
-                    // Send payment failed notification
-                    $subscription->employer->notify(new PaymentFailed($paymentRecord));
-
-                    Log::info('PayPal payment failed webhook handled', [
                         'payment_id' => $payment['id'],
-                        'subscription_id' => $payment['billing_agreement_id']
-                    ]);
-                } else {
-                    Log::warning('PayPal payment failed webhook - subscription or related models not found', [
-                        'billing_agreement_id' => $payment['billing_agreement_id'],
-                        'payment_id' => $payment['id']
-                    ]);
+                        'failure_reason' => 'Payment failed',
+                    ]));
                 }
             }
         }
@@ -812,54 +746,5 @@ class PayPalPaymentService
             'yearly' => $startDate->copy()->addYear(),
             default => $startDate,
         };
-    }
-
-    /**
-     * Verify webhook signature
-     */
-    public function verifyWebhookSignature(string $payload, array $headers): bool
-    {
-        // Skip verification in development
-        if (config('app.env') === 'local') {
-            return true;
-        }
-
-        $normalizedHeaders = array_change_key_case($headers, CASE_LOWER);
-
-        $requiredHeaders = [
-            'paypal-transmission-id',
-            'paypal-transmission-time',
-            'paypal-cert-url',
-            'paypal-auth-algo',
-            'paypal-transmission-sig'
-        ];
-
-        foreach ($requiredHeaders as $header) {
-            if (empty($normalizedHeaders[$header])) {
-                Log::error('Missing PayPal webhook header', ['header' => $header]);
-                return false;
-            }
-        }
-
-        try {
-            $response = Http::withToken($this->getAccessToken())
-                ->post($this->baseUrl . "/v1/notifications/verify-webhook-signature", [
-                    'webhook_id' => $this->webhookId,
-                    'transmission_id' => $normalizedHeaders['paypal-transmission-id'],
-                    'transmission_time' => $normalizedHeaders['paypal-transmission-time'],
-                    'transmission_sig' => $normalizedHeaders['paypal-transmission-sig'],
-                    'cert_url' => $normalizedHeaders['paypal-cert-url'],
-                    'auth_algo' => $normalizedHeaders['paypal-auth-algo'],
-                    'webhook_event' => json_decode($payload, true)
-                ]);
-
-            return $response->successful() &&
-                $response->json('verification_status') === 'SUCCESS';
-        } catch (\Exception $e) {
-            Log::error('PayPal webhook signature verification failed', [
-                'error' => $e->getMessage()
-            ]);
-            return false;
-        }
     }
 }
