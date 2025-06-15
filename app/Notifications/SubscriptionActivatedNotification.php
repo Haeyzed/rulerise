@@ -54,7 +54,7 @@ class SubscriptionActivatedNotification extends Notification// implements Should
                 'user' => $user,
                 'isRecurring' => $plan->isRecurring(),
                 'isOneTime' => $plan->isOneTime(),
-                'nextBillingDate' => $this->subscription->next_billing_date ? Carbon::parse($this->subscription->next_billing_date)->format('d/m/Y') : null,
+                'nextBillingDate' => $this->formatDate($this->subscription->next_billing_date),
                 'paymentMethod' => $this->subscription->payment_provider ?? null,
                 'lastFour' => $this->subscription->billing_info['last_four'] ?? null,
                 'url' => url('/employer/dashboard/subscriptions')
@@ -77,5 +77,14 @@ class SubscriptionActivatedNotification extends Notification// implements Should
             'cv_downloads' => $this->subscription->plan->resume_views_limit,
             'is_recurring' => $this->subscription->plan->isRecurring(),
         ];
+    }
+
+    private function formatDate($date): ?string
+    {
+        try {
+            return $date ? Carbon::parse($date)->format('d/m/Y') : null;
+        } catch (\Exception $e) {
+            return null;
+        }
     }
 }
