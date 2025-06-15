@@ -494,8 +494,11 @@ class PayPalPaymentService
     {
         try {
             $response = Http::withToken($this->getAccessToken())
-//                ->withHeaders(['PayPal-Request-Id' => Str::uuid()->toString()])
-                ->post($this->baseUrl . "/v2/checkout/orders/{$orderId}/capture", []);
+                ->withHeaders([
+                    'Content-Type' => 'application/json',
+                    // 'PayPal-Request-Id' => Str::uuid()->toString(), // Optional: Idempotency
+                ])
+                ->post($this->baseUrl . "/v2/checkout/orders/{$orderId}/capture", (object)[]);
 
             if (!$response->successful()) {
                 throw new \Exception('PayPal payment capture failed: ' . $response->body());
