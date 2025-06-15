@@ -211,7 +211,7 @@ class PayPalPaymentService
             $accessToken = $this->getAccessToken();
 
             $response = Http::withToken($accessToken)
-                ->withHeaders(['PayPal-Request-Id' => Str::uuid()->toString()])
+//                ->withHeaders(['PayPal-Request-Id' => Str::uuid()->toString()])
                 ->post($this->baseUrl . '/v2/checkout/orders', [
                     'intent' => 'CAPTURE',
                     'purchase_units' => [
@@ -494,6 +494,7 @@ class PayPalPaymentService
     {
         try {
             $response = Http::withToken($this->getAccessToken())
+//                ->withHeaders(['PayPal-Request-Id' => Str::uuid()->toString()])
                 ->post($this->baseUrl . "/v2/checkout/orders/{$orderId}/capture", []);
 
             if (!$response->successful()) {
