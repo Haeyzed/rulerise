@@ -216,8 +216,8 @@ class StripePaymentService
                 ],
                 'mode' => 'subscription',
                 'payment_method_types' => ['card'],
-                'success_url' => config('app.frontend_url') . '/employer/dashboard?subscription_success=true&session_id={CHECKOUT_SESSION_ID}',
-                'cancel_url' => config('app.frontend_url') . '/employer/dashboard?subscription_cancelled=true&session_id={CHECKOUT_SESSION_ID}',
+                'success_url' => config('app.frontend_url') . '/employer/dashboard?session_id={CHECKOUT_SESSION_ID}',
+                'cancel_url' => config('app.frontend_url') . '/employer/dashboard?session_id={CHECKOUT_SESSION_ID}',
                 'metadata' => [
                     'employer_id' => $employer->id,
                     'plan_id' => $plan->id,
@@ -256,9 +256,10 @@ class StripePaymentService
                 'is_trial' => $isInTrial,
                 'trial_ended' => false,
                 'cv_downloads_left' => $plan->resume_views_limit,
-                'metadata' => [
-                    'checkout_session_id' => $session->id,
-                ],
+                'metadata' => $session,
+//                'metadata' => [
+//                    'checkout_session_id' => $session->id,
+//                ],
                 'is_active' => false, // Will be activated after checkout completion
             ]);
 
