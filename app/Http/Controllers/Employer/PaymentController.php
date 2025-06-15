@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Employer;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Employer\CreatePaymentRequest;
 use App\Http\Requests\Employer\CreateSubscriptionRequest;
-use App\Models\Employer;
 use App\Models\Plan;
 use App\Models\Subscription;
 use App\Notifications\SubscriptionCreated;
@@ -14,7 +13,6 @@ use App\Services\Payment\StripePaymentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Log;
 
 class PaymentController extends Controller
 {
@@ -60,7 +58,7 @@ class PaymentController extends Controller
     }
 
     /**
-     * Create one-time payment with trial period checking
+     * Create one-time payment
      */
     public function createOneTimePayment(CreatePaymentRequest $request): JsonResponse
     {
@@ -74,13 +72,19 @@ class PaymentController extends Controller
             ], 400);
         }
 
-        // Check if this is an upgrade request
-        if ($request->boolean('is_upgrade')) {
-            $this->handleUpgrade($employer);
+        // Handle upgrade validation if this is an upgrade
+        if ($request->is_upgrade) {
+            $validationResult = $this->validateUpgrade($employer, $plan);
+            if (!$validationResult['valid']) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $validationResult['message']
+                ], 400);
+            }
         }
 
-        // Check if employer has used trial period
-        if (!$employer->hasUsedTrial() && $plan->hasTrial()) {
+        // Check if employer has used trial period for one-time payments
+        if (!$employer->has_used_trial && $plan->hasTrial()) {
             // Create trial subscription instead of payment
             $result = $this->createTrialSubscription($employer, $plan, $request->payment_provider);
         } else {
@@ -99,6 +103,11 @@ class PaymentController extends Controller
             ], 400);
         }
 
+        // Handle upgrade if this is an upgrade
+        if ($request->is_upgrade) {
+            $this->handleUpgrade($employer);
+        }
+
         return response()->json([
             'success' => true,
             'data' => $result,
@@ -107,7 +116,7 @@ class PaymentController extends Controller
     }
 
     /**
-     * Create subscription with upgrade handling
+     * Create subscription
      */
     public function createSubscription(CreateSubscriptionRequest $request): JsonResponse
     {
@@ -121,15 +130,21 @@ class PaymentController extends Controller
             ], 400);
         }
 
-        // Check if this is an upgrade request
-        if ($request->boolean('is_upgrade')) {
-            $this->handleUpgrade($employer);
+        // Handle upgrade validation if this is an upgrade
+        if ($request->is_upgrade) {
+            $validationResult = $this->validateUpgrade($employer, $plan);
+            if (!$validationResult['valid']) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $validationResult['message']
+                ], 400);
+            }
         } else {
-            // Check if employer already has active subscription (only for new subscriptions)
+            // Check if employer already has active subscription (only for new subscriptions, not upgrades)
             if ($employer->hasActiveSubscription()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'You already have an active subscription'
+                    'message' => 'You already have an active subscription. Use upgrade option to change plans.'
                 ], 400);
             }
         }
@@ -145,6 +160,11 @@ class PaymentController extends Controller
                 'success' => false,
                 'message' => $result['error']
             ], 400);
+        }
+
+        // Handle upgrade if this is an upgrade
+        if ($request->is_upgrade) {
+            $this->handleUpgrade($employer);
         }
 
         // Send subscription created notification
@@ -175,141 +195,128 @@ class PaymentController extends Controller
     }
 
     /**
-     * Handle upgrade logic - cancel or suspend existing subscription
+     * Validate upgrade request
      */
-    private function handleUpgrade(Employer $employer): void
+    private function validateUpgrade($employer, $newPlan): array
     {
-        $activeSubscription = $employer->activeSubscription()->first();
+        $activeSubscription = $employer->activeSubscription;
+
+        if (!$activeSubscription) {
+            return [
+                'valid' => false,
+                'message' => 'No active subscription found to upgrade from'
+            ];
+        }
+
+        // Check if trying to upgrade to the same plan
+        if ($activeSubscription->plan_id === $newPlan->id) {
+            return [
+                'valid' => false,
+                'message' => 'You are already subscribed to this plan. Please select a different plan to upgrade.'
+            ];
+        }
+
+        // Optional: Add price comparison validation
+//        if ($newPlan->price <= $activeSubscription->plan->price) {
+//            return [
+//                'valid' => false,
+//                'message' => 'You can only upgrade to a higher-priced plan. This appears to be a downgrade.'
+//            ];
+//        }
+
+        return ['valid' => true];
+    }
+
+    /**
+     * Handle upgrade by managing existing subscription
+     */
+    private function handleUpgrade($employer): void
+    {
+        $activeSubscription = $employer->activeSubscription;
 
         if ($activeSubscription) {
-            // TODO: Ask boss which action to use - cancel or suspend
+            // TODO: Uncomment one of the following based on business decision
+
             // Option 1: Cancel existing subscription
-             $this->cancelExistingSubscription($activeSubscription);
+            // $this->cancelExistingSubscription($activeSubscription);
 
             // Option 2: Suspend existing subscription
             // $this->suspendExistingSubscription($activeSubscription);
-
-            Log::info('Upgrade requested - existing subscription found', [
-                'employer_id' => $employer->id,
-                'existing_subscription_id' => $activeSubscription->id,
-                'existing_plan_id' => $activeSubscription->plan_id,
-            ]);
         }
     }
 
     /**
-     * Cancel existing subscription for upgrade
+     * Cancel existing subscription during upgrade
      */
-    private function cancelExistingSubscription(Subscription $subscription): bool
+    private function cancelExistingSubscription(Subscription $subscription): void
     {
-        try {
-            $success = match ($subscription->payment_provider) {
-                'stripe' => $this->stripeService->cancelSubscription($subscription),
-                'paypal' => $this->paypalService->cancelSubscription($subscription),
-                default => false
-            };
+        $success = match ($subscription->payment_provider) {
+            'stripe' => $this->stripeService->cancelSubscription($subscription),
+            'paypal' => $this->paypalService->cancelSubscription($subscription),
+            default => false
+        };
 
-            if ($success) {
-                Log::info('Existing subscription cancelled for upgrade', [
-                    'subscription_id' => $subscription->id,
-                    'employer_id' => $subscription->employer_id,
-                ]);
-            }
-
-            return $success;
-        } catch (\Exception $e) {
-            Log::error('Failed to cancel existing subscription for upgrade', [
+        if ($success) {
+            \Log::info('Existing subscription cancelled during upgrade', [
                 'subscription_id' => $subscription->id,
-                'error' => $e->getMessage()
+                'employer_id' => $subscription->employer_id
             ]);
-            return false;
-        }
-    }
-
-    /**
-     * Suspend existing subscription for upgrade
-     */
-    private function suspendExistingSubscription(Subscription $subscription): bool
-    {
-        try {
-            $success = match ($subscription->payment_provider) {
-                'stripe' => $this->stripeService->suspendSubscription($subscription),
-                'paypal' => $this->paypalService->suspendSubscription($subscription),
-                default => false
-            };
-
-            if ($success) {
-                Log::info('Existing subscription suspended for upgrade', [
-                    'subscription_id' => $subscription->id,
-                    'employer_id' => $subscription->employer_id,
-                ]);
-            }
-
-            return $success;
-        } catch (\Exception $e) {
-            Log::error('Failed to suspend existing subscription for upgrade', [
+        } else {
+            \Log::error('Failed to cancel existing subscription during upgrade', [
                 'subscription_id' => $subscription->id,
-                'error' => $e->getMessage()
+                'employer_id' => $subscription->employer_id
             ]);
-            return false;
         }
     }
 
     /**
-     * Create trial subscription for first-time users
+     * Suspend existing subscription during upgrade
      */
-    private function createTrialSubscription(Employer $employer, Plan $plan, string $paymentProvider): array
+    private function suspendExistingSubscription(Subscription $subscription): void
     {
-        try {
-            // Mark trial as used
-            $employer->markTrialAsUsed();
+        $success = match ($subscription->payment_provider) {
+            'stripe' => $this->stripeService->suspendSubscription($subscription),
+            'paypal' => $this->paypalService->suspendSubscription($subscription),
+            default => false
+        };
 
-            // Create trial subscription
-            $trialStart = now();
-            $trialEnd = now()->addDays($plan->getTrialPeriodDays());
+        if ($success) {
+            \Log::info('Existing subscription suspended during upgrade', [
+                'subscription_id' => $subscription->id,
+                'employer_id' => $subscription->employer_id
+            ]);
+        } else {
+            \Log::error('Failed to suspend existing subscription during upgrade', [
+                'subscription_id' => $subscription->id,
+                'employer_id' => $subscription->employer_id
+            ]);
+        }
+    }
 
-            $subscription = Subscription::create([
+    /**
+     * Create trial subscription for one-time payment plans
+     */
+    private function createTrialSubscription($employer, $plan, $paymentProvider): array
+    {
+        // Mark trial as used
+        $employer->markTrialAsUsed();
+
+        // Create trial subscription using the subscription method
+        $result = match ($paymentProvider) {
+            'stripe' => $this->stripeService->createSubscription($employer, $plan),
+            'paypal' => $this->paypalService->createSubscription($employer, $plan),
+            default => ['success' => false, 'error' => 'Invalid payment provider']
+        };
+
+        if ($result['success']) {
+            \Log::info('Trial subscription created for one-time plan', [
                 'employer_id' => $employer->id,
                 'plan_id' => $plan->id,
-                'subscription_id' => 'trial_' . uniqid(),
-                'payment_provider' => $paymentProvider,
-                'status' => 'trialing',
-                'amount' => $plan->price,
-                'currency' => $plan->getCurrencyCode(),
-                'start_date' => $trialStart,
-                'end_date' => $trialEnd,
-                'next_billing_date' => $trialEnd,
-                'trial_start_date' => $trialStart,
-                'trial_end_date' => $trialEnd,
-                'is_trial' => true,
-                'trial_ended' => false,
-                'cv_downloads_left' => $plan->resume_views_limit,
-                'metadata' => [
-                    'trial_created' => true,
-                    'original_plan_id' => $plan->id,
-                ],
-                'is_active' => true,
+                'trial_days' => $plan->getTrialPeriodDays()
             ]);
-
-            return [
-                'success' => true,
-                'subscription' => $subscription,
-                'is_trial' => true,
-                'trial_end_date' => $trialEnd,
-                'message' => 'Trial subscription created successfully'
-            ];
-        } catch (\Exception $e) {
-            Log::error('Failed to create trial subscription', [
-                'employer_id' => $employer->id,
-                'plan_id' => $plan->id,
-                'error' => $e->getMessage()
-            ]);
-
-            return [
-                'success' => false,
-                'error' => 'Failed to create trial subscription: ' . $e->getMessage()
-            ];
         }
+
+        return $result;
     }
 
     /**
