@@ -77,6 +77,8 @@ class Employer extends Model
         'paypal_customer_id',
         'is_verified',
         'is_featured',
+        'has_used_trial',
+        'trial_used_at',
     ];
 
     /**
@@ -146,7 +148,6 @@ class Employer extends Model
      */
     public function subscriptions(): HasMany
     {
-//        return $this->hasMany(OldSubscription::class);
         return $this->hasMany(Subscription::class);
     }
 
@@ -155,7 +156,6 @@ class Employer extends Model
      */
     public function payments(): HasMany
     {
-//        return $this->hasMany(OldSubscription::class);
         return $this->hasMany(Payment::class);
     }
 
@@ -164,7 +164,6 @@ class Employer extends Model
      */
     public function activeSubscription(): HasOne
     {
-//        return $this->hasOne(OldSubscription::class)
         return $this->hasOne(Subscription::class)
             ->where('is_active', true)
             ->where(function ($query) {
@@ -182,6 +181,29 @@ class Employer extends Model
     public function hasActiveSubscription(): bool
     {
         return $this->activeSubscription()->exists();
+    }
+
+    /**
+     * Check if employer has used their trial period
+     *
+     * @return bool
+     */
+    public function hasUsedTrial(): bool
+    {
+        return $this->has_used_trial;
+    }
+
+    /**
+     * Mark trial as used
+     *
+     * @return void
+     */
+    public function markTrialAsUsed(): void
+    {
+        $this->update([
+            'has_used_trial' => true,
+            'trial_used_at' => now(),
+        ]);
     }
 
     /**

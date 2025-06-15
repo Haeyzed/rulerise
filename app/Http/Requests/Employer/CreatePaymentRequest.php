@@ -24,6 +24,7 @@ class CreatePaymentRequest extends FormRequest
         return [
             'plan_id' => 'required|exists:plans,id',
             'payment_provider' => 'required|in:stripe,paypal',
+            'is_upgrade' => 'boolean',
         ];
     }
 
@@ -34,6 +35,7 @@ class CreatePaymentRequest extends FormRequest
             'plan_id.exists' => 'Selected plan does not exist',
             'payment_provider.required' => 'Please select a payment provider',
             'payment_provider.in' => 'Invalid payment provider selected',
+            'is_upgrade.boolean' => 'Upgrade flag must be true or false',
         ];
     }
 }

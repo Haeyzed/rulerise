@@ -211,7 +211,7 @@ class PayPalPaymentService
             $accessToken = $this->getAccessToken();
 
             $response = Http::withToken($accessToken)
-//                ->withHeaders(['PayPal-Request-Id' => Str::uuid()->toString()])
+                ->withHeaders(['PayPal-Request-Id' => Str::uuid()->toString()])
                 ->post($this->baseUrl . '/v2/checkout/orders', [
                     'intent' => 'CAPTURE',
                     'purchase_units' => [
@@ -496,7 +496,7 @@ class PayPalPaymentService
             $response = Http::withToken($this->getAccessToken())
                 ->withHeaders([
                     'Content-Type' => 'application/json',
-                    // 'PayPal-Request-Id' => Str::uuid()->toString(), // Optional: Idempotency
+                     'PayPal-Request-Id' => Str::uuid()->toString(), // Optional: Idempotency
                 ])
                 ->post($this->baseUrl . "/v2/checkout/orders/{$orderId}/capture", (object)[]);
 
@@ -519,10 +519,8 @@ class PayPalPaymentService
             $payment = Subscription::where('subscription_id', $orderId)->first();
             if ($payment) {
                 $payment->update([
-//                    'status' => 'completed',
                     'status' => strtolower($capturedOrder['status']),
                     'is_active' => true,
-                    'paid_at' => now(),
                     'metadata' => $capturedOrder,
                 ]);
             }
