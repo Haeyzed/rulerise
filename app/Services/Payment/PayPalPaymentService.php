@@ -421,7 +421,7 @@ class PayPalPaymentService
     {
         try {
             $response = Http::withToken($this->getAccessToken())
-                ->post($this->baseUrl . "/v1/billing/subscriptions/{$subscription->subscription_id}/suspend", [
+                ->post($this->baseUrl . "/v1/billing/subscriptions/{$subscription->subscription_id}/suspend", (object)[
                     'reason' => 'Suspended by user'
                 ]);
 
