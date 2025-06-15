@@ -114,53 +114,6 @@ Route::middleware(['auth:api', 'role:employer,employer_staff'])->group(function 
     Route::post('/subscriptions/resume', [PaymentController::class, 'resumeSubscription']);
     Route::get('/subscriptions', [PaymentController::class, 'getSubscriptions']);
 
-//    Route::prefix('subscription')->group(function () {
-//        Route::get('/plans', [SubscriptionController::class, 'getPlans']);
-//        Route::get('/active', [SubscriptionController::class, 'getActiveSubscription']);
-//        Route::get('/', [SubscriptionController::class, 'getAllSubscriptions']);
-//        Route::post('{plan}/subscribe', [SubscriptionController::class, 'subscribe']);
-//        Route::post('/cancel', [SubscriptionController::class, 'cancel']);
-//        Route::post('/verify-paypal', [SubscriptionController::class, 'verifyPayPalSubscription']);
-//        Route::post('/verify-stripe', [SubscriptionController::class, 'verifyStripeSubscription']);
-//    });
-
-    // OldSubscription Management
-//    Route::prefix('subscription')->group(function () {
-//        // Get available plans
-//        Route::get('plans', [SubscriptionController::class, 'getPlans']);
-//
-//        // Get active subscription
-//        Route::get('active', [SubscriptionController::class, 'getActiveSubscription']);
-//
-//        // Get all subscriptions
-//        Route::get('all', [SubscriptionController::class, 'getAllSubscriptions']);
-//
-//        // Subscribe to a plan
-//        Route::post('{plan}/subscribe', [SubscriptionController::class, 'subscribe']);
-//
-//        // Cancel subscription
-//        Route::post('cancel', [SubscriptionController::class, 'cancel']);
-//
-//        // Payment provider callbacks
-//        Route::prefix('callbacks')->group(function () {
-//            // PayPal callbacks
-//            Route::get('paypal/success', [SubscriptionController::class, 'paypalSuccess']);
-//            Route::get('paypal/cancel', [SubscriptionController::class, 'paypalCancel']);
-//
-//            // Stripe callbacks
-//            Route::get('stripe/success', [SubscriptionController::class, 'stripeSuccess']);
-//            Route::get('stripe/cancel', [SubscriptionController::class, 'stripeCancel']);
-//        });
-//
-//        // Manual verification endpoints
-//        Route::post('verify-paypal', [SubscriptionController::class, 'verifyPayPalSubscription']);
-//        Route::post('verify-stripe', [SubscriptionController::class, 'verifyStripeSubscription']);
-////        Route::prefix('verify')->group(function () {
-////            Route::post('paypal', [SubscriptionController::class, 'verifyPayPalSubscription']);
-////            Route::post('stripe', [SubscriptionController::class, 'verifyStripeSubscription']);
-////        });
-//    });
-
     // Job notification templates
     Route::prefix('job-notification-template')->group(function () {
         Route::post('/', [JobNotificationTemplatesController::class, 'updateTemplate']);
@@ -179,18 +132,6 @@ Route::middleware(['auth:api', 'role:employer'])->group(function () {
         Route::delete('{id}', [UsersController::class, 'delete']);
     });
 });
-
-// OldSubscription callback endpoints (no auth required)
-//Route::get('subscription/paypal/success', [SubscriptionController::class, 'paypalSuccess']);
-//Route::get('subscription/paypal/cancel', [SubscriptionController::class, 'paypalCancel']);
-//Route::get('subscription/stripe/success', [SubscriptionController::class, 'stripeSuccess']);
-//Route::get('subscription/stripe/cancel', [SubscriptionController::class, 'stripeCancel']);
-//
-//// Webhook endpoints (no auth required, verified by signature)
-//Route::post('webhooks/paypal', [PayPalWebhookController::class, 'handle']);
-//Route::post('webhooks/stripe', [StripeWebhookController::class, 'handle']);
-
-
 
 // Public routes
 Route::post('/webhooks/stripe', [WebhookController::class, 'handleStripeWebhook']);

@@ -245,16 +245,42 @@ class PayPalPaymentService
             $order = $response->json();
 
             // Create payment record
-            $payment = Payment::create([
+//            $payment = Payment::create([
+//                'employer_id' => $employer->id,
+//                'plan_id' => $plan->id,
+//                'payment_id' => $order['id'],
+//                'payment_provider' => 'paypal',
+//                'payment_type' => 'one_time',
+//                'status' => 'pending',
+//                'amount' => $plan->price,
+//                'currency' => $plan->getCurrencyCode(),
+//                'provider_response' => $order,
+//            ]);
+
+
+            // PayPal will handle trial through billing cycles, so we determine trial status from plan
+            $isInTrial = $plan->hasTrial();
+            $trialStart = $isInTrial ? now() : null;
+            $trialEnd = $isInTrial ? now()->addDays($plan->getTrialPeriodDays()) : null;
+
+            // Create subscription record
+            $payment = Subscription::query()->create([
                 'employer_id' => $employer->id,
                 'plan_id' => $plan->id,
-                'payment_id' => $order['id'],
+                'subscription_id' => $order['id'],
                 'payment_provider' => 'paypal',
-                'payment_type' => 'one_time',
                 'status' => 'pending',
                 'amount' => $plan->price,
                 'currency' => $plan->getCurrencyCode(),
-                'provider_response' => $order,
+                'start_date' => now(),
+                'next_billing_date' => null,
+                'trial_start_date' => $trialStart,
+                'trial_end_date' => $trialEnd,
+                'is_trial' => $isInTrial,
+                'trial_ended' => false,
+                'cv_downloads_left' => $plan->resume_views_limit,
+                'metadata' => $order,
+                'is_active' => false, // Will be activated after approval
             ]);
 
             $approvalUrl = collect($order['links'])->firstWhere('rel', 'approve')['href'] ?? null;
@@ -336,7 +362,7 @@ class PayPalPaymentService
             $trialEnd = $isInTrial ? now()->addDays($plan->getTrialPeriodDays()) : null;
 
             // Create subscription record
-            $subscriptionRecord = Subscription::create([
+            $subscriptionRecord = Subscription::query()->create([
                 'employer_id' => $employer->id,
                 'plan_id' => $plan->id,
                 'subscription_id' => $subscription['id'],
