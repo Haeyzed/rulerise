@@ -504,14 +504,14 @@ class PayPalPaymentService
             $capturedOrder = $response->json();
 
             // Update payment record
-            $payment = Payment::where('payment_id', $orderId)->first();
-            if ($payment) {
-                $payment->update([
-                    'status' => 'completed',
-                    'paid_at' => now(),
-                    'provider_response' => $capturedOrder,
-                ]);
-            }
+//            $payment = Payment::where('payment_id', $orderId)->first();
+//            if ($payment) {
+//                $payment->update([
+//                    'status' => 'completed',
+//                    'paid_at' => now(),
+//                    'provider_response' => $capturedOrder,
+//                ]);
+//            }
 
             $payment = Subscription::where('subscription_id', $orderId)->first();
             if ($payment) {
