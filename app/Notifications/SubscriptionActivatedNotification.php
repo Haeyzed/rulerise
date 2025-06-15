@@ -54,7 +54,7 @@ class SubscriptionActivatedNotification extends Notification// implements Should
                 'user' => $user,
                 'isRecurring' => $plan->isRecurring(),
                 'isOneTime' => $plan->isOneTime(),
-                'nextBillingDate' => $this->subscription->next_billing_date,
+                'nextBillingDate' => $this->subscription->next_billing_date ? Carbon::parse($this->subscription->next_billing_date)->format('d/m/Y') : null,
 //                'nextBillingDate' => $this->subscription->next_billing_date ? Carbon::parse($this->subscription->next_billing_date)->format('d/m/Y') : null,
                 'paymentMethod' => $this->subscription->payment_provider ?? null,
                 'lastFour' => $this->subscription->billing_info['last_four'] ?? null,

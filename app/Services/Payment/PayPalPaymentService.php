@@ -692,8 +692,8 @@ class PayPalPaymentService
     private function handlePaymentCompleted(array $payment): void
     {
         // Handle recurring payment completion
-        if (isset($payment['billing_agreement_id'])) {
-            $subscription = Subscription::where('subscription_id', $payment['billing_agreement_id'])->first();
+//        if (isset($payment['billing_agreement_id'])) {
+            $subscription = Subscription::where('subscription_id', $payment['id'])->first();
 
             if ($subscription) {
                 // Send payment successful notification
@@ -709,7 +709,7 @@ class PayPalPaymentService
                     $subscription->endTrial();
                 }
             }
-        }
+//        }
     }
 
     private function handlePaymentFailed(array $payment): void
