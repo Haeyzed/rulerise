@@ -7,6 +7,7 @@ use App\Models\Plan;
 use App\Models\Subscription;
 use App\Notifications\PaymentFailed;
 use App\Notifications\PaymentSuccessful;
+use App\Notifications\SubscriptionActivatedNotification;
 use App\Notifications\TrialEnding;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -695,11 +696,12 @@ class PayPalPaymentService
 
             if ($subscription) {
                 // Send payment successful notification
-                $subscription->employer->notify(new PaymentSuccessful($subscription, [
-                    'amount' => $payment['amount']['total'],
-                    'currency' => strtoupper($payment['amount']['currency']),
-                    'payment_id' => $payment['id'],
-                ]));
+//                $subscription->employer->notify(new PaymentSuccessful($subscription, [
+//                    'amount' => $payment['amount']['total'],
+//                    'currency' => strtoupper($payment['amount']['currency']),
+//                    'payment_id' => $payment['id'],
+//                ]));
+                $subscription->employer->notify(new SubscriptionActivatedNotification($subscription));
 
                 // If this is the first payment after trial, end the trial
                 if ($subscription->isInTrial()) {

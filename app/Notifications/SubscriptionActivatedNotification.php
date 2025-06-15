@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\OldSubscription;
+use App\Models\Subscription;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -13,14 +14,14 @@ class SubscriptionActivatedNotification extends Notification// implements Should
 {
     use Queueable;
 
-    protected OldSubscription $subscription;
+    protected Subscription $subscription;
 
     /**
      * Create a new notification instance.
      *
      * @param OldSubscription $subscription
      */
-    public function __construct(OldSubscription $subscription)
+    public function __construct(Subscription $subscription)
     {
         $this->subscription = $subscription;
     }
@@ -54,7 +55,7 @@ class SubscriptionActivatedNotification extends Notification// implements Should
                 'isRecurring' => $plan->isRecurring(),
                 'isOneTime' => $plan->isOneTime(),
                 'nextBillingDate' => $this->subscription->next_billing_date ? Carbon::parse($this->subscription->next_billing_date)->format('d/m/Y') : null,
-                'paymentMethod' => $this->subscription->billing_info['payment_method'] ?? null,
+                'paymentMethod' => $this->subscription->payment_provider ?? null,
                 'lastFour' => $this->subscription->billing_info['last_four'] ?? null,
                 'url' => url('/employer/dashboard/subscriptions')
             ]);
