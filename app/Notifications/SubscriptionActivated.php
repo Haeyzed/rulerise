@@ -39,7 +39,9 @@ class SubscriptionActivated extends Notification //implements ShouldQueue
     {
         $plan = $this->subscription->plan;
         $provider = ucfirst($this->subscription->payment_provider);
-        $mailMessage = (new MailMessage)
+        $nextBillingDate = $this->subscription->next_billing_date->format('F j, Y');
+
+        return (new MailMessage)
             ->subject("Your {$plan->name} Subscription is Now Active")
             ->greeting("Hello {$notifiable->user->name}!")
             ->line("Your subscription to the {$plan->name} plan is now active.")
@@ -47,14 +49,8 @@ class SubscriptionActivated extends Notification //implements ShouldQueue
             ->line("Subscription details:")
             ->line("- Plan: {$plan->name}")
             ->line("- Price: {$plan->price} {$plan->currency} per {$plan->billing_cycle}")
-            ->line("- Payment Provider: {$provider}");
-
-        // Only add next billing date if it exists
-        if ($this->subscription->next_billing_date) {
-            $mailMessage->line("- Next Billing Date: " . $this->subscription->next_billing_date->format('F j, Y'));
-        }
-
-        return $mailMessage
+            ->line("- Payment Provider: {$provider}")
+            ->line("- Next Billing Date: {$nextBillingDate}")
             ->action('View Subscription Details', url('/dashboard/subscriptions'))
             ->line('Thank you for using our platform!');
     }

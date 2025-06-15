@@ -7,8 +7,6 @@ use App\Models\Plan;
 use App\Models\Subscription;
 use App\Notifications\PaymentFailed;
 use App\Notifications\PaymentSuccessful;
-use App\Notifications\SubscriptionActivated;
-use App\Notifications\SubscriptionActivatedNotification;
 use App\Notifications\TrialEnding;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -267,8 +265,8 @@ class PayPalPaymentService
                 'is_active' => false, // Will be activated after approval
             ]);
 
-            $approvalUrl = $order['links'][1]['href'] ?? null;
-//            $approvalUrl = collect($order['links'])->firstWhere('rel', 'approve')['href'] ?? null;
+            // Get approval URL more safely
+            $approvalUrl = collect($order['links'])->firstWhere('rel', 'approve')['href'] ?? null;
 
             return [
                 'success' => true,
@@ -535,8 +533,8 @@ class PayPalPaymentService
                     'metadata' => array_merge($subscription->metadata ?? [], $capturedOrder),
                 ]);
 
-                // Send activation notification
-                $subscription->employer->user->notify(new SubscriptionActivated($subscription));
+                // Activate the subscription (this will send the notification)
+                $subscription->activate();
             }
 
             return [
@@ -554,6 +552,55 @@ class PayPalPaymentService
                 'success' => false,
                 'error' => $e->getMessage(),
             ];
+        }
+    }
+
+    /**
+     * Verify webhook signature
+     */
+    public function verifyWebhookSignature(string $payload, array $headers): bool
+    {
+        // Skip verification in development
+        if (config('app.env') === 'local') {
+            return true;
+        }
+
+        $normalizedHeaders = array_change_key_case($headers, CASE_LOWER);
+
+        $requiredHeaders = [
+            'paypal-transmission-id',
+            'paypal-transmission-time',
+            'paypal-cert-url',
+            'paypal-auth-algo',
+            'paypal-transmission-sig'
+        ];
+
+        foreach ($requiredHeaders as $header) {
+            if (empty($normalizedHeaders[$header])) {
+                Log::error('Missing PayPal webhook header', ['header' => $header]);
+                return false;
+            }
+        }
+
+        try {
+            $response = Http::withToken($this->getAccessToken())
+                ->post($this->baseUrl . "/v1/notifications/verify-webhook-signature", [
+                    'webhook_id' => $this->webhookId,
+                    'transmission_id' => $normalizedHeaders['paypal-transmission-id'],
+                    'transmission_time' => $normalizedHeaders['paypal-transmission-time'],
+                    'transmission_sig' => $normalizedHeaders['paypal-transmission-sig'],
+                    'cert_url' => $normalizedHeaders['paypal-cert-url'],
+                    'auth_algo' => $normalizedHeaders['paypal-auth-algo'],
+                    'webhook_event' => json_decode($payload, true)
+                ]);
+
+            return $response->successful() &&
+                $response->json('verification_status') === 'SUCCESS';
+        } catch (\Exception $e) {
+            Log::error('PayPal webhook signature verification failed', [
+                'error' => $e->getMessage()
+            ]);
+            return false;
         }
     }
 
@@ -698,12 +745,11 @@ class PayPalPaymentService
 
             if ($subscription) {
                 // Send payment successful notification
-//                $subscription->employer->notify(new PaymentSuccessful($subscription, [
-//                    'amount' => $payment['amount']['total'],
-//                    'currency' => strtoupper($payment['amount']['currency']),
-//                    'payment_id' => $payment['id'],
-//                ]));
-                $subscription->employer->notify(new SubscriptionActivatedNotification($subscription));
+                $subscription->employer->notify(new PaymentSuccessful($subscription, [
+                    'amount' => $payment['amount']['total'],
+                    'currency' => strtoupper($payment['amount']['currency']),
+                    'payment_id' => $payment['id'],
+                ]));
 
                 // If this is the first payment after trial, end the trial
                 if ($subscription->isInTrial()) {

@@ -33,19 +33,50 @@ class WebhookController extends Controller
         }
 
         try {
-            $event = Webhook::constructEvent($payload, $sigHeader, $endpointSecret);
+            // For development/local environment, increase tolerance or skip verification
+            if (config('app.env') === 'local') {
+                // Option 1: Increase tolerance to 10 minutes for local development
+                $event = Webhook::constructEvent($payload, $sigHeader, $endpointSecret, 600);
+
+                // Option 2: Skip signature verification entirely for local (uncomment if needed)
+                // $event = json_decode($payload, true);
+                // $event = \Stripe\Event::constructFrom($event);
+            } else {
+                // Production: Use default tolerance (5 minutes)
+                $event = Webhook::constructEvent($payload, $sigHeader, $endpointSecret);
+            }
         } catch (\UnexpectedValueException $e) {
             Log::error('Invalid Stripe webhook payload', ['error' => $e->getMessage()]);
             return response('Invalid payload', 400);
         } catch (SignatureVerificationException $e) {
-            Log::error('Invalid Stripe webhook signature', ['error' => $e->getMessage()]);
-            return response('Invalid signature', 400);
+            Log::error('Invalid Stripe webhook signature', [
+                'error' => $e->getMessage(),
+                'timestamp_header' => $request->header('Stripe-Signature'),
+                'current_time' => time(),
+                'app_env' => config('app.env')
+            ]);
+
+            // In development, you might want to be more lenient
+            if (config('app.env') === 'local') {
+                Log::warning('Skipping Stripe signature verification in local environment');
+                try {
+                    $event = json_decode($payload, true);
+                    $event = \Stripe\Event::constructFrom($event);
+                } catch (\Exception $e) {
+                    return response('Invalid payload format', 400);
+                }
+            } else {
+                return response('Invalid signature', 400);
+            }
         }
 
         try {
             Log::info('Processing Stripe webhook', [
                 'event_id' => $event->id,
-                'event_type' => $event->type
+                'event_type' => $event->type,
+                'created' => $event->created,
+                'current_time' => time(),
+                'time_diff' => time() - $event->created
             ]);
 
             $this->stripeService->handleWebhook($event->toArray());
@@ -58,8 +89,8 @@ class WebhookController extends Controller
             return response('Webhook handled', 200);
         } catch (\Exception $e) {
             Log::error('Stripe webhook handling failed', [
-                'event_id' => $event->id,
-                'event_type' => $event->type,
+                'event_id' => $event->id ?? 'unknown',
+                'event_type' => $event->type ?? 'unknown',
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
@@ -76,12 +107,12 @@ class WebhookController extends Controller
         $headers = $request->headers->all();
 
         // Verify webhook signature in production
-//        if (config('app.env') !== 'local') {
-//            if (!$this->paypalService->verifyWebhookSignature($payload, $headers)) {
-//                Log::error('PayPal webhook signature verification failed');
-//                return response('Invalid signature', 400);
-//            }
-//        }
+        if (config('app.env') !== 'local') {
+            if (!$this->paypalService->verifyWebhookSignature($payload, $headers)) {
+                Log::error('PayPal webhook signature verification failed');
+                return response('Invalid signature', 400);
+            }
+        }
 
         try {
             $event = $request->all();
@@ -93,7 +124,8 @@ class WebhookController extends Controller
 
             Log::info('Processing PayPal webhook', [
                 'event_type' => $event['event_type'],
-                'event_id' => $event['id'] ?? 'unknown'
+                'event_id' => $event['id'] ?? 'unknown',
+                'create_time' => $event['create_time'] ?? 'unknown'
             ]);
 
             $this->paypalService->handleWebhook($event);
