@@ -211,6 +211,7 @@ class PayPalPaymentService
             $accessToken = $this->getAccessToken();
 
             $response = Http::withToken($accessToken)
+                ->withHeaders(['PayPal-Request-Id' => Str::uuid()->toString()])
                 ->post($this->baseUrl . '/v2/checkout/orders', [
                     'intent' => 'CAPTURE',
                     'purchase_units' => [
@@ -284,7 +285,6 @@ class PayPalPaymentService
             ]);
 
             $approvalUrl = $order['links'][1]['href'] ?? null;
-
 
             return [
                 'success' => true,
