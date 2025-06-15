@@ -55,13 +55,10 @@ class PaymentController extends Controller
     public function createOneTimePayment(CreatePaymentRequest $request): JsonResponse
     {
         $employer = Auth::user()->employer;
-        $plan = Plan::findOrFail($request->plan_id);
+        $plan = Plan::query()->findOrFail($request->plan_id);
 
         if (!$plan->isOneTime()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'This plan is not available for one-time payment'
-            ], 400);
+            return response()->json('This plan is not available for one-time payment');
         }
 
         $result = match ($request->payment_provider) {
@@ -71,16 +68,10 @@ class PaymentController extends Controller
         };
 
         if (!$result['success']) {
-            return response()->json([
-                'success' => false,
-                'message' => $result['error']
-            ], 400);
+            return response()->badRequest($result['error']);
         }
 
-        return response()->json([
-            'success' => true,
-            'data' => $result
-        ]);
+        return response()->success($result, 'Subscribed successfully');
     }
 
     /**
@@ -89,21 +80,15 @@ class PaymentController extends Controller
     public function createSubscription(CreateSubscriptionRequest $request): JsonResponse
     {
         $employer = Auth::user()->employer;
-        $plan = Plan::findOrFail($request->plan_id);
+        $plan = Plan::query()->findOrFail($request->plan_id);
 
         if (!$plan->isRecurring()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'This plan is not available for subscription'
-            ], 400);
+            return response()->badRequest('This plan is not available for subscription');
         }
 
         // Check if employer already has active subscription
         if ($employer->hasActiveSubscription()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'You already have an active subscription'
-            ], 400);
+            return response()->badRequest('You already have an active subscription');
         }
 
         $result = match ($request->payment_provider) {
@@ -113,10 +98,7 @@ class PaymentController extends Controller
         };
 
         if (!$result['success']) {
-            return response()->json([
-                'success' => false,
-                'message' => $result['error']
-            ], 400);
+            return response()->badRequest($result['error']);
         }
 
         // Send subscription created notification
@@ -139,10 +121,7 @@ class PaymentController extends Controller
             $responseData['paypal_subscription_id'] = $result['subscription_id'] ?? null;
         }
 
-        return response()->json([
-            'success' => true,
-            'data' => $responseData
-        ]);
+        return response()->success($responseData, 'Subscribed successfully');
     }
 
     /**
@@ -154,10 +133,7 @@ class PaymentController extends Controller
         $subscription = $employer->activeSubscription()->first();
 
         if (!$subscription) {
-            return response()->json([
-                'success' => false,
-                'message' => 'No active subscription found'
-            ], 404);
+            return response()->badRequest('No active subscription found');
         }
 
         $success = match ($subscription->payment_provider) {
@@ -167,16 +143,10 @@ class PaymentController extends Controller
         };
 
         if (!$success) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to cancel subscription'
-            ], 400);
+            return response()->badRequest('Failed to cancel subscription');
         }
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Subscription cancelled successfully'
-        ]);
+        return response()->success(null, 'Subscription cancelled successfully');
     }
 
     /**
@@ -201,16 +171,10 @@ class PaymentController extends Controller
         };
 
         if (!$success) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to suspend subscription'
-            ], 400);
+            return response()->badRequest('Failed to suspend subscription');
         }
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Subscription suspended successfully'
-        ]);
+        return response()->success(null, 'Subscription suspended successfully');
     }
 
     /**
@@ -227,10 +191,7 @@ class PaymentController extends Controller
             ->first();
 
         if (!$subscription) {
-            return response()->json([
-                'success' => false,
-                'message' => 'No suspended subscription found'
-            ], 404);
+            return response()->notFound('No suspended subscription found');
         }
 
         $success = match ($subscription->payment_provider) {
@@ -240,16 +201,10 @@ class PaymentController extends Controller
         };
 
         if (!$success) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to resume subscription'
-            ], 400);
+            return response()->badRequest('Failed to resume subscription');
         }
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Subscription resumed successfully'
-        ]);
+        return response()->success(null, 'Subscription resumed successfully');
     }
 
     /**
@@ -263,10 +218,7 @@ class PaymentController extends Controller
             ->orderBy('created_at', 'desc')
             ->get();
 
-        return response()->json([
-            'success' => true,
-            'data' => $subscriptions
-        ]);
+        return response()->success($subscriptions, 'Subscriptions retrieved successfully');
     }
 
     /**
@@ -280,10 +232,7 @@ class PaymentController extends Controller
             ->orderBy('created_at', 'desc')
             ->get();
 
-        return response()->json([
-            'success' => true,
-            'data' => $payments
-        ]);
+        return response()->success($payments, 'Payments retrieved successfully');
     }
 
     /**
@@ -298,15 +247,9 @@ class PaymentController extends Controller
         $result = $this->paypalService->capturePayment($request->order_id);
 
         if (!$result['success']) {
-            return response()->json([
-                'success' => false,
-                'message' => $result['error']
-            ], 400);
+            return response()->badRequest($result['error']);
         }
 
-        return response()->json([
-            'success' => true,
-            'data' => $result
-        ]);
+        return response()->success($result, 'Payment captured successfully');
     }
 }

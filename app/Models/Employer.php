@@ -151,6 +151,15 @@ class Employer extends Model
     }
 
     /**
+     * Get the payments for the employer.
+     */
+    public function payments(): HasMany
+    {
+//        return $this->hasMany(OldSubscription::class);
+        return $this->hasMany(Payment::class);
+    }
+
+    /**
      * Get the active subscription for the employer.
      */
     public function activeSubscription(): HasOne
