@@ -8,6 +8,8 @@ use App\Models\Payment;
 use App\Models\Subscription;
 use App\Notifications\PaymentFailed;
 use App\Notifications\PaymentSuccessful;
+use App\Notifications\SubscriptionCancelled;
+use App\Notifications\SubscriptionSuspended;
 use App\Notifications\TrialEnding;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -232,8 +234,8 @@ class PayPalPaymentService
                                 'locale' => 'en-US',
                                 'landing_page' => 'LOGIN',
                                 'user_action' => 'PAY_NOW',
-                                'return_url' => config('app.frontend_url') . '/employer/dashboard',
-                                'cancel_url' => config('app.frontend_url') . '/employer/dashboard',
+                                'return_url' => config('app.frontend_url') . '/employer/dashboard?payment_success=true',
+                                'cancel_url' => config('app.frontend_url') . '/employer/dashboard?payment_cancelled=true',
                             ]
                         ]
                     ]
@@ -246,45 +248,19 @@ class PayPalPaymentService
             $order = $response->json();
 
             // Create payment record
-//            $payment = Payment::create([
-//                'employer_id' => $employer->id,
-//                'plan_id' => $plan->id,
-//                'payment_id' => $order['id'],
-//                'payment_provider' => 'paypal',
-//                'payment_type' => 'one_time',
-//                'status' => 'pending',
-//                'amount' => $plan->price,
-//                'currency' => $plan->getCurrencyCode(),
-//                'provider_response' => $order,
-//            ]);
-
-
-            // PayPal will handle trial through billing cycles, so we determine trial status from plan
-            $isInTrial = $plan->hasTrial();
-            $trialStart = $isInTrial ? now() : null;
-            $trialEnd = $isInTrial ? now()->addDays($plan->getTrialPeriodDays()) : null;
-
-            // Create subscription record
-            $payment = Subscription::query()->create([
+            $payment = Payment::create([
                 'employer_id' => $employer->id,
                 'plan_id' => $plan->id,
-                'subscription_id' => $order['id'],
+                'payment_id' => $order['id'],
                 'payment_provider' => 'paypal',
+                'payment_type' => 'one_time',
                 'status' => 'pending',
                 'amount' => $plan->price,
                 'currency' => $plan->getCurrencyCode(),
-                'start_date' => now(),
-                'next_billing_date' => null,
-                'trial_start_date' => $trialStart,
-                'trial_end_date' => $trialEnd,
-                'is_trial' => $isInTrial,
-                'trial_ended' => false,
-                'cv_downloads_left' => $plan->resume_views_limit,
-                'metadata' => $order,
-                'is_active' => false, // Will be activated after approval
+                'provider_response' => $order,
             ]);
 
-            $approvalUrl = $order['links'][1]['href'] ?? null;
+            $approvalUrl = collect($order['links'])->firstWhere('rel', 'approve')['href'] ?? null;
 
             return [
                 'success' => true,
@@ -338,8 +314,8 @@ class PayPalPaymentService
                         'payer_selected' => 'PAYPAL',
                         'payee_preferred' => 'IMMEDIATE_PAYMENT_REQUIRED',
                     ],
-                    'return_url' => config('app.frontend_url') . '/employer/dashboard',
-                    'cancel_url' => config('app.frontend_url') . '/employer/dashboard',
+                    'return_url' => config('app.frontend_url') . '/employer/dashboard?subscription_success=true',
+                    'cancel_url' => config('app.frontend_url') . '/employer/dashboard?subscription_cancelled=true',
                 ],
                 'custom_id' => "employer_{$employer->id}_plan_{$plan->id}",
             ];
@@ -363,7 +339,7 @@ class PayPalPaymentService
             $trialEnd = $isInTrial ? now()->addDays($plan->getTrialPeriodDays()) : null;
 
             // Create subscription record
-            $subscriptionRecord = Subscription::query()->create([
+            $subscriptionRecord = Subscription::create([
                 'employer_id' => $employer->id,
                 'plan_id' => $plan->id,
                 'subscription_id' => $subscription['id'],
@@ -422,6 +398,11 @@ class PayPalPaymentService
                 return true;
             }
 
+            Log::error('PayPal subscription cancellation failed', [
+                'subscription_id' => $subscription->subscription_id,
+                'response' => $response->json()
+            ]);
+
             return false;
         } catch (\Exception $e) {
             Log::error('Failed to cancel PayPal subscription', [
@@ -448,6 +429,11 @@ class PayPalPaymentService
                 $subscription->suspend();
                 return true;
             }
+
+            Log::error('PayPal subscription suspension failed', [
+                'subscription_id' => $subscription->subscription_id,
+                'response' => $response->json()
+            ]);
 
             return false;
         } catch (\Exception $e) {
@@ -476,6 +462,11 @@ class PayPalPaymentService
                 return true;
             }
 
+            Log::error('PayPal subscription resumption failed', [
+                'subscription_id' => $subscription->subscription_id,
+                'response' => $response->json()
+            ]);
+
             return false;
         } catch (\Exception $e) {
             Log::error('Failed to resume PayPal subscription', [
@@ -496,7 +487,7 @@ class PayPalPaymentService
             $response = Http::withToken($this->getAccessToken())
                 ->withHeaders([
                     'Content-Type' => 'application/json',
-                     'PayPal-Request-Id' => Str::uuid()->toString(), // Optional: Idempotency
+                    'PayPal-Request-Id' => Str::uuid()->toString(),
                 ])
                 ->post($this->baseUrl . "/v2/checkout/orders/{$orderId}/capture", (object)[]);
 
@@ -507,22 +498,16 @@ class PayPalPaymentService
             $capturedOrder = $response->json();
 
             // Update payment record
-//            $payment = Payment::where('payment_id', $orderId)->first();
-//            if ($payment) {
-//                $payment->update([
-//                    'status' => 'completed',
-//                    'paid_at' => now(),
-//                    'provider_response' => $capturedOrder,
-//                ]);
-//            }
-
-            $payment = Subscription::where('subscription_id', $orderId)->first();
+            $payment = Payment::where('payment_id', $orderId)->first();
             if ($payment) {
                 $payment->update([
-                    'status' => strtolower($capturedOrder['status']),
-                    'is_active' => true,
-                    'metadata' => $capturedOrder,
+                    'status' => 'completed',
+                    'paid_at' => now(),
+                    'provider_response' => $capturedOrder,
                 ]);
+
+                // Send payment successful notification
+                $payment->employer->notify(new PaymentSuccessful($payment));
             }
 
             return [
@@ -533,36 +518,6 @@ class PayPalPaymentService
         } catch (\Exception $e) {
             Log::error('PayPal payment capture failed', [
                 'order_id' => $orderId,
-                'error' => $e->getMessage()
-            ]);
-
-            return [
-                'success' => false,
-                'error' => $e->getMessage(),
-            ];
-        }
-    }
-
-    /**
-     * Get subscription details
-     */
-    public function getSubscriptionDetails(string $subscriptionId): array
-    {
-        try {
-            $response = Http::withToken($this->getAccessToken())
-                ->get($this->baseUrl . "/v1/billing/subscriptions/{$subscriptionId}");
-
-            if (!$response->successful()) {
-                throw new \Exception('Failed to get PayPal subscription details: ' . $response->body());
-            }
-
-            return [
-                'success' => true,
-                'subscription' => $response->json()
-            ];
-        } catch (\Exception $e) {
-            Log::error('Failed to get PayPal subscription details', [
-                'subscription_id' => $subscriptionId,
                 'error' => $e->getMessage()
             ]);
 
@@ -607,9 +562,256 @@ class PayPalPaymentService
         } catch (\Exception $e) {
             Log::error('PayPal webhook handling failed', [
                 'event_type' => $event['event_type'],
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
             ]);
         }
+    }
+
+    private function handleSubscriptionCreated(array $subscription): void
+    {
+        $subscriptionRecord = Subscription::where('subscription_id', $subscription['id'])->first();
+
+        if ($subscriptionRecord) {
+            $subscriptionRecord->update([
+                'status' => strtolower($subscription['status'] ?? $subscriptionRecord->status),
+                'metadata' => array_merge($subscriptionRecord->metadata ?? [], $subscription),
+            ]);
+
+            Log::info('PayPal subscription created webhook handled', [
+                'subscription_id' => $subscription['id'],
+                'status' => $subscription['status'] ?? 'unknown'
+            ]);
+        } else {
+            Log::warning('PayPal subscription created webhook - subscription not found', [
+                'subscription_id' => $subscription['id']
+            ]);
+        }
+    }
+
+    private function handleSubscriptionActivated(array $subscription): void
+    {
+        $subscriptionRecord = Subscription::where('subscription_id', $subscription['id'])
+            ->with(['plan', 'employer'])
+            ->first();
+
+        if (!$subscriptionRecord) {
+            Log::warning('PayPal subscription activated webhook - subscription not found', [
+                'subscription_id' => $subscription['id']
+            ]);
+            return;
+        }
+
+        if (!$subscriptionRecord->plan) {
+            Log::error('PayPal subscription activated webhook - plan not found', [
+                'subscription_id' => $subscription['id'],
+                'plan_id' => $subscriptionRecord->plan_id
+            ]);
+            return;
+        }
+
+        $updateData = [
+            'status' => 'active',
+            'is_active' => true,
+            'metadata' => array_merge($subscriptionRecord->metadata ?? [], $subscription),
+        ];
+
+        // Extract and save next billing date if available
+        if (isset($subscription['billing_info']['next_billing_time'])) {
+            $updateData['next_billing_date'] = Carbon::parse($subscription['billing_info']['next_billing_time']);
+        }
+
+        $subscriptionRecord->update($updateData);
+
+        // Activate the subscription (this will send the notification)
+        $subscriptionRecord->activate();
+
+        Log::info('PayPal subscription activated webhook handled', [
+            'subscription_id' => $subscription['id'],
+            'plan_name' => $subscriptionRecord->plan->name
+        ]);
+    }
+
+    private function handleSubscriptionCancelled(array $subscription): void
+    {
+        $subscriptionRecord = Subscription::where('subscription_id', $subscription['id'])
+            ->with(['plan', 'employer'])
+            ->first();
+
+        if (!$subscriptionRecord) {
+            Log::warning('PayPal subscription cancelled webhook - subscription not found', [
+                'subscription_id' => $subscription['id']
+            ]);
+            return;
+        }
+
+        if (!$subscriptionRecord->plan) {
+            Log::error('PayPal subscription cancelled webhook - plan not found', [
+                'subscription_id' => $subscription['id'],
+                'plan_id' => $subscriptionRecord->plan_id
+            ]);
+            return;
+        }
+
+        $updateData = [
+            'status' => 'canceled',
+            'is_active' => false,
+            'metadata' => array_merge($subscriptionRecord->metadata ?? [], $subscription),
+        ];
+
+        $subscriptionRecord->update($updateData);
+
+        // Cancel the subscription (this will send the notification)
+        $subscriptionRecord->cancel();
+
+        Log::info('PayPal subscription cancelled webhook handled', [
+            'subscription_id' => $subscription['id'],
+            'plan_name' => $subscriptionRecord->plan->name
+        ]);
+    }
+
+    private function handleSubscriptionSuspended(array $subscription): void
+    {
+        $subscriptionRecord = Subscription::where('subscription_id', $subscription['id'])
+            ->with(['plan', 'employer'])
+            ->first();
+
+        if (!$subscriptionRecord) {
+            Log::warning('PayPal subscription suspended webhook - subscription not found', [
+                'subscription_id' => $subscription['id']
+            ]);
+            return;
+        }
+
+        if (!$subscriptionRecord->plan) {
+            Log::error('PayPal subscription suspended webhook - plan not found', [
+                'subscription_id' => $subscription['id'],
+                'plan_id' => $subscriptionRecord->plan_id
+            ]);
+            return;
+        }
+
+        $updateData = [
+            'status' => 'suspended',
+            'is_active' => false,
+            'is_suspended' => true,
+            'metadata' => array_merge($subscriptionRecord->metadata ?? [], $subscription),
+        ];
+
+        $subscriptionRecord->update($updateData);
+
+        // Suspend the subscription (this will send the notification)
+        $subscriptionRecord->suspend();
+
+        Log::info('PayPal subscription suspended webhook handled', [
+            'subscription_id' => $subscription['id'],
+            'plan_name' => $subscriptionRecord->plan->name
+        ]);
+    }
+
+    private function handlePaymentCompleted(array $payment): void
+    {
+        // Handle recurring payment completion
+        if (isset($payment['billing_agreement_id'])) {
+            $subscription = Subscription::where('subscription_id', $payment['billing_agreement_id'])
+                ->with(['plan', 'employer'])
+                ->first();
+
+            if ($subscription && $subscription->plan && $subscription->employer) {
+                $paymentRecord = Payment::create([
+                    'employer_id' => $subscription->employer_id,
+                    'plan_id' => $subscription->plan_id,
+                    'subscription_id' => $subscription->id,
+                    'payment_id' => $payment['id'],
+                    'payment_provider' => 'paypal',
+                    'payment_type' => 'recurring',
+                    'status' => 'completed',
+                    'amount' => $payment['amount']['total'],
+                    'currency' => strtoupper($payment['amount']['currency']),
+                    'paid_at' => Carbon::parse($payment['create_time']),
+                    'provider_response' => $payment,
+                ]);
+
+                // Send payment successful notification
+                $subscription->employer->notify(new PaymentSuccessful($paymentRecord));
+
+                // If this is the first payment after trial, end the trial
+                if ($subscription->isInTrial()) {
+                    $subscription->endTrial();
+                }
+
+                Log::info('PayPal payment completed webhook handled', [
+                    'payment_id' => $payment['id'],
+                    'subscription_id' => $payment['billing_agreement_id'],
+                    'amount' => $payment['amount']['total']
+                ]);
+            } else {
+                Log::warning('PayPal payment completed webhook - subscription or related models not found', [
+                    'billing_agreement_id' => $payment['billing_agreement_id'],
+                    'payment_id' => $payment['id']
+                ]);
+            }
+        }
+    }
+
+    private function handlePaymentFailed(array $payment): void
+    {
+        if (isset($payment['id'])) {
+            Log::warning('PayPal subscription payment failed', [
+                'payment' => $payment
+            ]);
+
+            // Update subscription status if available
+            if (isset($payment['billing_agreement_id'])) {
+                $subscription = Subscription::where('subscription_id', $payment['billing_agreement_id'])
+                    ->with(['plan', 'employer'])
+                    ->first();
+
+                if ($subscription && $subscription->plan && $subscription->employer) {
+                    $subscription->update([
+                        'status' => 'payment_failed',
+                    ]);
+
+                    // Create a failed payment record
+                    $paymentRecord = Payment::create([
+                        'employer_id' => $subscription->employer_id,
+                        'plan_id' => $subscription->plan_id,
+                        'subscription_id' => $subscription->id,
+                        'payment_id' => $payment['id'],
+                        'payment_provider' => 'paypal',
+                        'payment_type' => 'recurring',
+                        'status' => 'failed',
+                        'amount' => $payment['amount']['total'] ?? 0,
+                        'currency' => strtoupper($payment['amount']['currency'] ?? 'USD'),
+                        'provider_response' => $payment,
+                    ]);
+
+                    // Send payment failed notification
+                    $subscription->employer->notify(new PaymentFailed($paymentRecord));
+
+                    Log::info('PayPal payment failed webhook handled', [
+                        'payment_id' => $payment['id'],
+                        'subscription_id' => $payment['billing_agreement_id']
+                    ]);
+                } else {
+                    Log::warning('PayPal payment failed webhook - subscription or related models not found', [
+                        'billing_agreement_id' => $payment['billing_agreement_id'],
+                        'payment_id' => $payment['id']
+                    ]);
+                }
+            }
+        }
+    }
+
+    private function getNextBillingDate(Plan $plan, bool $isInTrial = false): Carbon
+    {
+        $startDate = $isInTrial ? now()->addDays($plan->getTrialPeriodDays()) : now();
+
+        return match ($plan->billing_cycle) {
+            'monthly' => $startDate->copy()->addMonth(),
+            'yearly' => $startDate->copy()->addYear(),
+            default => $startDate,
+        };
     }
 
     /**
@@ -659,157 +861,5 @@ class PayPalPaymentService
             ]);
             return false;
         }
-    }
-
-    private function handleSubscriptionCreated(array $subscription): void
-    {
-        $subscriptionRecord = Subscription::where('subscription_id', $subscription['id'])->first();
-
-        if ($subscriptionRecord) {
-            $subscriptionRecord->update([
-                'status' => strtolower($subscription['status'] ?? $subscriptionRecord->status),
-                'metadata' => array_merge($subscriptionRecord->metadata ?? [], $subscription),
-            ]);
-        }
-    }
-
-    private function handleSubscriptionActivated(array $subscription): void
-    {
-        $subscriptionRecord = Subscription::where('subscription_id', $subscription['id'])->first();
-
-        if ($subscriptionRecord) {
-            $updateData = [
-                'status' => 'active',
-                'is_active' => true,
-                'metadata' => array_merge($subscriptionRecord->metadata ?? [], $subscription),
-            ];
-
-            // Extract and save next billing date if available
-            if (isset($subscription['billing_info']['next_billing_time'])) {
-                $updateData['next_billing_date'] = Carbon::parse($subscription['billing_info']['next_billing_time']);
-            }
-
-            $subscriptionRecord->update($updateData);
-
-            // Activate the subscription (this will send the notification)
-            $subscriptionRecord->activate();
-        }
-    }
-
-    private function handleSubscriptionCancelled(array $subscription): void
-    {
-        $subscriptionRecord = Subscription::where('subscription_id', $subscription['id'])->first();
-
-        if ($subscriptionRecord) {
-            $updateData = [
-                'status' => 'canceled',
-                'is_active' => false,
-                'metadata' => array_merge($subscriptionRecord->metadata ?? [], $subscription),
-            ];
-
-            $subscriptionRecord->update($updateData);
-
-            // Activate the subscription (this will send the notification)
-            $subscriptionRecord->cancel();
-        }
-    }
-
-    private function handleSubscriptionSuspended(array $subscription): void
-    {
-        $subscriptionRecord = Subscription::where('subscription_id', $subscription['id'])->first();
-
-        if ($subscriptionRecord) {
-            $updateData = [
-                'status' => 'suspended',
-                'is_active' => false,
-//                'is_suspended' => false,
-                'metadata' => array_merge($subscriptionRecord->metadata ?? [], $subscription),
-            ];
-
-            $subscriptionRecord->update($updateData);
-
-            // Activate the subscription (this will send the notification)
-            $subscriptionRecord->suspend();
-        }
-    }
-
-    private function handlePaymentCompleted(array $payment): void
-    {
-        // Handle recurring payment completion
-        if (isset($payment['billing_agreement_id'])) {
-            $subscription = Subscription::where('subscription_id', $payment['billing_agreement_id'])->first();
-
-            if ($subscription) {
-                $paymentRecord = Payment::create([
-                    'employer_id' => $subscription->employer_id,
-                    'plan_id' => $subscription->plan_id,
-                    'subscription_id' => $subscription->id,
-                    'payment_id' => $payment['id'],
-                    'payment_provider' => 'paypal',
-                    'payment_type' => 'recurring',
-                    'status' => 'completed',
-                    'amount' => $payment['amount']['total'],
-                    'currency' => strtoupper($payment['amount']['currency']),
-                    'paid_at' => Carbon::parse($payment['create_time']),
-                    'provider_response' => $payment,
-                ]);
-
-                // Send payment successful notification
-                $subscription->employer->notify(new PaymentSuccessful($paymentRecord));
-
-                // If this is the first payment after trial, end the trial
-                if ($subscription->isInTrial()) {
-                    $subscription->endTrial();
-                }
-            }
-        }
-    }
-
-    private function handlePaymentFailed(array $payment): void
-    {
-        if (isset($payment['id'])) {
-            Log::warning('PayPal subscription payment failed', [
-                'payment' => $payment
-            ]);
-
-            // Update subscription status if available
-            if (isset($payment['billing_agreement_id'])) {
-                $subscription = Subscription::where('subscription_id', $payment['billing_agreement_id'])->first();
-
-                if ($subscription) {
-                    $subscription->update([
-                        'status' => 'payment_failed',
-                    ]);
-
-                    // Create a failed payment record
-                    $paymentRecord = Payment::create([
-                        'employer_id' => $subscription->employer_id,
-                        'plan_id' => $subscription->plan_id,
-                        'subscription_id' => $subscription->id,
-                        'payment_id' => $payment['id'],
-                        'payment_provider' => 'paypal',
-                        'payment_type' => 'recurring',
-                        'status' => 'failed',
-                        'amount' => $payment['amount']['total'] ?? 0,
-                        'currency' => strtoupper($payment['amount']['currency'] ?? 'USD'),
-                        'provider_response' => $payment,
-                    ]);
-
-                    // Send payment failed notification
-                    $subscription->employer->notify(new PaymentFailed($paymentRecord));
-                }
-            }
-        }
-    }
-
-    private function getNextBillingDate(Plan $plan, bool $isInTrial = false): Carbon
-    {
-        $startDate = $isInTrial ? now()->addDays($plan->getTrialPeriodDays()) : now();
-
-        return match ($plan->billing_cycle) {
-            'monthly' => $startDate->copy()->addMonth(),
-            'yearly' => $startDate->copy()->addYear(),
-            default => $startDate,
-        };
     }
 }

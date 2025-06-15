@@ -38,12 +38,25 @@ class WebhookController extends Controller
         }
 
         try {
+            Log::info('Processing Stripe webhook', [
+                'event_id' => $event->id,
+                'event_type' => $event->type
+            ]);
+
             $this->stripeService->handleWebhook($event->toArray());
+
+            Log::info('Stripe webhook processed successfully', [
+                'event_id' => $event->id,
+                'event_type' => $event->type
+            ]);
+
             return response('Webhook handled', 200);
         } catch (\Exception $e) {
             Log::error('Stripe webhook handling failed', [
                 'event_id' => $event->id,
-                'error' => $e->getMessage()
+                'event_type' => $event->type,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
             ]);
             return response('Webhook handling failed', 500);
         }
@@ -54,17 +67,37 @@ class WebhookController extends Controller
      */
     public function handlePayPalWebhook(Request $request): Response
     {
-        // PayPal webhook verification would go here
-        // For production, implement proper webhook signature verification
+        $payload = $request->getContent();
+        $headers = $request->headers->all();
+
+        // Verify webhook signature (skip in local environment)
+        if (!$this->paypalService->verifyWebhookSignature($payload, $headers)) {
+            Log::error('PayPal webhook signature verification failed');
+            return response('Invalid signature', 400);
+        }
 
         try {
             $event = $request->all();
+
+            Log::info('Processing PayPal webhook', [
+                'event_type' => $event['event_type'] ?? 'unknown',
+                'event_id' => $event['id'] ?? 'unknown'
+            ]);
+
             $this->paypalService->handleWebhook($event);
+
+            Log::info('PayPal webhook processed successfully', [
+                'event_type' => $event['event_type'] ?? 'unknown',
+                'event_id' => $event['id'] ?? 'unknown'
+            ]);
+
             return response('Webhook handled', 200);
         } catch (\Exception $e) {
             Log::error('PayPal webhook handling failed', [
-                'event' => $request->all(),
-                'error' => $e->getMessage()
+                'event_type' => $request->input('event_type', 'unknown'),
+                'event_id' => $request->input('id', 'unknown'),
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
             ]);
             return response('Webhook handling failed', 500);
         }
