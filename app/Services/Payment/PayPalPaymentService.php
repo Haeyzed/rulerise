@@ -520,7 +520,8 @@ class PayPalPaymentService
             if ($payment) {
                 $payment->update([
 //                    'status' => 'completed',
-                    'status' => 'active',
+                    'status' => strtolower($capturedOrder['status']),
+                    'is_active' => true,
                     'paid_at' => now(),
                     'metadata' => $capturedOrder,
                 ]);
