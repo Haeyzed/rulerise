@@ -108,6 +108,7 @@ Route::middleware(['auth:api', 'role:employer,employer_staff'])->group(function 
 
     // Subscriptions
     Route::post('/subscriptions', [PaymentController::class, 'createSubscription']);
+    Route::get('/subscriptions/active', [PaymentController::class, 'getActiveSubscription']);
     Route::delete('/subscriptions/cancel', [PaymentController::class, 'cancelSubscription']);
     Route::post('/subscriptions/suspend', [PaymentController::class, 'suspendSubscription']);
     Route::post('/subscriptions/resume', [PaymentController::class, 'resumeSubscription']);

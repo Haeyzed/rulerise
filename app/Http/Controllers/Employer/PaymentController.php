@@ -34,6 +34,21 @@ class PaymentController extends Controller
         ]);
     }
 
+    public function getActiveSubscription(): JsonResponse
+    {
+        $employer = Auth::user()->employer;
+        $subscription = $employer->activeSubscription;
+
+        if (!$subscription) {
+            return response()->success(null, 'No active subscription found');
+        }
+
+        return response()->success([
+                'subscription' => $subscription,
+                'plan' => $subscription->plan
+            ], 'Active subscription retrieved successfully');
+    }
+
     /**
      * Create one-time payment
      */
