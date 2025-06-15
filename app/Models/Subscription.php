@@ -61,7 +61,7 @@ class Subscription extends Model
         'amount' => 'decimal:2',
         'start_date' => 'datetime',
         'end_date' => 'datetime',
-        'next_billing_date' => 'datetime',
+        'next_billing_date' => 'date',
         'trial_start_date' => 'datetime',
         'trial_end_date' => 'datetime',
         'canceled_at' => 'datetime',
