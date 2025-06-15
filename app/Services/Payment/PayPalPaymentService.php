@@ -7,6 +7,7 @@ use App\Models\Plan;
 use App\Models\Subscription;
 use App\Notifications\PaymentFailed;
 use App\Notifications\PaymentSuccessful;
+use App\Notifications\SubscriptionActivated;
 use App\Notifications\SubscriptionActivatedNotification;
 use App\Notifications\TrialEnding;
 use Illuminate\Support\Facades\Http;
@@ -534,8 +535,8 @@ class PayPalPaymentService
                     'metadata' => array_merge($subscription->metadata ?? [], $capturedOrder),
                 ]);
 
-                // Activate the subscription
-                $subscription->activate();
+                // Send activation notification
+                $subscription->employer->user->notify(new SubscriptionActivated($subscription));
             }
 
             return [
@@ -692,8 +693,8 @@ class PayPalPaymentService
     private function handlePaymentCompleted(array $payment): void
     {
         // Handle recurring payment completion
-//        if (isset($payment['billing_agreement_id'])) {
-            $subscription = Subscription::where('subscription_id', $payment['id'])->first();
+        if (isset($payment['billing_agreement_id'])) {
+            $subscription = Subscription::where('subscription_id', $payment['billing_agreement_id'])->first();
 
             if ($subscription) {
                 // Send payment successful notification
@@ -709,7 +710,7 @@ class PayPalPaymentService
                     $subscription->endTrial();
                 }
             }
-//        }
+        }
     }
 
     private function handlePaymentFailed(array $payment): void
