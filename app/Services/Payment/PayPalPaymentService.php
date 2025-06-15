@@ -245,17 +245,17 @@ class PayPalPaymentService
             $order = $response->json();
 
             // Create payment record
-//            $payment = Payment::create([
-//                'employer_id' => $employer->id,
-//                'plan_id' => $plan->id,
-//                'payment_id' => $order['id'],
-//                'payment_provider' => 'paypal',
-//                'payment_type' => 'one_time',
-//                'status' => 'pending',
-//                'amount' => $plan->price,
-//                'currency' => $plan->getCurrencyCode(),
-//                'provider_response' => $order,
-//            ]);
+            $payment = Payment::create([
+                'employer_id' => $employer->id,
+                'plan_id' => $plan->id,
+                'payment_id' => $order['id'],
+                'payment_provider' => 'paypal',
+                'payment_type' => 'one_time',
+                'status' => 'pending',
+                'amount' => $plan->price,
+                'currency' => $plan->getCurrencyCode(),
+                'provider_response' => $order,
+            ]);
 
 
             // PayPal will handle trial through billing cycles, so we determine trial status from plan
@@ -508,6 +508,16 @@ class PayPalPaymentService
                     'status' => 'completed',
                     'paid_at' => now(),
                     'provider_response' => $capturedOrder,
+                ]);
+            }
+
+            $payment = Subscription::where('subscription_id', $orderId)->first();
+            if ($payment) {
+                $payment->update([
+//                    'status' => 'completed',
+                    'status' => 'active',
+                    'paid_at' => now(),
+                    'metadata' => $capturedOrder,
                 ]);
             }
 
