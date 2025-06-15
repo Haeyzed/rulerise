@@ -54,7 +54,14 @@ class SubscriptionActivatedNotification extends Notification// implements Should
                 'user' => $user,
                 'isRecurring' => $plan->isRecurring(),
                 'isOneTime' => $plan->isOneTime(),
-                'nextBillingDate' => $this->formatDate($this->subscription->next_billing_date),
+                'nextBillingDate' => (function ($date) {
+                    try {
+                        return $date ? Carbon::parse($date)->format('d/m/Y') : null;
+                    } catch (\Throwable $e) {
+                        \Log::error('Invalid next_billing_date', ['value' => $date, 'error' => $e->getMessage()]);
+                        return null;
+                    }
+                })($this->subscription->next_billing_date),
                 'paymentMethod' => $this->subscription->payment_provider ?? null,
                 'lastFour' => $this->subscription->billing_info['last_four'] ?? null,
                 'url' => url('/employer/dashboard/subscriptions')

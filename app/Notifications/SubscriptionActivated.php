@@ -39,7 +39,7 @@ class SubscriptionActivated extends Notification //implements ShouldQueue
     {
         $plan = $this->subscription->plan;
         $provider = ucfirst($this->subscription->payment_provider);
-        $nextBillingDate = $this->subscription->next_billing_date->format('F j, Y') ?? '';
+        $nextBillingDate = $this->subscription->next_billing_date->format('F j, Y');
 
         return (new MailMessage)
             ->subject("Your {$plan->name} Subscription is Now Active")
