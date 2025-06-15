@@ -283,7 +283,7 @@ class PayPalPaymentService
                 'is_active' => false, // Will be activated after approval
             ]);
 
-            $approvalUrl = collect($order['links'][1]['href']) ?? null;
+            $approvalUrl = collect($order['links'][1]['href'][0]) ?? null;
 
             return [
                 'success' => true,
