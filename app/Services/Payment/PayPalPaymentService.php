@@ -231,8 +231,8 @@ class PayPalPaymentService
                                 'locale' => 'en-US',
                                 'landing_page' => 'LOGIN',
                                 'user_action' => 'PAY_NOW',
-                                'return_url' => config('app.frontend_url') . '/employer/dashboard?payment_status=success',
-                                'cancel_url' => config('app.frontend_url') . '/employer/dashboard?payment_status=cancelled',
+                                'return_url' => config('app.frontend_url') . '/employer/dashboard?payment_status=success&payment_provider=paypal',
+                                'cancel_url' => config('app.frontend_url') . '/employer/dashboard?payment_status=cancelled&payment_provider=paypal',
                             ]
                         ]
                     ]
@@ -320,8 +320,8 @@ class PayPalPaymentService
                         'payer_selected' => 'PAYPAL',
                         'payee_preferred' => 'IMMEDIATE_PAYMENT_REQUIRED',
                     ],
-                    'return_url' => config('app.frontend_url') . '/employer/dashboard?payment_status=success',
-                    'cancel_url' => config('app.frontend_url') . '/employer/dashboard?payment_status=cancelled',
+                    'return_url' => config('app.frontend_url') . '/employer/dashboard?payment_status=success&payment_provider=paypal',
+                    'cancel_url' => config('app.frontend_url') . '/employer/dashboard?payment_status=cancelled&payment_provider=paypal',
                 ],
                 'custom_id' => "employer_{$employer->id}_plan_{$plan->id}",
             ];

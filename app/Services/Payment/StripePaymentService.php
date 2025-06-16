@@ -145,8 +145,8 @@ class StripePaymentService
                 ],
                 'mode' => 'payment',
                 'payment_method_types' => ['card'],
-                'success_url' => config('app.frontend_url') . '/employer/dashboard?session_id={CHECKOUT_SESSION_ID}&payment_status=success',
-                'cancel_url' => config('app.frontend_url') . '/employer/dashboard?session_id={CHECKOUT_SESSION_ID}&payment_status=cancelled',
+                'success_url' => config('app.frontend_url') . '/employer/dashboard?session_id={CHECKOUT_SESSION_ID}&payment_status=success&payment_provider=stripe',
+                'cancel_url' => config('app.frontend_url') . '/employer/dashboard?session_id={CHECKOUT_SESSION_ID}&payment_status=cancelled&payment_provider=stripe',
                 'metadata' => [
                     'employer_id' => $employer->id,
                     'plan_id' => $plan->id,
@@ -226,8 +226,8 @@ class StripePaymentService
                 ],
                 'mode' => 'subscription',
                 'payment_method_types' => ['card'],
-                'success_url' => config('app.frontend_url') . '/employer/dashboard?session_id={CHECKOUT_SESSION_ID}&payment_status=success',
-                'cancel_url' => config('app.frontend_url') . '/employer/dashboard?session_id={CHECKOUT_SESSION_ID}&payment_status=cancelled',
+                'success_url' => config('app.frontend_url') . '/employer/dashboard?session_id={CHECKOUT_SESSION_ID}&payment_status=success&payment_provider=stripe',
+                'cancel_url' => config('app.frontend_url') . '/employer/dashboard?session_id={CHECKOUT_SESSION_ID}&payment_status=cancelled&payment_provider=stripe',
                 'metadata' => [
                     'employer_id' => $employer->id,
                     'plan_id' => $plan->id,
