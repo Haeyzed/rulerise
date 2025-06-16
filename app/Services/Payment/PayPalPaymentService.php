@@ -266,7 +266,8 @@ class PayPalPaymentService
             ]);
 
             // Get approval URL more safely
-            $approvalUrl = collect($order['links'])->firstWhere('rel', 'approve')['href'] ?? null;
+            $approvalUrl = $order['links'][1]['href'] ?? null;
+//            $approvalUrl = collect($order['links'])->firstWhere('rel', 'approve')['href'] ?? null;
 
             return [
                 'success' => true,
