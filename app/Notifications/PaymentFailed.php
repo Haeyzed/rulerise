@@ -2,72 +2,105 @@
 
 namespace App\Notifications;
 
-use App\Models\Payment;
+use App\Models\Subscription;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
+/**
+ * Payment Failed Notification
+ *
+ * Sent when a payment fails to process
+ */
 class PaymentFailed extends Notification //implements ShouldQueue
 {
     use Queueable;
 
-    protected Payment $payment;
+    public function __construct(
+        private Subscription $subscription,
+        private array $failureDetails
+    ) {}
 
-    /**
-     * Create a new notification instance.
-     */
-    public function __construct(Payment $payment)
+    public function via($notifiable): array
     {
-        $this->payment = $payment;
+        return ['mail', 'database'];
     }
 
-    /**
-     * Get the notification's delivery channels.
-     *
-     * @return array<int, string>
-     */
-    public function via(object $notifiable): array
+    public function toMail($notifiable): MailMessage
     {
-        return ['mail'];
-    }
-
-    /**
-     * Get the mail representation of the notification.
-     */
-    public function toMail(object $notifiable): MailMessage
-    {
-        $plan = $this->payment->plan;
-        $provider = ucfirst($this->payment->payment_provider);
-        $paymentType = $this->payment->payment_type === 'one_time' ? 'One-time payment' : 'Subscription payment';
+        $employer = $this->subscription->employer;
 
         return (new MailMessage)
-            ->subject("Payment Failed for {$plan->name}")
-            ->greeting("Hello {$notifiable->user->name}!")
-            ->line("We were unable to process your payment for the {$plan->name} plan.")
-            ->line("Payment details:")
-            ->line("- Plan: {$plan->name}")
-            ->line("- Amount: {$this->payment->amount} {$this->payment->currency}")
-            ->line("- Payment Type: {$paymentType}")
-            ->line("- Payment Provider: {$provider}")
-            ->action('Update Payment Method', url('/dashboard/billing'))
-            ->line("Please update your payment information to ensure continued access to your subscription benefits.")
-            ->line("If you need assistance, please contact our support team.");
+            ->subject('Payment Failed - Action Required')
+            ->greeting("Hello {$employer->getCompanyDisplayName()},")
+            ->line('We were unable to process your recent payment.')
+            ->line($this->getFailureDetailsMarkdown())
+            ->line($this->getImpactInformationMarkdown())
+            ->line($this->getResolutionStepsMarkdown())
+            ->action('Update Payment Method', url('/employer/billing'))
+            ->line('Please resolve this issue promptly to avoid service interruption.');
     }
 
-    /**
-     * Get the array representation of the notification.
-     *
-     * @return array<string, mixed>
-     */
-    public function toArray(object $notifiable): array
+    public function toArray($notifiable): array
     {
         return [
-            'payment_id' => $this->payment->id,
-            'plan_name' => $this->payment->plan->name,
-            'payment_provider' => $this->payment->payment_provider,
-            'amount' => $this->payment->amount,
-            'currency' => $this->payment->currency,
+            'type' => 'payment_failed',
+            'subscription_id' => $this->subscription->id,
+            'payment_id' => $this->failureDetails['payment_id'] ?? null,
+            'amount' => $this->failureDetails['amount'] ?? $this->subscription->amount,
+            'currency' => $this->failureDetails['currency'] ?? $this->subscription->currency,
+            'failure_reason' => $this->failureDetails['failure_reason'] ?? 'Payment processing failed',
+            'message' => $this->getNotificationMessage(),
         ];
+    }
+
+    private function getFailureDetailsMarkdown(): string
+    {
+        $amount = $this->failureDetails['amount'] ?? $this->subscription->amount;
+        $currency = strtoupper($this->failureDetails['currency'] ?? $this->subscription->currency);
+        $reason = $this->failureDetails['failure_reason'] ?? 'Payment processing failed';
+
+        $details = [];
+        $details[] = "**Failed Amount:** {$amount} {$currency}";
+        $details[] = "**Plan:** {$this->subscription->plan->name}";
+        $details[] = "**Failure Date:** " . now()->format('M j, Y');
+        $details[] = "**Reason:** {$reason}";
+
+        return implode("\n", $details);
+    }
+
+    private function getImpactInformationMarkdown(): string
+    {
+        return "### What This Means\n\n" .
+               "⚠️ Your subscription may be at risk of suspension\n" .
+               "⚠️ Access to premium features could be limited\n" .
+               "⚠️ We'll retry the payment automatically\n" .
+               "✅ Your account data remains safe and secure\n" .
+               "✅ Existing services continue for now";
+    }
+
+    private function getResolutionStepsMarkdown(): string
+    {
+        return "### How to Resolve\n\n" .
+               "1. **Check Payment Method:** Ensure your card details are correct and up to date\n" .
+               "2. **Verify Funds:** Make sure you have sufficient funds available\n" .
+               "3. **Contact Bank:** Check if your bank blocked the transaction\n" .
+               "4. **Update Information:** Add a new payment method if needed\n" .
+               "5. **Retry Payment:** We'll automatically retry, or you can manually retry\n\n" .
+               "### Common Causes\n\n" .
+               "- Expired credit card\n" .
+               "- Insufficient funds\n" .
+               "- Bank security restrictions\n" .
+               "- Incorrect billing information\n\n" .
+               "**Need Help?** Contact our support team at [support@example.com](mailto:support@example.com)";
+    }
+
+    private function getNotificationMessage(): string
+    {
+        $amount = $this->failureDetails['amount'] ?? $this->subscription->amount;
+        $currency = strtoupper($this->failureDetails['currency'] ?? $this->subscription->currency);
+
+        return "Payment of {$amount} {$currency} for your {$this->subscription->plan->name} subscription failed. Please update your payment method.";
     }
 }

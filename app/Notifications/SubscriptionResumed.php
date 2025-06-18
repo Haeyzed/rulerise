@@ -8,64 +8,91 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
+/**
+ * Subscription Resumed Notification
+ *
+ * Sent when a suspended subscription is resumed
+ */
 class SubscriptionResumed extends Notification //implements ShouldQueue
 {
     use Queueable;
 
-    protected Subscription $subscription;
+    public function __construct(
+        private Subscription $subscription
+    ) {}
 
-    /**
-     * Create a new notification instance.
-     */
-    public function __construct(Subscription $subscription)
+    public function via($notifiable): array
     {
-        $this->subscription = $subscription;
+        return ['mail', 'database'];
     }
 
-    /**
-     * Get the notification's delivery channels.
-     *
-     * @return array<int, string>
-     */
-    public function via(object $notifiable): array
-    {
-        return ['mail'];
-    }
-
-    /**
-     * Get the mail representation of the notification.
-     */
-    public function toMail(object $notifiable): MailMessage
+    public function toMail($notifiable): MailMessage
     {
         $plan = $this->subscription->plan;
-        $provider = ucfirst($this->subscription->payment_provider);
-        $nextBillingDate = $this->subscription->next_billing_date->format('F j, Y');
+        $employer = $this->subscription->employer;
 
         return (new MailMessage)
-            ->subject("Your {$plan->name} Subscription Has Been Resumed")
-            ->greeting("Hello {$notifiable->user->name}!")
-            ->line("Your subscription to the {$plan->name} plan has been successfully resumed.")
-            ->line("You now have access to all the features included in your plan again.")
-            ->line("Subscription details:")
-            ->line("- Plan: {$plan->name}")
-            ->line("- Price: {$plan->price} {$plan->currency} per {$plan->billing_cycle}")
-            ->line("- Payment Provider: {$provider}")
-            ->line("- Next Billing Date: {$nextBillingDate}")
-            ->action('View Subscription Details', url('/dashboard/subscriptions'))
-            ->line('Thank you for continuing to use our platform!');
+            ->subject('🎉 Subscription Resumed - Welcome Back!')
+            ->greeting("Hello {$employer->getCompanyDisplayName()}!")
+            ->line('Great news! Your subscription has been successfully resumed.')
+            ->line($this->getResumptionDetailsMarkdown())
+            ->line($this->getAccessRestoredMarkdown())
+            ->line($this->getNextStepsMarkdown())
+            ->action('Access Your Dashboard', url('/employer/dashboard'))
+            ->line('Thank you for resolving the issue. We\'re glad to have you back!');
     }
 
-    /**
-     * Get the array representation of the notification.
-     *
-     * @return array<string, mixed>
-     */
-    public function toArray(object $notifiable): array
+    public function toArray($notifiable): array
     {
         return [
+            'type' => 'subscription_resumed',
             'subscription_id' => $this->subscription->id,
             'plan_name' => $this->subscription->plan->name,
-            'payment_provider' => $this->subscription->payment_provider,
+            'resumed_at' => now()->toISOString(),
+            'message' => $this->getNotificationMessage(),
         ];
+    }
+
+    private function getResumptionDetailsMarkdown(): string
+    {
+        $details = [];
+
+        $details[] = "**Resumed Plan:** {$this->subscription->plan->name}";
+        $details[] = "**Resumption Date:** " . now()->format('M j, Y');
+
+        if ($this->subscription->next_billing_date) {
+            $details[] = "**Next Billing:** {$this->subscription->next_billing_date->format('M j, Y')}";
+        }
+
+        return implode("\n", $details);
+    }
+
+    private function getAccessRestoredMarkdown(): string
+    {
+        $plan = $this->subscription->plan;
+        $features = $plan->getFeaturesList();
+
+        $message = "### Your Access Has Been Restored\n\n";
+        $message .= "All premium features are now available:\n\n";
+
+        foreach ($features as $feature) {
+            $message .= "✅ {$feature}\n";
+        }
+
+        return $message;
+    }
+
+    private function getNextStepsMarkdown(): string
+    {
+        return "### What's Next\n\n" .
+               "1. **Dashboard Access:** All features are immediately available\n" .
+               "2. **Billing Cycle:** Your regular billing schedule has resumed\n" .
+               "3. **Support:** Contact us if you experience any issues\n\n" .
+               "**Questions?** Our support team is here to help at [support@example.com](mailto:support@example.com)";
+    }
+
+    private function getNotificationMessage(): string
+    {
+        return "Your {$this->subscription->plan->name} subscription has been resumed and all features are now available.";
     }
 }

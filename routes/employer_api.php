@@ -1,13 +1,10 @@
 <?php
 
-use App\Http\Controllers\API\Webhooks\PayPalWebhookController;
-use App\Http\Controllers\API\Webhooks\StripeWebhookController;
 use App\Http\Controllers\Employer\CandidatesController;
 use App\Http\Controllers\Employer\PaymentController;
 use App\Http\Controllers\Employer\ResumeController;
 use App\Http\Controllers\WebhookController;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Employer\DashboardsController;
 use App\Http\Controllers\Employer\JobsController;
 use App\Http\Controllers\Employer\JobApplicantController;
@@ -104,7 +101,6 @@ Route::middleware(['auth:api', 'role:employer,employer_staff'])->group(function 
     // Payments
     Route::post('/payments/one-time', [PaymentController::class, 'createOneTimePayment']);
     Route::post('/payments/paypal/capture', [PaymentController::class, 'capturePayPalPayment']);
-    Route::get('/payments', [PaymentController::class, 'getPayments']);
 
     // Subscriptions
     Route::post('/subscriptions', [PaymentController::class, 'createSubscription']);

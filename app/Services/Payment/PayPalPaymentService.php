@@ -7,13 +7,20 @@ use App\Models\Plan;
 use App\Models\Subscription;
 use App\Notifications\PaymentFailed;
 use App\Notifications\PaymentSuccessful;
-use App\Notifications\TrialEnding;
+use App\Services\Payment\Contracts\PaymentServiceInterface;
+use App\Services\Payment\Exceptions\PaymentException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 use Illuminate\Support\Str;
 
-class PayPalPaymentService
+/**
+ * PayPal Payment Service
+ *
+ * Handles all PayPal payment operations including subscriptions,
+ * one-time payments, webhooks, and subscription management.
+ */
+class PayPalPaymentService implements PaymentServiceInterface
 {
     private string $baseUrl;
     private string $clientId;
@@ -26,13 +33,18 @@ class PayPalPaymentService
         $this->baseUrl = config('services.paypal.mode') === 'live'
             ? 'https://api.paypal.com'
             : 'https://api.sandbox.paypal.com';
+
         $this->clientId = config('services.paypal.client_id');
         $this->clientSecret = config('services.paypal.client_secret');
         $this->webhookId = config('services.paypal.webhook_id');
     }
 
+    // ========================================
+    // AUTHENTICATION
+    // ========================================
+
     /**
-     * Get PayPal access token
+     * Get PayPal access token with caching
      */
     private function getAccessToken(): string
     {
@@ -40,66 +52,93 @@ class PayPalPaymentService
             return $this->accessToken;
         }
 
-        $response = Http::withBasicAuth($this->clientId, $this->clientSecret)
-            ->asForm()
-            ->post($this->baseUrl . '/v1/oauth2/token', [
-                'grant_type' => 'client_credentials'
+        try {
+            $response = Http::withBasicAuth($this->clientId, $this->clientSecret)
+                ->asForm()
+                ->timeout(30)
+                ->post($this->baseUrl . '/v1/oauth2/token', [
+                    'grant_type' => 'client_credentials'
+                ]);
+
+            if (!$response->successful()) {
+                Log::error('PayPal access token error', [
+                    'status' => $response->status(),
+                    'response' => $response->json()
+                ]);
+                throw new PaymentException('Failed to get PayPal access token');
+            }
+
+            $this->accessToken = $response->json('access_token');
+            return $this->accessToken;
+
+        } catch (\Exception $e) {
+            Log::error('PayPal authentication failed', [
+                'error' => $e->getMessage()
             ]);
-
-        if (!$response->successful()) {
-            Log::error('PayPal access token error', ['response' => $response->json()]);
-            throw new \Exception('Failed to get PayPal access token');
+            throw new PaymentException('PayPal authentication failed: ' . $e->getMessage());
         }
-
-        $this->accessToken = $response->json('access_token');
-        return $this->accessToken;
     }
+
+    // ========================================
+    // PRODUCT & PLAN MANAGEMENT
+    // ========================================
 
     /**
      * Create PayPal product (required before creating plan)
      */
     public function createProduct(Plan $plan): string
     {
-        $response = Http::withToken($this->getAccessToken())
-            ->withHeaders(['PayPal-Request-Id' => Str::uuid()->toString()])
-            ->post($this->baseUrl . '/v1/catalogs/products', [
-                'name' => $plan->name,
-                'description' => $plan->description ?? $plan->name,
-                'type' => 'SERVICE',
-                'category' => 'SOFTWARE',
-                'image_url' => config('app.url') . '/images/logo.png',
-                'home_url' => config('app.url'),
-            ]);
+        try {
+            $response = Http::withToken($this->getAccessToken())
+                ->withHeaders(['PayPal-Request-Id' => Str::uuid()->toString()])
+                ->timeout(30)
+                ->post($this->baseUrl . '/v1/catalogs/products', [
+                    'name' => $plan->name,
+                    'description' => $plan->description ?? $plan->name,
+                    'type' => 'SERVICE',
+                    'category' => 'SOFTWARE',
+                    'image_url' => config('app.url') . '/images/logo.png',
+                    'home_url' => config('app.url'),
+                ]);
 
-        if (!$response->successful()) {
-            Log::error('PayPal product creation failed', [
+            if (!$response->successful()) {
+                Log::error('PayPal product creation failed', [
+                    'plan_id' => $plan->id,
+                    'status' => $response->status(),
+                    'response' => $response->json()
+                ]);
+                throw new PaymentException('Failed to create PayPal product: ' . $response->body());
+            }
+
+            $productId = $response->json('id');
+            $plan->update(['paypal_product_id' => $productId]);
+
+            Log::info('PayPal product created successfully', [
                 'plan_id' => $plan->id,
-                'response' => $response->json()
+                'product_id' => $productId
             ]);
-            throw new \Exception('Failed to create PayPal product: ' . $response->body());
+
+            return $productId;
+
+        } catch (PaymentException $e) {
+            throw $e;
+        } catch (\Exception $e) {
+            Log::error('PayPal product creation exception', [
+                'plan_id' => $plan->id,
+                'error' => $e->getMessage()
+            ]);
+            throw new PaymentException('Failed to create PayPal product: ' . $e->getMessage());
         }
-
-        $productId = $response->json('id');
-
-        // Update plan with product ID
-        $plan->update(['paypal_product_id' => $productId]);
-
-        return $productId;
     }
 
     /**
-     * Create PayPal billing plan with trial support
+     * Create PayPal billing plan with comprehensive trial support
      */
     public function createPlan(Plan $plan): array
     {
         try {
             // Ensure product exists
-            if (!$plan->paypal_product_id) {
-                $productId = $this->createProduct($plan);
-            } else {
-                $productId = $plan->paypal_product_id;
-            }
-
+            $productId = $plan->paypal_product_id ?: $this->createProduct($plan);
             $billingCycles = $this->buildBillingCycles($plan);
 
             $planData = [
@@ -120,27 +159,35 @@ class PayPalPaymentService
                     'PayPal-Request-Id' => 'PLAN-' . Str::uuid()->toString(),
                     'Prefer' => 'return=representation'
                 ])
+                ->timeout(30)
                 ->post($this->baseUrl . '/v1/billing/plans', $planData);
 
             if (!$response->successful()) {
                 Log::error('PayPal plan creation failed', [
                     'plan_id' => $plan->id,
+                    'status' => $response->status(),
                     'response' => $response->json()
                 ]);
-                throw new \Exception('Failed to create PayPal plan: ' . $response->body());
+                throw new PaymentException('Failed to create PayPal plan: ' . $response->body());
             }
 
             $paypalPlanId = $response->json('id');
-
-            // Update plan with PayPal plan ID
             $plan->update(['paypal_plan_id' => $paypalPlanId]);
+
+            Log::info('PayPal plan created successfully', [
+                'plan_id' => $plan->id,
+                'paypal_plan_id' => $paypalPlanId
+            ]);
 
             return [
                 'success' => true,
                 'plan' => $response->json()
             ];
+
+        } catch (PaymentException $e) {
+            throw $e;
         } catch (\Exception $e) {
-            Log::error('PayPal plan creation failed', [
+            Log::error('PayPal plan creation exception', [
                 'plan_id' => $plan->id,
                 'error' => $e->getMessage()
             ]);
@@ -153,7 +200,7 @@ class PayPalPaymentService
     }
 
     /**
-     * Build billing cycles for PayPal plan
+     * Build optimized billing cycles for PayPal plan
      */
     private function buildBillingCycles(Plan $plan): array
     {
@@ -164,15 +211,15 @@ class PayPalPaymentService
         if ($plan->hasTrial()) {
             $cycles[] = [
                 'frequency' => [
-                    'interval_unit' => strtoupper($plan->billing_cycle === 'yearly' ? 'YEAR' : 'MONTH'),
-                    'interval_count' => 1
+                    'interval_unit' => 'DAY',
+                    'interval_count' => $plan->getTrialPeriodDays()
                 ],
                 'tenure_type' => 'TRIAL',
                 'sequence' => $sequence++,
-                'total_cycles' => 1, // Trial runs for 1 cycle
+                'total_cycles' => 1,
                 'pricing_scheme' => [
                     'fixed_price' => [
-                        'value' => '0.00', // Free trial
+                        'value' => '0.00',
                         'currency_code' => $plan->getCurrencyCode()
                     ]
                 ]
@@ -180,11 +227,12 @@ class PayPalPaymentService
         }
 
         // Add regular billing cycle
-        $totalCycles = $plan->billing_cycle === 'yearly' ? 50 : 120; // Limit cycles for safety
+        $intervalUnit = $plan->isYearly() ? 'YEAR' : 'MONTH';
+        $totalCycles = $plan->isYearly() ? 50 : 120; // Reasonable limits
 
         $cycles[] = [
             'frequency' => [
-                'interval_unit' => strtoupper($plan->billing_cycle === 'yearly' ? 'YEAR' : 'MONTH'),
+                'interval_unit' => $intervalUnit,
                 'interval_count' => 1
             ],
             'tenure_type' => 'REGULAR',
@@ -201,73 +249,61 @@ class PayPalPaymentService
         return $cycles;
     }
 
+    // ========================================
+    // PAYMENT CREATION
+    // ========================================
+
     /**
-     * Create one-time payment
+     * Create one-time payment with enhanced error handling
      */
     public function createOneTimePayment(Employer $employer, Plan $plan): array
     {
         try {
-            $accessToken = $this->getAccessToken();
-
-            $response = Http::withToken($accessToken)
-                ->withHeaders(['PayPal-Request-Id' => Str::uuid()->toString()])
-                ->post($this->baseUrl . '/v2/checkout/orders', [
-                    'intent' => 'CAPTURE',
-                    'purchase_units' => [
-                        [
-                            'amount' => [
-                                'currency_code' => $plan->getCurrencyCode(),
-                                'value' => number_format($plan->price, 2, '.', '')
-                            ],
-                            'description' => "One-time payment for {$plan->name} plan",
-                            'custom_id' => "employer_{$employer->id}_plan_{$plan->id}",
-                        ]
-                    ],
-                    'payment_source' => [
-                        'paypal' => [
-                            'experience_context' => [
-                                'payment_method_preference' => 'IMMEDIATE_PAYMENT_REQUIRED',
-                                'brand_name' => config('app.name'),
-                                'locale' => 'en-US',
-                                'landing_page' => 'LOGIN',
-                                'user_action' => 'PAY_NOW',
-                                'return_url' => config('app.frontend_url') . '/employer/dashboard?payment_status=success&payment_provider=paypal',
-                                'cancel_url' => config('app.frontend_url') . '/employer/dashboard?payment_status=cancelled&payment_provider=paypal',
-                            ]
+            $orderData = [
+                'intent' => 'CAPTURE',
+                'purchase_units' => [
+                    [
+                        'amount' => [
+                            'currency_code' => $plan->getCurrencyCode(),
+                            'value' => number_format($plan->price, 2, '.', '')
+                        ],
+                        'description' => "One-time payment for {$plan->name} plan",
+                        'custom_id' => "employer_{$employer->id}_plan_{$plan->id}",
+                    ]
+                ],
+                'payment_source' => [
+                    'paypal' => [
+                        'experience_context' => [
+                            'payment_method_preference' => 'IMMEDIATE_PAYMENT_REQUIRED',
+                            'brand_name' => config('app.name'),
+                            'locale' => 'en-US',
+                            'landing_page' => 'LOGIN',
+                            'user_action' => 'PAY_NOW',
+                            'return_url' => $this->getReturnUrl('success'),
+                            'cancel_url' => $this->getReturnUrl('cancelled'),
                         ]
                     ]
-                ]);
+                ]
+            ];
+
+            $response = Http::withToken($this->getAccessToken())
+                ->withHeaders(['PayPal-Request-Id' => Str::uuid()->toString()])
+                ->timeout(30)
+                ->post($this->baseUrl . '/v2/checkout/orders', $orderData);
 
             if (!$response->successful()) {
-                throw new \Exception('PayPal order creation failed: ' . $response->body());
+                throw new PaymentException('PayPal order creation failed: ' . $response->body());
             }
 
             $order = $response->json();
+            $subscription = $this->createSubscriptionRecord($employer, $plan, $order, 'one_time');
+            $approvalUrl = $this->extractApprovalUrl($order['links']);
 
-            // Create subscription record for one-time payment (for consistency)
-            $subscription = Subscription::create([
+            Log::info('PayPal one-time payment created', [
                 'employer_id' => $employer->id,
                 'plan_id' => $plan->id,
-                'subscription_id' => $order['id'],
-                'payment_provider' => 'paypal',
-                'status' => 'pending',
-                'amount' => $plan->price,
-                'currency' => $plan->getCurrencyCode(),
-                'start_date' => now(),
-                'end_date' => $plan->isOneTime() ? now()->addDays($plan->duration_days ?? 30) : null,
-                'next_billing_date' => null,
-                'trial_start_date' => null,
-                'trial_end_date' => null,
-                'is_trial' => false,
-                'trial_ended' => false,
-                'cv_downloads_left' => $plan->resume_views_limit,
-                'metadata' => array_merge($order, ['payment_type' => 'one_time']),
-                'is_active' => false, // Will be activated after approval
+                'order_id' => $order['id']
             ]);
-
-            // Get approval URL more safely
-            $approvalUrl = $order['links'][1]['href'] ?? null;
-//            $approvalUrl = collect($order['links'])->firstWhere('rel', 'approve')['href'] ?? null;
 
             return [
                 'success' => true,
@@ -275,6 +311,9 @@ class PayPalPaymentService
                 'approval_url' => $approvalUrl,
                 'subscription' => $subscription,
             ];
+
+        } catch (PaymentException $e) {
+            throw $e;
         } catch (\Exception $e) {
             Log::error('PayPal one-time payment creation failed', [
                 'employer_id' => $employer->id,
@@ -290,7 +329,7 @@ class PayPalPaymentService
     }
 
     /**
-     * Create recurring subscription (PayPal handles trial through billing cycles)
+     * Create recurring subscription with trial support
      */
     public function createSubscription(Employer $employer, Plan $plan): array
     {
@@ -299,7 +338,7 @@ class PayPalPaymentService
             if (!$plan->paypal_plan_id) {
                 $result = $this->createPlan($plan);
                 if (!$result['success']) {
-                    throw new \Exception('Failed to create PayPal plan: ' . $result['error']);
+                    throw new PaymentException('Failed to create PayPal plan: ' . $result['error']);
                 }
             }
 
@@ -321,8 +360,8 @@ class PayPalPaymentService
                         'payer_selected' => 'PAYPAL',
                         'payee_preferred' => 'IMMEDIATE_PAYMENT_REQUIRED',
                     ],
-                    'return_url' => config('app.frontend_url') . '/employer/dashboard?payment_status=success&payment_provider=paypal',
-                    'cancel_url' => config('app.frontend_url') . '/employer/dashboard?payment_status=cancelled&payment_provider=paypal',
+                    'return_url' => $this->getReturnUrl('success'),
+                    'cancel_url' => $this->getReturnUrl('cancelled'),
                 ],
                 'custom_id' => "employer_{$employer->id}_plan_{$plan->id}",
             ];
@@ -332,40 +371,32 @@ class PayPalPaymentService
                     'PayPal-Request-Id' => 'SUBSCRIPTION-' . Str::uuid()->toString(),
                     'Prefer' => 'return=representation'
                 ])
+                ->timeout(30)
                 ->post($this->baseUrl . '/v1/billing/subscriptions', $subscriptionData);
 
             if (!$response->successful()) {
-                throw new \Exception('PayPal subscription creation failed: ' . $response->body());
+                throw new PaymentException('PayPal subscription creation failed: ' . $response->body());
             }
 
             $subscription = $response->json();
-
-            // PayPal will handle trial through billing cycles, so we determine trial status from plan
             $isInTrial = $plan->hasTrial();
-            $trialStart = $isInTrial ? now() : null;
-            $trialEnd = $isInTrial ? now()->addDays($plan->getTrialPeriodDays()) : null;
 
-            // Create subscription record
-            $subscriptionRecord = Subscription::create([
+            $subscriptionRecord = $this->createSubscriptionRecord(
+                $employer,
+                $plan,
+                $subscription,
+                'recurring',
+                $isInTrial
+            );
+
+            $approvalUrl = $this->extractApprovalUrl($subscription['links']);
+
+            Log::info('PayPal subscription created', [
                 'employer_id' => $employer->id,
                 'plan_id' => $plan->id,
                 'subscription_id' => $subscription['id'],
-                'payment_provider' => 'paypal',
-                'status' => strtolower($subscription['status']),
-                'amount' => $plan->price,
-                'currency' => $plan->getCurrencyCode(),
-                'start_date' => now(),
-                'next_billing_date' => $this->getNextBillingDate($plan, $isInTrial),
-                'trial_start_date' => $trialStart,
-                'trial_end_date' => $trialEnd,
-                'is_trial' => $isInTrial,
-                'trial_ended' => false,
-                'cv_downloads_left' => $plan->resume_views_limit,
-                'metadata' => $subscription,
-                'is_active' => false, // Will be activated after approval
+                'is_trial' => $isInTrial
             ]);
-
-            $approvalUrl = collect($subscription['links'])->firstWhere('rel', 'approve')['href'] ?? null;
 
             return [
                 'success' => true,
@@ -373,8 +404,11 @@ class PayPalPaymentService
                 'approval_url' => $approvalUrl,
                 'subscription' => $subscriptionRecord,
                 'is_trial' => $isInTrial,
-                'trial_end_date' => $trialEnd,
+                'trial_end_date' => $isInTrial ? now()->addDays($plan->getTrialPeriodDays()) : null,
             ];
+
+        } catch (PaymentException $e) {
+            throw $e;
         } catch (\Exception $e) {
             Log::error('PayPal subscription creation failed', [
                 'employer_id' => $employer->id,
@@ -389,115 +423,69 @@ class PayPalPaymentService
         }
     }
 
-    /**
-     * Cancel subscription
-     */
+    // ========================================
+    // SUBSCRIPTION MANAGEMENT
+    // ========================================
+
     public function cancelSubscription(Subscription $subscription): bool
     {
-        try {
-            if (!$subscription->subscription_id) {
-                Log::error('Cannot cancel PayPal subscription: missing subscription_id', [
-                    'subscription_record_id' => $subscription->id
-                ]);
-                return false;
-            }
-
-            $response = Http::withToken($this->getAccessToken())
-                ->post($this->baseUrl . "/v1/billing/subscriptions/{$subscription->subscription_id}/cancel", [
-                    'reason' => 'User requested cancellation'
-                ]);
-
-            if ($response->successful()) {
-                $subscription->cancel();
-                return true;
-            }
-
-            Log::error('PayPal subscription cancellation failed', [
-                'subscription_id' => $subscription->subscription_id,
-                'response' => $response->json()
-            ]);
-
-            return false;
-        } catch (\Exception $e) {
-            Log::error('Failed to cancel PayPal subscription', [
-                'subscription_id' => $subscription->subscription_id,
-                'error' => $e->getMessage()
-            ]);
-
-            return false;
-        }
+        return $this->updateSubscriptionStatus($subscription, 'cancel', [
+            'reason' => 'User requested cancellation'
+        ]);
     }
 
-    /**
-     * Suspend subscription
-     */
     public function suspendSubscription(Subscription $subscription): bool
     {
-        try {
-            if (!$subscription->subscription_id) {
-                Log::error('Cannot suspend PayPal subscription: missing subscription_id', [
-                    'subscription_record_id' => $subscription->id
-                ]);
-                return false;
-            }
+        return $this->updateSubscriptionStatus($subscription, 'suspend', [
+            'reason' => 'Suspended by user'
+        ]);
+    }
 
-            $response = Http::withToken($this->getAccessToken())
-                ->post($this->baseUrl . "/v1/billing/subscriptions/{$subscription->subscription_id}/suspend", [
-                    'reason' => 'Suspended by user'
-                ]);
-
-            if ($response->successful()) {
-                $subscription->suspend();
-                return true;
-            }
-
-            Log::error('PayPal subscription suspension failed', [
-                'subscription_id' => $subscription->subscription_id,
-                'response' => $response->json()
-            ]);
-
-            return false;
-        } catch (\Exception $e) {
-            Log::error('Failed to suspend PayPal subscription', [
-                'subscription_id' => $subscription->subscription_id,
-                'error' => $e->getMessage()
-            ]);
-
-            return false;
-        }
+    public function resumeSubscription(Subscription $subscription): bool
+    {
+        return $this->updateSubscriptionStatus($subscription, 'activate', [
+            'reason' => 'Reactivating the subscription'
+        ]);
     }
 
     /**
-     * Resume subscription
+     * Generic method to update subscription status
      */
-    public function resumeSubscription(Subscription $subscription): bool
+    private function updateSubscriptionStatus(Subscription $subscription, string $action, array $data = []): bool
     {
         try {
             if (!$subscription->subscription_id) {
-                Log::error('Cannot resume PayPal subscription: missing subscription_id', [
+                Log::error("Cannot {$action} PayPal subscription: missing subscription_id", [
                     'subscription_record_id' => $subscription->id
                 ]);
                 return false;
             }
 
             $response = Http::withToken($this->getAccessToken())
-                ->post($this->baseUrl . "/v1/billing/subscriptions/{$subscription->subscription_id}/activate", [
-                    'reason' => 'Reactivating the subscription'
-                ]);
+                ->timeout(30)
+                ->post($this->baseUrl . "/v1/billing/subscriptions/{$subscription->subscription_id}/{$action}", $data);
 
             if ($response->successful()) {
-                $subscription->resume();
+                $this->handleSubscriptionStatusChange($subscription, $action);
+
+                Log::info("PayPal subscription {$action} successful", [
+                    'subscription_id' => $subscription->subscription_id,
+                    'action' => $action
+                ]);
+
                 return true;
             }
 
-            Log::error('PayPal subscription resumption failed', [
+            Log::error("PayPal subscription {$action} failed", [
                 'subscription_id' => $subscription->subscription_id,
+                'status' => $response->status(),
                 'response' => $response->json()
             ]);
 
             return false;
+
         } catch (\Exception $e) {
-            Log::error('Failed to resume PayPal subscription', [
+            Log::error("Failed to {$action} PayPal subscription", [
                 'subscription_id' => $subscription->subscription_id,
                 'error' => $e->getMessage()
             ]);
@@ -507,7 +495,24 @@ class PayPalPaymentService
     }
 
     /**
-     * Capture one-time payment
+     * Handle subscription status changes
+     */
+    private function handleSubscriptionStatusChange(Subscription $subscription, string $action): void
+    {
+        match ($action) {
+            'cancel' => $subscription->cancel(),
+            'suspend' => $subscription->suspend(),
+            'activate' => $subscription->resume(),
+            default => null,
+        };
+    }
+
+    // ========================================
+    // PAYMENT CAPTURE
+    // ========================================
+
+    /**
+     * Capture one-time payment with comprehensive error handling
      */
     public function capturePayment(string $orderId): array
     {
@@ -517,25 +522,29 @@ class PayPalPaymentService
                     'Content-Type' => 'application/json',
                     'PayPal-Request-Id' => Str::uuid()->toString(),
                 ])
+                ->timeout(30)
                 ->post($this->baseUrl . "/v2/checkout/orders/{$orderId}/capture", (object)[]);
 
             if (!$response->successful()) {
-                throw new \Exception('PayPal payment capture failed: ' . $response->body());
+                throw new PaymentException('PayPal payment capture failed: ' . $response->body());
             }
 
             $capturedOrder = $response->json();
-
-            // Update subscription record
             $subscription = Subscription::where('subscription_id', $orderId)->first();
+
             if ($subscription) {
                 $subscription->update([
-                    'status' => 'active',
+                    'status' => Subscription::STATUS_ACTIVE,
                     'is_active' => true,
                     'metadata' => array_merge($subscription->metadata ?? [], $capturedOrder),
                 ]);
 
-                // Activate the subscription (this will send the notification)
-                $subscription->activate();
+                $subscription->activate($capturedOrder);
+
+                Log::info('PayPal payment captured and subscription activated', [
+                    'order_id' => $orderId,
+                    'subscription_id' => $subscription->id
+                ]);
             }
 
             return [
@@ -543,6 +552,9 @@ class PayPalPaymentService
                 'order' => $capturedOrder,
                 'subscription' => $subscription,
             ];
+
+        } catch (PaymentException $e) {
+            throw $e;
         } catch (\Exception $e) {
             Log::error('PayPal payment capture failed', [
                 'order_id' => $orderId,
@@ -556,97 +568,47 @@ class PayPalPaymentService
         }
     }
 
-    /**
-     * Verify webhook signature
-     */
-    public function verifyWebhookSignature(string $payload, array $headers): bool
-    {
-        // Skip verification in development
-        if (config('app.env') === 'local') {
-            return true;
-        }
-
-        $normalizedHeaders = array_change_key_case($headers, CASE_LOWER);
-
-        $requiredHeaders = [
-            'paypal-transmission-id',
-            'paypal-transmission-time',
-            'paypal-cert-url',
-            'paypal-auth-algo',
-            'paypal-transmission-sig'
-        ];
-
-        foreach ($requiredHeaders as $header) {
-            if (empty($normalizedHeaders[$header])) {
-                Log::error('Missing PayPal webhook header', ['header' => $header]);
-                return false;
-            }
-        }
-
-        try {
-            $response = Http::withToken($this->getAccessToken())
-                ->post($this->baseUrl . "/v1/notifications/verify-webhook-signature", [
-                    'webhook_id' => $this->webhookId,
-                    'transmission_id' => $normalizedHeaders['paypal-transmission-id'],
-                    'transmission_time' => $normalizedHeaders['paypal-transmission-time'],
-                    'transmission_sig' => $normalizedHeaders['paypal-transmission-sig'],
-                    'cert_url' => $normalizedHeaders['paypal-cert-url'],
-                    'auth_algo' => $normalizedHeaders['paypal-auth-algo'],
-                    'webhook_event' => json_decode($payload, true)
-                ]);
-
-            return $response->successful() &&
-                $response->json('verification_status') === 'SUCCESS';
-        } catch (\Exception $e) {
-            Log::error('PayPal webhook signature verification failed', [
-                'error' => $e->getMessage()
-            ]);
-            return false;
-        }
-    }
+    // ========================================
+    // WEBHOOK HANDLING
+    // ========================================
 
     /**
-     * Handle webhook events
+     * Handle webhook events with comprehensive error handling
      */
     public function handleWebhook(array $event): void
     {
         try {
-            switch ($event['event_type']) {
-                case 'BILLING.SUBSCRIPTION.CREATED':
-                    $this->handleSubscriptionCreated($event['resource']);
-                    break;
+            $eventType = $event['event_type'] ?? null;
+            $resource = $event['resource'] ?? [];
 
-                case 'BILLING.SUBSCRIPTION.ACTIVATED':
-                    $this->handleSubscriptionActivated($event['resource']);
-                    break;
+            Log::info('Processing PayPal webhook', [
+                'event_type' => $eventType,
+                'resource_id' => $resource['id'] ?? 'unknown'
+            ]);
 
-                case 'BILLING.SUBSCRIPTION.CANCELLED':
-                    $this->handleSubscriptionCancelled($event['resource']);
-                    break;
+            match ($eventType) {
+                'BILLING.SUBSCRIPTION.CREATED' => $this->handleSubscriptionCreated($resource),
+                'BILLING.SUBSCRIPTION.ACTIVATED' => $this->handleSubscriptionActivated($resource),
+                'BILLING.SUBSCRIPTION.CANCELLED' => $this->handleSubscriptionCancelled($resource),
+                'BILLING.SUBSCRIPTION.SUSPENDED' => $this->handleSubscriptionSuspended($resource),
+                'PAYMENT.SALE.COMPLETED' => $this->handlePaymentCompleted($resource),
+                'BILLING.SUBSCRIPTION.PAYMENT.FAILED' => $this->handlePaymentFailed($resource),
+                default => Log::info('Unhandled PayPal webhook event', ['type' => $eventType])
+            };
 
-                case 'BILLING.SUBSCRIPTION.SUSPENDED':
-                    $this->handleSubscriptionSuspended($event['resource']);
-                    break;
-
-                case 'PAYMENT.SALE.COMPLETED':
-                    $this->handlePaymentCompleted($event['resource']);
-                    break;
-
-                case 'BILLING.SUBSCRIPTION.PAYMENT.FAILED':
-                    $this->handlePaymentFailed($event['resource']);
-                    break;
-
-                default:
-                    Log::info('Unhandled PayPal webhook event', ['type' => $event['event_type']]);
-            }
         } catch (\Exception $e) {
             Log::error('PayPal webhook handling failed', [
-                'event_type' => $event['event_type'],
-                'error' => $e->getMessage()
+                'event_type' => $event['event_type'] ?? 'unknown',
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
             ]);
             throw $e;
         }
     }
+
+    // ========================================
+    // WEBHOOK EVENT HANDLERS
+    // ========================================
 
     private function handleSubscriptionCreated(array $subscription): void
     {
@@ -656,6 +618,10 @@ class PayPalPaymentService
             $subscriptionRecord->update([
                 'status' => strtolower($subscription['status'] ?? $subscriptionRecord->status),
                 'metadata' => array_merge($subscriptionRecord->metadata ?? [], $subscription),
+            ]);
+
+            Log::info('PayPal subscription created webhook processed', [
+                'subscription_id' => $subscription['id']
             ]);
         }
     }
@@ -673,20 +639,22 @@ class PayPalPaymentService
         }
 
         $updateData = [
-            'status' => 'active',
+            'status' => Subscription::STATUS_ACTIVE,
             'is_active' => true,
             'metadata' => array_merge($subscriptionRecord->metadata ?? [], $subscription),
         ];
 
-        // Extract and save next billing date if available
+        // Extract next billing date if available
         if (isset($subscription['billing_info']['next_billing_time'])) {
             $updateData['next_billing_date'] = Carbon::parse($subscription['billing_info']['next_billing_time']);
         }
 
         $subscriptionRecord->update($updateData);
+        $subscriptionRecord->activate($subscription);
 
-        // Activate the subscription (this will send the notification)
-        $subscriptionRecord->activate();
+        Log::info('PayPal subscription activated webhook processed', [
+            'subscription_id' => $subscription['id']
+        ]);
     }
 
     private function handleSubscriptionCancelled(array $subscription): void
@@ -701,16 +669,17 @@ class PayPalPaymentService
             return;
         }
 
-        $updateData = [
-            'status' => 'canceled',
+        $subscriptionRecord->update([
+            'status' => Subscription::STATUS_CANCELED,
             'is_active' => false,
             'metadata' => array_merge($subscriptionRecord->metadata ?? [], $subscription),
-        ];
+        ]);
 
-        $subscriptionRecord->update($updateData);
-
-        // Cancel the subscription (this will send the notification)
         $subscriptionRecord->cancel();
+
+        Log::info('PayPal subscription cancelled webhook processed', [
+            'subscription_id' => $subscription['id']
+        ]);
     }
 
     private function handleSubscriptionSuspended(array $subscription): void
@@ -725,77 +694,143 @@ class PayPalPaymentService
             return;
         }
 
-        $updateData = [
-            'status' => 'suspended',
+        $subscriptionRecord->update([
+            'status' => Subscription::STATUS_SUSPENDED,
             'is_active' => false,
             'is_suspended' => true,
             'metadata' => array_merge($subscriptionRecord->metadata ?? [], $subscription),
-        ];
+        ]);
 
-        $subscriptionRecord->update($updateData);
-
-        // Suspend the subscription (this will send the notification)
         $subscriptionRecord->suspend();
+
+        Log::info('PayPal subscription suspended webhook processed', [
+            'subscription_id' => $subscription['id']
+        ]);
     }
 
     private function handlePaymentCompleted(array $payment): void
     {
-        // Handle recurring payment completion
         if (isset($payment['billing_agreement_id'])) {
             $subscription = Subscription::where('subscription_id', $payment['billing_agreement_id'])->first();
 
             if ($subscription) {
-                // Send payment successful notification
                 $subscription->employer->notify(new PaymentSuccessful($subscription, [
                     'amount' => $payment['amount']['total'],
                     'currency' => strtoupper($payment['amount']['currency']),
                     'payment_id' => $payment['id'],
                 ]));
 
-                // If this is the first payment after trial, end the trial
                 if ($subscription->isInTrial()) {
                     $subscription->endTrial();
                 }
+
+                Log::info('PayPal payment completed webhook processed', [
+                    'payment_id' => $payment['id'],
+                    'subscription_id' => $payment['billing_agreement_id']
+                ]);
             }
         }
     }
 
     private function handlePaymentFailed(array $payment): void
     {
-        if (isset($payment['id'])) {
-            Log::warning('PayPal subscription payment failed', [
-                'payment' => $payment
-            ]);
+        if (isset($payment['billing_agreement_id'])) {
+            $subscription = Subscription::where('subscription_id', $payment['billing_agreement_id'])->first();
 
-            // Update subscription status if available
-            if (isset($payment['billing_agreement_id'])) {
-                $subscription = Subscription::where('subscription_id', $payment['billing_agreement_id'])->first();
+            if ($subscription) {
+                $subscription->markPaymentFailed();
 
-                if ($subscription) {
-                    $subscription->update([
-                        'status' => 'payment_failed',
-                    ]);
+                $subscription->employer->notify(new PaymentFailed($subscription, [
+                    'amount' => $payment['amount']['total'] ?? 0,
+                    'currency' => strtoupper($payment['amount']['currency'] ?? 'USD'),
+                    'payment_id' => $payment['id'],
+                    'failure_reason' => 'Payment failed',
+                ]));
 
-                    // Send payment failed notification
-                    $subscription->employer->notify(new PaymentFailed($subscription, [
-                        'amount' => $payment['amount']['total'] ?? 0,
-                        'currency' => strtoupper($payment['amount']['currency'] ?? 'USD'),
-                        'payment_id' => $payment['id'],
-                        'failure_reason' => 'Payment failed',
-                    ]));
-                }
+                Log::warning('PayPal payment failed webhook processed', [
+                    'payment_id' => $payment['id'],
+                    'subscription_id' => $payment['billing_agreement_id']
+                ]);
             }
         }
     }
 
-    private function getNextBillingDate(Plan $plan, bool $isInTrial = false): Carbon
+    // ========================================
+    // UTILITY METHODS
+    // ========================================
+
+    /**
+     * Create subscription record in database
+     */
+    private function createSubscriptionRecord(
+        Employer $employer,
+        Plan $plan,
+        array $paymentData,
+        string $paymentType,
+        bool $isInTrial = false
+    ): Subscription {
+        $trialStart = $isInTrial ? now() : null;
+        $trialEnd = $isInTrial ? now()->addDays($plan->getTrialPeriodDays()) : null;
+
+        return Subscription::create([
+            'employer_id' => $employer->id,
+            'plan_id' => $plan->id,
+            'subscription_id' => $paymentData['id'],
+            'payment_provider' => Subscription::PROVIDER_PAYPAL,
+            'status' => strtolower($paymentData['status'] ?? Subscription::STATUS_PENDING),
+            'amount' => $plan->price,
+            'currency' => $plan->getCurrencyCode(),
+            'start_date' => now(),
+            'end_date' => $plan->isOneTime() ? now()->addDays($plan->duration_days ?? 30) : null,
+            'next_billing_date' => $this->getNextBillingDate($plan, $isInTrial),
+            'trial_start_date' => $trialStart,
+            'trial_end_date' => $trialEnd,
+            'is_trial' => $isInTrial,
+            'trial_ended' => false,
+            'cv_downloads_left' => $plan->resume_views_limit,
+            'metadata' => array_merge($paymentData, ['payment_type' => $paymentType]),
+            'is_active' => false, // Will be activated after approval
+        ]);
+    }
+
+    /**
+     * Calculate next billing date
+     */
+    private function getNextBillingDate(Plan $plan, bool $isInTrial = false): ?Carbon
     {
+        if ($plan->isOneTime()) {
+            return null;
+        }
+
         $startDate = $isInTrial ? now()->addDays($plan->getTrialPeriodDays()) : now();
 
         return match ($plan->billing_cycle) {
-            'monthly' => $startDate->copy()->addMonth(),
-            'yearly' => $startDate->copy()->addYear(),
-            default => $startDate,
+            Plan::BILLING_MONTHLY => $startDate->copy()->addMonth(),
+            Plan::BILLING_YEARLY => $startDate->copy()->addYear(),
+            default => null,
         };
+    }
+
+    /**
+     * Extract approval URL from PayPal links
+     */
+    private function extractApprovalUrl(array $links): ?string
+    {
+        foreach ($links as $link) {
+            if ($link['rel'] === 'approve') {
+                return $link['href'];
+            }
+        }
+
+        // Fallback to index 1 if approve link not found
+        return $links[1]['href'] ?? null;
+    }
+
+    /**
+     * Get return URLs for PayPal
+     */
+    private function getReturnUrl(string $status): string
+    {
+        return config('app.frontend_url') . "/employer/dashboard?payment_status={$status}&payment_provider=paypal";
     }
 }

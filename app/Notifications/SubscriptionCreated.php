@@ -8,72 +8,115 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
+/**
+ * Subscription Created Notification
+ *
+ * Sent when a new subscription is created (before activation)
+ */
 class SubscriptionCreated extends Notification //implements ShouldQueue
 {
     use Queueable;
 
-    protected Subscription $subscription;
+    public function __construct(
+        private Subscription $subscription
+    ) {}
 
-    /**
-     * Create a new notification instance.
-     */
-    public function __construct(Subscription $subscription)
+    public function via($notifiable): array
     {
-        $this->subscription = $subscription;
+        return ['mail', 'database'];
     }
 
-    /**
-     * Get the notification's delivery channels.
-     *
-     * @return array<int, string>
-     */
-    public function via(object $notifiable): array
-    {
-        return ['mail'];
-    }
-
-    /**
-     * Get the mail representation of the notification.
-     */
-    public function toMail(object $notifiable): MailMessage
+    public function toMail($notifiable): MailMessage
     {
         $plan = $this->subscription->plan;
-        $isInTrial = $this->subscription->isInTrial();
-        $provider = ucfirst($this->subscription->payment_provider);
+        $employer = $this->subscription->employer;
 
-        $message = (new MailMessage)
-            ->subject("Your {$plan->name} Subscription Has Been Created")
-            ->greeting("Hello {$notifiable->user->name}!")
-            ->line("Thank you for subscribing to our {$plan->name} plan.")
-            ->line("Your subscription has been successfully created with {$provider}.");
-
-        if ($isInTrial) {
-            $trialEndDate = $this->subscription->trial_end_date->format('F j, Y');
-            $message->line("Your free trial period will end on {$trialEndDate}.")
-                   ->line("You won't be charged until your trial period ends.");
-        }
-
-        $message->line("Subscription details:")
-               ->line("- Plan: {$plan->name}")
-               ->line("- Price: {$plan->price} {$plan->currency} per {$plan->billing_cycle}")
-               ->line("- Payment Provider: {$provider}")
-               ->action('View Subscription Details', url('/dashboard/subscriptions'))
-               ->line('Thank you for using our platform!');
-
-        return $message;
+        return (new MailMessage)
+            ->subject('Subscription Created - Complete Your Setup')
+            ->greeting("Hello {$employer->getCompanyDisplayName()}!")
+            ->line('Thank you for choosing our platform! Your subscription has been created.')
+            ->line($this->getSubscriptionDetailsMarkdown())
+            ->line($this->getNextStepsMarkdown())
+            ->action('Complete Setup', $this->getCompletionUrl())
+            ->line('If you have any questions, our support team is here to help!');
     }
 
-    /**
-     * Get the array representation of the notification.
-     *
-     * @return array<string, mixed>
-     */
-    public function toArray(object $notifiable): array
+    public function toArray($notifiable): array
     {
         return [
+            'type' => 'subscription_created',
             'subscription_id' => $this->subscription->id,
             'plan_name' => $this->subscription->plan->name,
-            'payment_provider' => $this->subscription->payment_provider,
+            'status' => $this->subscription->status,
+            'requires_action' => $this->subscription->isPending(),
+            'message' => $this->getNotificationMessage(),
         ];
+    }
+
+    private function getSubscriptionDetailsMarkdown(): string
+    {
+        $plan = $this->subscription->plan;
+        $details = [];
+
+        $details[] = "**Plan:** {$plan->name}";
+        $details[] = "**Amount:** {$this->subscription->getFormattedAmount()}";
+        $details[] = "**Billing Cycle:** {$plan->getBillingCycleLabel()}";
+        $details[] = "**Status:** " . ucfirst($this->subscription->status);
+
+        if ($this->subscription->isInTrial()) {
+            $trialDays = $this->subscription->getRemainingTrialDays();
+            $details[] = "**Trial Period:** {$trialDays} days";
+        }
+
+        return implode("\n", $details);
+    }
+
+    private function getNextStepsMarkdown(): string
+    {
+        if ($this->subscription->isPending()) {
+            return "### Next Steps\n\n" .
+                   "1. **Complete Payment:** Click the button below to finalize your subscription\n" .
+                   "2. **Account Activation:** Your account will be activated immediately after payment\n" .
+                   "3. **Start Using Features:** Access all premium features right away\n\n" .
+                   "**Important:** Your subscription will remain pending until payment is completed.";
+        }
+
+        if ($this->subscription->isInTrial()) {
+            return "### Your Trial Has Started\n\n" .
+                   "1. **Full Access:** Enjoy all premium features during your trial\n" .
+                   "2. **No Charges:** You won't be charged until your trial ends\n" .
+                   "3. **Automatic Billing:** Billing will start automatically after the trial period\n\n" .
+                   "**Trial Duration:** {$this->subscription->getRemainingTrialDays()} days remaining";
+        }
+
+        return "### Welcome to Premium\n\n" .
+               "Your subscription is being processed and will be activated shortly. " .
+               "You'll receive another notification once everything is ready.";
+    }
+
+    private function getCompletionUrl(): string
+    {
+        // Return the appropriate URL based on subscription status
+        if ($this->subscription->isPending()) {
+            return url('/employer/dashboard?action=complete_payment');
+        }
+
+        return url('/employer/dashboard');
+    }
+
+    private function getNotificationMessage(): string
+    {
+        $planName = $this->subscription->plan->name;
+
+        if ($this->subscription->isPending()) {
+            return "Your {$planName} subscription has been created. Please complete the payment to activate your account.";
+        }
+
+        if ($this->subscription->isInTrial()) {
+            $trialDays = $this->subscription->getRemainingTrialDays();
+            return "Your {$planName} subscription has been created with {$trialDays} days of free trial.";
+        }
+
+        return "Your {$planName} subscription has been created and is being processed.";
     }
 }

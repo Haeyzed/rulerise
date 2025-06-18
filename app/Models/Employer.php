@@ -14,7 +14,10 @@ use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
 
 /**
- * Employer model representing companies that post jobs
+ * Employer Model
+ *
+ * Represents companies that post jobs and manage subscriptions.
+ * Includes comprehensive company profile management and subscription tracking.
  *
  * @property int $id
  * @property int $user_id
@@ -23,7 +26,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $company_logo
  * @property string|null $company_description
  * @property string|null $company_industry
- * @property string|null $number_of_employees
+ * @property string|null $company_size
  * @property string|null $company_founded
  * @property string|null $company_country
  * @property string|null $company_state
@@ -41,8 +44,8 @@ use Illuminate\Support\Carbon;
  * @property bool $has_used_trial
  * @property Carbon|null $trial_used_at
  * @property Carbon|null $created_at
- *
  * @property-read User $user
+ * @property-read string|null $company_logo_url
  */
 class Employer extends Model
 {
@@ -50,11 +53,6 @@ class Employer extends Model
 
     protected $appends = ['company_logo_url'];
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var array<int, string>
-     */
     protected $fillable = [
         'user_id',
         'company_name',
@@ -81,11 +79,6 @@ class Employer extends Model
         'trial_used_at',
     ];
 
-    /**
-     * The attributes that should be cast.
-     *
-     * @var array<string, string>
-     */
     protected $casts = [
         'company_founded' => 'date',
         'is_verified' => 'boolean',
@@ -95,77 +88,55 @@ class Employer extends Model
         'trial_used_at' => 'datetime',
     ];
 
-    /**
-     * Get the user that owns the employer profile.
-     */
+    // ========================================
+    // RELATIONSHIPS
+    // ========================================
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
-    /**
-     * Get the candidate pools for the employer.
-     */
     public function candidatePools(): HasMany
     {
         return $this->hasMany(CandidatePool::class);
     }
 
-    /**
-     * Get all job applications across all the employer's jobs.
-     */
     public function applications(): HasManyThrough
     {
         return $this->hasManyThrough(JobApplication::class, Job::class);
     }
 
-    /**
-     * Get the jobs for the employer.
-     */
     public function jobs(): HasMany
     {
         return $this->hasMany(Job::class);
     }
 
-    /**
-     * Get the job view counts for the employer's jobs.
-     */
     public function jobViewCounts(): HasManyThrough
     {
         return $this->hasManyThrough(JobViewCount::class, Job::class);
     }
 
-    /**
-     * Get the notification templates for the employer.
-     */
     public function notificationTemplates(): HasMany
     {
         return $this->hasMany(JobNotificationTemplate::class);
     }
 
-    /**
-     * Get the subscriptions for the employer.
-     */
     public function subscriptions(): HasMany
     {
         return $this->hasMany(Subscription::class);
     }
 
-    /**
-     * Get the payments for the employer.
-     */
     public function payments(): HasMany
     {
         return $this->hasMany(Payment::class);
     }
 
-    /**
-     * Get the active subscription for the employer.
-     */
     public function activeSubscription(): HasOne
     {
         return $this->hasOne(Subscription::class)
             ->where('is_active', true)
+            ->where('status', Subscription::STATUS_ACTIVE)
             ->where(function ($query) {
                 $query->whereNull('end_date')
                     ->orWhere('end_date', '>=', now());
@@ -173,31 +144,84 @@ class Employer extends Model
             ->latest();
     }
 
-    /**
-     * Check if employer has an active subscription
-     *
-     * @return bool
-     */
+    // ========================================
+    // SUBSCRIPTION METHODS
+    // ========================================
+
     public function hasActiveSubscription(): bool
     {
         return $this->activeSubscription()->exists();
     }
 
-    /**
-     * Check if employer has used their trial period
-     *
-     * @return bool
-     */
+    public function getActiveSubscription(): ?Subscription
+    {
+        return $this->activeSubscription;
+    }
+
+    public function getCurrentPlan(): ?Plan
+    {
+        return $this->activeSubscription?->plan;
+    }
+
+    public function canAccessFeature(string $feature): bool
+    {
+        $subscription = $this->getActiveSubscription();
+
+        if (!$subscription || !$subscription->isActive()) {
+            return false;
+        }
+
+        $plan = $subscription->plan;
+
+        return match ($feature) {
+            'candidate_database' => $plan->candidate_database_access,
+            'analytics' => $plan->analytics_access,
+            'priority_support' => $plan->priority_support,
+            default => false,
+        };
+    }
+
+    public function getRemainingJobPosts(): int
+    {
+        $subscription = $this->getActiveSubscription();
+
+        if (!$subscription || !$subscription->isActive()) {
+            return 0;
+        }
+
+        $plan = $subscription->plan;
+
+        if ($plan->job_posts_limit === -1) {
+            return PHP_INT_MAX; // Unlimited
+        }
+
+        $usedPosts = $this->jobs()
+            ->where('created_at', '>=', $subscription->start_date)
+            ->count();
+
+        return max(0, $plan->job_posts_limit - $usedPosts);
+    }
+
+    public function getRemainingResumeViews(): int
+    {
+        $subscription = $this->getActiveSubscription();
+
+        if (!$subscription) {
+            return 0;
+        }
+
+        return max(0, $subscription->cv_downloads_left ?? 0);
+    }
+
+    // ========================================
+    // TRIAL METHODS
+    // ========================================
+
     public function hasUsedTrial(): bool
     {
         return $this->has_used_trial;
     }
 
-    /**
-     * Mark trial as used
-     *
-     * @return void
-     */
     public function markTrialAsUsed(): void
     {
         $this->update([
@@ -206,11 +230,15 @@ class Employer extends Model
         ]);
     }
 
-    /**
-     * Get the URL of the client's logo.
-     *
-     * @return string|null
-     */
+    public function isEligibleForTrial(): bool
+    {
+        return !$this->hasUsedTrial();
+    }
+
+    // ========================================
+    // COMPANY PROFILE METHODS
+    // ========================================
+
     public function getCompanyLogoUrlAttribute(): ?string
     {
         if (!$this->company_logo) {
@@ -218,5 +246,77 @@ class Employer extends Model
         }
 
         return app(StorageService::class)->url($this->company_logo);
+    }
+
+    public function getCompanyDisplayName(): string
+    {
+        return $this->company_name ?: $this->user->name;
+    }
+
+    public function isProfileComplete(): bool
+    {
+        $requiredFields = [
+            'company_name',
+            'company_email',
+            'company_description',
+            'company_industry',
+            'company_country',
+        ];
+
+        foreach ($requiredFields as $field) {
+            if (empty($this->$field)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    public function getCompletionPercentage(): int
+    {
+        $fields = [
+            'company_name',
+            'company_email',
+            'company_logo',
+            'company_description',
+            'company_industry',
+            'company_size',
+            'company_country',
+            'company_website',
+            'company_phone_number',
+        ];
+
+        $completedFields = 0;
+        foreach ($fields as $field) {
+            if (!empty($this->$field)) {
+                $completedFields++;
+            }
+        }
+
+        return round(($completedFields / count($fields)) * 100);
+    }
+
+    // ========================================
+    // QUERY SCOPES
+    // ========================================
+
+    public function scopeVerified($query)
+    {
+        return $query->where('is_verified', true);
+    }
+
+    public function scopeFeatured($query)
+    {
+        return $query->where('is_featured', true);
+    }
+
+    public function scopeWithActiveSubscription($query)
+    {
+        return $query->whereHas('activeSubscription');
+    }
+
+    public function scopeTrialEligible($query)
+    {
+        return $query->where('has_used_trial', false);
     }
 }

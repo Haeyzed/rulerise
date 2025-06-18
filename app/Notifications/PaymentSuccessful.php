@@ -2,74 +2,108 @@
 
 namespace App\Notifications;
 
-use App\Models\Payment;
+use App\Models\Subscription;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
+/**
+ * Payment Successful Notification
+ *
+ * Sent when a payment is successfully processed
+ */
 class PaymentSuccessful extends Notification //implements ShouldQueue
 {
     use Queueable;
 
-    protected Payment $payment;
+    public function __construct(
+        private Subscription $subscription,
+        private array $paymentDetails
+    ) {}
 
-    /**
-     * Create a new notification instance.
-     */
-    public function __construct(Payment $payment)
+    public function via($notifiable): array
     {
-        $this->payment = $payment;
+        return ['mail', 'database'];
     }
 
-    /**
-     * Get the notification's delivery channels.
-     *
-     * @return array<int, string>
-     */
-    public function via(object $notifiable): array
+    public function toMail($notifiable): MailMessage
     {
-        return ['mail'];
-    }
-
-    /**
-     * Get the mail representation of the notification.
-     */
-    public function toMail(object $notifiable): MailMessage
-    {
-        $plan = $this->payment->plan;
-        $provider = ucfirst($this->payment->payment_provider);
-        $paymentType = $this->payment->payment_type === 'one_time' ? 'One-time payment' : 'Subscription payment';
-        $paymentDate = $this->payment->paid_at->format('F j, Y');
+        $employer = $this->subscription->employer;
+        $amount = $this->paymentDetails['amount'] ?? $this->subscription->amount;
+        $currency = $this->paymentDetails['currency'] ?? $this->subscription->currency;
 
         return (new MailMessage)
-            ->subject("Payment Successful for {$plan->name}")
-            ->greeting("Hello {$notifiable->user->name}!")
-            ->line("Your payment for the {$plan->name} plan has been successfully processed.")
-            ->line("Payment details:")
-            ->line("- Plan: {$plan->name}")
-            ->line("- Amount: {$this->payment->amount} {$this->payment->currency}")
-            ->line("- Payment Type: {$paymentType}")
-            ->line("- Payment Provider: {$provider}")
-            ->line("- Payment Date: {$paymentDate}")
-            ->line("- Payment ID: {$this->payment->payment_id}")
-            ->action('View Payment Details', url('/dashboard/payments'))
-            ->line('Thank you for your payment!');
+            ->subject('Payment Successful - Thank You!')
+            ->greeting("Hello {$employer->getCompanyDisplayName()}!")
+            ->line('Your payment has been successfully processed.')
+            ->line($this->getPaymentDetailsMarkdown())
+            ->line($this->getSubscriptionStatusMarkdown())
+            ->line($this->getReceiptInformationMarkdown())
+            ->action('View Dashboard', url('/employer/dashboard'))
+            ->line('Thank you for your continued trust in our platform!');
     }
 
-    /**
-     * Get the array representation of the notification.
-     *
-     * @return array<string, mixed>
-     */
-    public function toArray(object $notifiable): array
+    public function toArray($notifiable): array
     {
         return [
-            'payment_id' => $this->payment->id,
-            'plan_name' => $this->payment->plan->name,
-            'payment_provider' => $this->payment->payment_provider,
-            'amount' => $this->payment->amount,
-            'currency' => $this->payment->currency,
+            'type' => 'payment_successful',
+            'subscription_id' => $this->subscription->id,
+            'payment_id' => $this->paymentDetails['payment_id'] ?? null,
+            'amount' => $this->paymentDetails['amount'] ?? $this->subscription->amount,
+            'currency' => $this->paymentDetails['currency'] ?? $this->subscription->currency,
+            'message' => $this->getNotificationMessage(),
         ];
+    }
+
+    private function getPaymentDetailsMarkdown(): string
+    {
+        $amount = $this->paymentDetails['amount'] ?? $this->subscription->amount;
+        $currency = strtoupper($this->paymentDetails['currency'] ?? $this->subscription->currency);
+        $paymentId = $this->paymentDetails['payment_id'] ?? 'N/A';
+
+        $details = [];
+        $details[] = "**Amount:** {$amount} {$currency}";
+        $details[] = "**Plan:** {$this->subscription->plan->name}";
+        $details[] = "**Payment Date:** " . now()->format('M j, Y');
+        $details[] = "**Payment ID:** {$paymentId}";
+
+        return implode("\n", $details);
+    }
+
+    private function getSubscriptionStatusMarkdown(): string
+    {
+        if ($this->subscription->isInTrial()) {
+            $trialDays = $this->subscription->getRemainingTrialDays();
+            return "### Subscription Status\n\n" .
+                   "Your subscription is active with **{$trialDays} days** remaining in your trial period.\n" .
+                   "This payment will be applied when your trial ends.";
+        }
+
+        $nextBilling = $this->subscription->next_billing_date;
+        if ($nextBilling) {
+            return "### Subscription Status\n\n" .
+                   "Your subscription is active and in good standing.\n" .
+                   "**Next billing date:** {$nextBilling->format('M j, Y')}";
+        }
+
+        return "### Subscription Status\n\n" .
+               "Your subscription is active and all features are available.";
+    }
+
+    private function getReceiptInformationMarkdown(): string
+    {
+        return "### Receipt Information\n\n" .
+               "This email serves as your payment receipt. Please keep it for your records.\n\n" .
+               "**Need a detailed invoice?** You can download invoices from your dashboard.\n" .
+               "**Questions about billing?** Contact our support team at [billing@example.com](mailto:billing@example.com)";
+    }
+
+    private function getNotificationMessage(): string
+    {
+        $amount = $this->paymentDetails['amount'] ?? $this->subscription->amount;
+        $currency = strtoupper($this->paymentDetails['currency'] ?? $this->subscription->currency);
+
+        return "Payment of {$amount} {$currency} for your {$this->subscription->plan->name} subscription has been processed successfully.";
     }
 }

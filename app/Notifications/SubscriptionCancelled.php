@@ -8,63 +8,98 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
+/**
+ * Subscription Cancelled Notification
+ *
+ * Sent when a subscription is cancelled
+ */
 class SubscriptionCancelled extends Notification //implements ShouldQueue
 {
     use Queueable;
 
-    protected Subscription $subscription;
+    public function __construct(
+        private Subscription $subscription
+    ) {}
 
-    /**
-     * Create a new notification instance.
-     */
-    public function __construct(Subscription $subscription)
+    public function via($notifiable): array
     {
-        $this->subscription = $subscription;
+        return ['mail', 'database'];
     }
 
-    /**
-     * Get the notification's delivery channels.
-     *
-     * @return array<int, string>
-     */
-    public function via(object $notifiable): array
-    {
-        return ['mail'];
-    }
-
-    /**
-     * Get the mail representation of the notification.
-     */
-    public function toMail(object $notifiable): MailMessage
+    public function toMail($notifiable): MailMessage
     {
         $plan = $this->subscription->plan;
-        $provider = ucfirst($this->subscription->payment_provider);
+        $employer = $this->subscription->employer;
 
         return (new MailMessage)
-            ->subject("Your {$plan->name} Subscription Has Been Cancelled")
-            ->greeting("Hello {$notifiable->user->name}!")
-            ->line("Your subscription to the {$plan->name} plan has been cancelled.")
-            ->line("You will continue to have access to your subscription benefits until the end of your current billing period.")
-            ->line("Subscription details:")
-            ->line("- Plan: {$plan->name}")
-            ->line("- Payment Provider: {$provider}")
-            ->line("- Cancelled on: " . now()->format('F j, Y'))
-            ->action('View Subscription Details', url('/dashboard/subscriptions'))
-            ->line("We're sorry to see you go. If you change your mind, you can subscribe again at any time.")
-            ->line("If you have any feedback about how we could improve our service, please let us know.");
+            ->subject('Subscription Cancelled - We\'re Sorry to See You Go')
+            ->greeting("Hello {$employer->getCompanyDisplayName()},")
+            ->line('We\'ve processed your subscription cancellation request.')
+            ->line($this->getCancellationDetailsMarkdown())
+            ->line($this->getAccessInformationMarkdown())
+            ->line($this->getFeedbackRequestMarkdown())
+            ->action('Reactivate Subscription', url('/employer/plans'))
+            ->line('Thank you for being part of our community. We hope to serve you again in the future!');
     }
 
-    /**
-     * Get the array representation of the notification.
-     *
-     * @return array<string, mixed>
-     */
-    public function toArray(object $notifiable): array
+    public function toArray($notifiable): array
     {
         return [
+            'type' => 'subscription_cancelled',
             'subscription_id' => $this->subscription->id,
             'plan_name' => $this->subscription->plan->name,
-            'payment_provider' => $this->subscription->payment_provider,
+            'cancelled_at' => $this->subscription->canceled_at?->toISOString(),
+            'message' => $this->getNotificationMessage(),
         ];
+    }
+
+    private function getCancellationDetailsMarkdown(): string
+    {
+        $details = [];
+
+        $details[] = "**Cancelled Plan:** {$this->subscription->plan->name}";
+        $details[] = "**Cancellation Date:** {$this->subscription->canceled_at->format('M j, Y')}";
+
+        if ($this->subscription->end_date && $this->subscription->end_date->isFuture()) {
+            $details[] = "**Access Until:** {$this->subscription->end_date->format('M j, Y')}";
+        }
+
+        return implode("\n", $details);
+    }
+
+    private function getAccessInformationMarkdown(): string
+    {
+        if ($this->subscription->end_date && $this->subscription->end_date->isFuture()) {
+            $daysRemaining = now()->diffInDays($this->subscription->end_date);
+
+            return "### Important Information\n\n" .
+                   "Your subscription has been cancelled, but you still have **{$daysRemaining} days** " .
+                   "of access remaining until {$this->subscription->end_date->format('M j, Y')}.\n\n" .
+                   "You can continue to use all features during this period.";
+        }
+
+        return "### Access Status\n\n" .
+               "Your subscription access has ended immediately. " .
+               "You can reactivate your subscription at any time to regain access to premium features.";
+    }
+
+    private function getFeedbackRequestMarkdown(): string
+    {
+        return "### Help Us Improve\n\n" .
+               "We'd love to hear your feedback about your experience. " .
+               "Your insights help us improve our service for everyone.\n\n" .
+               "[Share Your Feedback](" . url('/feedback') . ")";
+    }
+
+    private function getNotificationMessage(): string
+    {
+        $planName = $this->subscription->plan->name;
+
+        if ($this->subscription->end_date && $this->subscription->end_date->isFuture()) {
+            $daysRemaining = now()->diffInDays($this->subscription->end_date);
+            return "Your {$planName} subscription has been cancelled. You have {$daysRemaining} days of access remaining.";
+        }
+
+        return "Your {$planName} subscription has been cancelled and access has ended.";
     }
 }
