@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\Payment\PayPalPaymentService;
+use App\Services\Payment\StripePaymentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -17,7 +18,8 @@ use Illuminate\Support\Facades\Log;
 class WebhookController extends Controller
 {
     public function __construct(
-        private PayPalPaymentService $paypalService
+        private PayPalPaymentService $paypalService,
+        private StripePaymentService $stripeService
     ) {}
 
     /**
@@ -67,6 +69,72 @@ class WebhookController extends Controller
             Log::error('PayPal webhook handling failed', [
                 'event_id' => $eventId,
                 'event_type' => $request->input('event_type'),
+                'error' => $e->getMessage(),
+                'processing_time_ms' => $processingTime,
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response('Webhook handling failed', 500);
+        }
+    }
+
+    /**
+     * Handle Stripe webhooks with enhanced security and logging
+     */
+    public function handleStripeWebhook(Request $request): Response
+    {
+        $startTime = microtime(true);
+        $payload = $request->getContent();
+        $sigHeader = $request->header('Stripe-Signature');
+        $endpointSecret = config('services.stripe.endpoint_secret');
+
+        Log::info('Stripe webhook received', [
+            'ip' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ]);
+
+        try {
+            \Stripe\Stripe::setApiKey(config('services.stripe.secret'));
+            $event = \Stripe\Webhook::constructEvent(
+                $payload, $sigHeader, $endpointSecret
+            );
+
+
+            $this->stripeService->handleWebhook($event);
+            // Handle the event
+//            switch ($event->type) {
+//                case 'checkout.session.completed':
+//                    $session = $event->data->object;
+//                    // TODO: Implement logic for successful checkout
+//                    Log::info('Stripe checkout session completed', ['session_id' => $session->id]);
+//                    break;
+//                // ... handle other event types
+//                default:
+//                    Log::warning('Stripe unhandled event type', ['event_type' => $event->type]);
+//                    return response('Unhandled event', 200);
+//            }
+
+            $processingTime = round((microtime(true) - $startTime) * 1000, 2);
+
+            Log::info('Stripe webhook processed successfully', [
+                'event_type' => $event->type,
+                'processing_time_ms' => $processingTime
+            ]);
+
+            return response('Webhook handled', 200);
+
+        } catch(\UnexpectedValueException $e) {
+            // Invalid payload
+            Log::error('Stripe webhook invalid payload', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+            return response('Invalid payload', 400);
+        } catch(\Stripe\Exception\SignatureVerificationException $e) {
+            // Invalid signature
+            Log::error('Stripe webhook invalid signature', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+            return response('Invalid signature', 400);
+        } catch (\Exception $e) {
+            $processingTime = round((microtime(true) - $startTime) * 1000, 2);
+
+            Log::error('Stripe webhook handling failed', [
                 'error' => $e->getMessage(),
                 'processing_time_ms' => $processingTime,
                 'trace' => $e->getTraceAsString()

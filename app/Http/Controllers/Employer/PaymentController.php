@@ -5,12 +5,12 @@ namespace App\Http\Controllers\Employer;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Employer\CreatePaymentRequest;
 use App\Http\Requests\Employer\CreateSubscriptionRequest;
-use App\Models\Employer;
 use App\Models\Plan;
 use App\Models\Subscription;
 use App\Notifications\SubscriptionCreated;
 use App\Services\Payment\PayPalPaymentService;
 use App\Services\Payment\Exceptions\PaymentException;
+use App\Services\Payment\StripePaymentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -26,7 +26,8 @@ use Illuminate\Support\Facades\Log;
 class PaymentController extends Controller
 {
     public function __construct(
-        private PayPalPaymentService $paypalService
+        private PayPalPaymentService $paypalService,
+        private StripePaymentService $stripeService
     ) {}
 
     // ========================================
@@ -163,8 +164,12 @@ class PaymentController extends Controller
                     }
                 }
 
-                // Determine payment flow
-                $result = $this->processOneTimePayment($employer, $plan, $request);
+                // Determine payment flow based on provider
+                $result = match ($request->payment_provider) {
+                    'stripe' => $this->stripeService->createOneTimePayment($employer, $plan),
+                    'paypal' => $this->paypalService->createOneTimePayment($employer, $plan),
+                    default => throw new PaymentException('Unsupported payment provider')
+                };
 
                 if (!$result['success']) {
                     return response()->json([
@@ -253,8 +258,12 @@ class PaymentController extends Controller
                     }
                 }
 
-                // Create subscription
-                $result = $this->paypalService->createSubscription($employer, $plan);
+                // Create subscription based on provider
+                $result = match ($request->payment_provider) {
+                    'stripe' => $this->stripeService->createSubscription($employer, $plan),
+                    'paypal' => $this->paypalService->createSubscription($employer, $plan),
+                    default => throw new PaymentException('Unsupported payment provider')
+                };
 
                 if (!$result['success']) {
                     return response()->json([
@@ -318,6 +327,49 @@ class PaymentController extends Controller
                 ], 500);
             }
         });
+    }
+
+    /**
+     * Complete Stripe checkout session
+     */
+    public function completeStripeCheckout(Request $request, string $sessionId): JsonResponse
+    {
+        try {
+            $request->validate([
+                'session_id' => 'sometimes|string'
+            ]);
+
+            $result = $this->stripeService->completeCheckoutSession($request->session_id);
+
+            if (!$result['success']) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $result['error']
+                ], 400);
+            }
+
+            Log::info('Stripe checkout completed successfully', [
+                'session_id' => $request->session_id,
+                'employer_id' => Auth::user()->employer->id ?? null
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'data' => $result,
+                'message' => 'Checkout completed successfully'
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Failed to complete Stripe checkout', [
+                'session_id' => $request->session_id,
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to complete checkout'
+            ], 500);
+        }
     }
 
     // ========================================
@@ -559,7 +611,11 @@ class PaymentController extends Controller
         }
 
         // Proceed with regular one-time payment
-        return $this->paypalService->createOneTimePayment($employer, $plan);
+        return match ($request->payment_provider) {
+            'stripe' => $this->stripeService->createOneTimePayment($employer, $plan),
+            'paypal' => $this->paypalService->createOneTimePayment($employer, $plan),
+            default => throw new PaymentException('Unsupported payment provider')
+        };
     }
 
     /**
@@ -571,7 +627,11 @@ class PaymentController extends Controller
         $employer->markTrialAsUsed();
 
         // Create trial subscription
-        $result = $this->paypalService->createSubscription($employer, $plan);
+        $result = match ($paymentProvider) {
+            'stripe' => $this->stripeService->createSubscription($employer, $plan),
+            'paypal' => $this->paypalService->createSubscription($employer, $plan),
+            default => throw new PaymentException('Unsupported payment provider')
+        };
 
         if ($result['success']) {
             Log::info('Trial subscription created for one-time plan', [

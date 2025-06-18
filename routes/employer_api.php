@@ -101,6 +101,8 @@ Route::middleware(['auth:api', 'role:employer,employer_staff'])->group(function 
     // Payments
     Route::post('/payments/one-time', [PaymentController::class, 'createOneTimePayment']);
     Route::post('/payments/paypal/capture', [PaymentController::class, 'capturePayPalPayment']);
+    Route::post('payments/stripe/capture', [PaymentController::class, 'completeStripeCheckout'])
+        ->name('complete-checkout');
 
     // Subscriptions
     Route::post('/subscriptions', [PaymentController::class, 'createSubscription']);
@@ -132,3 +134,112 @@ Route::middleware(['auth:api', 'role:employer'])->group(function () {
 // Public routes
 Route::post('/webhooks/stripe', [WebhookController::class, 'handleStripeWebhook']);
 Route::post('/webhooks/paypal', [WebhookController::class, 'handlePayPalWebhook']);
+
+
+
+// ========================================
+// WEBHOOK ROUTES (No Authentication)
+// ========================================
+
+Route::prefix('webhooks')->name('webhooks.')->group(function () {
+    // PayPal webhook endpoint
+    Route::post('paypal', [WebhookController::class, 'handlePayPalWebhook'])
+        ->name('paypal');
+
+    // Stripe webhook endpoint
+    Route::post('stripe', [WebhookController::class, 'handleStripeWebhook'])
+        ->name('stripe');
+
+    // Health check for webhook monitoring
+    Route::get('health', [WebhookController::class, 'healthCheck'])
+        ->name('health');
+});
+
+// ========================================
+// EMPLOYER ROUTES (Authenticated)
+// ========================================
+
+//Route::middleware(['auth:sanctum', 'verified'])->prefix('employer')->name('employer.')->group(function () {
+//
+//    // Plan Management
+//    Route::prefix('plans')->name('plans.')->group(function () {
+//        Route::get('/', [PaymentController::class, 'getPlans'])
+//            ->name('index');
+//        Route::get('/{plan}', [PaymentController::class, 'getPlan'])
+//            ->name('show');
+//    });
+//
+//    // Subscription Management
+//    Route::prefix('subscriptions')->name('subscriptions.')->group(function () {
+//        // Get subscriptions
+//        Route::get('/', [PaymentController::class, 'getSubscriptions'])
+//            ->name('index');
+//
+//        // Get active subscription
+//        Route::get('active', [PaymentController::class, 'getActiveSubscription'])
+//            ->name('active');
+//
+//        // Create subscription
+//        Route::post('/', [PaymentController::class, 'createSubscription'])
+//            ->name('create');
+//
+//        // Subscription actions
+//        Route::patch('{subscription}/cancel', [PaymentController::class, 'cancelSubscription'])
+//            ->name('cancel');
+//        Route::patch('{subscription}/suspend', [PaymentController::class, 'suspendSubscription'])
+//            ->name('suspend');
+//        Route::patch('{subscription}/resume', [PaymentController::class, 'resumeSubscription'])
+//            ->name('resume');
+//    });
+//
+//    // Payment Management
+//    Route::prefix('payments')->name('payments.')->group(function () {
+//        // Create one-time payment
+//        Route::post('one-time', [PaymentController::class, 'createOneTimePayment'])
+//            ->name('one-time');
+//
+//        // Payment provider specific endpoints
+//        Route::prefix('stripe')->name('stripe.')->group(function () {
+//            Route::post('checkout-session/{sessionId}/complete', [PaymentController::class, 'completeStripeCheckout'])
+//                ->name('complete-checkout');
+//        });
+//
+//        Route::prefix('paypal')->name('paypal.')->group(function () {
+//            Route::post('capture/{orderId}', [PaymentController::class, 'capturePayPalPayment'])
+//                ->name('capture');
+//        });
+//    });
+//
+//    // Billing & Usage
+//    Route::prefix('billing')->name('billing.')->group(function () {
+//        Route::get('usage', [PaymentController::class, 'getUsageStats'])
+//            ->name('usage');
+//        Route::get('invoices', [PaymentController::class, 'getInvoices'])
+//            ->name('invoices');
+//        Route::get('payment-methods', [PaymentController::class, 'getPaymentMethods'])
+//            ->name('payment-methods');
+//    });
+//});
+//
+//// ========================================
+//// ADMIN ROUTES (Admin Authentication)
+//// ========================================
+//
+//Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->name('admin.')->group(function () {
+//
+//    // Subscription Management
+//    Route::prefix('subscriptions')->name('subscriptions.')->group(function () {
+//        Route::get('/', [PaymentController::class, 'adminGetSubscriptions'])
+//            ->name('index');
+//        Route::get('stats', [PaymentController::class, 'getSubscriptionStats'])
+//            ->name('stats');
+//        Route::patch('{subscription}/force-cancel', [PaymentController::class, 'forceCancel'])
+//            ->name('force-cancel');
+//    });
+//
+//    // Plan Management
+//    Route::prefix('plans')->name('plans.')->group(function () {
+//        Route::get('analytics', [PaymentController::class, 'getPlanAnalytics'])
+//            ->name('analytics');
+//    });
+//});
