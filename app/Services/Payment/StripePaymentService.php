@@ -917,14 +917,18 @@ class StripePaymentService implements PaymentServiceInterface
         if ($subscriptionRecord) {
             $updateData = [
                 'status' => $this->mapStripeStatus($subscription['status']),
-                'end_date' => Carbon::createFromTimestamp($subscription['current_period_end']),
-                'next_billing_date' => Carbon::createFromTimestamp($subscription['current_period_end']),
                 'is_active' => in_array($subscription['status'], ['active', 'trialing']),
                 'metadata' => array_merge($subscriptionRecord->metadata ?? [], [
                     'last_updated_at' => now()->toISOString(),
                     'stripe_status' => $subscription['status'],
                 ]),
             ];
+
+            // Only update period dates if they exist (cancelled subscriptions may not have them)
+            if (isset($subscription['current_period_end'])) {
+                $updateData['end_date'] = Carbon::createFromTimestamp($subscription['current_period_end']);
+                $updateData['next_billing_date'] = Carbon::createFromTimestamp($subscription['current_period_end']);
+            }
 
             // Handle trial status changes
             if (isset($subscription['trial_end'])) {
@@ -944,7 +948,8 @@ class StripePaymentService implements PaymentServiceInterface
 
             Log::info('Subscription updated webhook processed', [
                 'subscription_id' => $subscription['id'],
-                'status' => $subscription['status']
+                'status' => $subscription['status'],
+                'has_period_end' => isset($subscription['current_period_end'])
             ]);
         }
     }
