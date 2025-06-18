@@ -56,7 +56,9 @@ return [
         'model' => App\Models\User::class,
         'key' => env('STRIPE_KEY'),
         'secret' => env('STRIPE_SECRET'),
+        'endpoint_secret' => env('STRIPE_ENDPOINT_SECRET'),
         'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
+        'automatic_tax' => env('STRIPE_AUTOMATIC_TAX', false),
     ],
 
     'paypal' => [

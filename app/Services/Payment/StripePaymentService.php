@@ -299,8 +299,8 @@ class StripePaymentService implements PaymentServiceInterface
                 ],
             ];
 
-            // Add customer email for receipt
-            $sessionData['customer_email'] = $employer->user->email;
+            // Remove this line that was causing the conflict:
+            // $sessionData['customer_email'] = $employer->user->email;
 
             // Add automatic tax calculation if enabled
             if (config('services.stripe.automatic_tax', false)) {
@@ -412,8 +412,8 @@ class StripePaymentService implements PaymentServiceInterface
 
             $sessionData['subscription_data'] = $subscriptionData;
 
-            // Add customer email for receipt
-            $sessionData['customer_email'] = $employer->user->email;
+            // Remove this line that was causing the conflict:
+            // $sessionData['customer_email'] = $employer->user->email;
 
             // Add automatic tax calculation if enabled
             if (config('services.stripe.automatic_tax', false)) {

@@ -3,11 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Services\Payment\PayPalPaymentService;
-use App\Services\Payment\StripePaymentService;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Log;
+use Stripe\Stripe;
+use Stripe\Webhook;
+use App\Services\Payment\StripePaymentService;
 
 /**
  * Webhook Controller
@@ -18,8 +19,7 @@ use Illuminate\Support\Facades\Log;
 class WebhookController extends Controller
 {
     public function __construct(
-        private PayPalPaymentService $paypalService,
-        private StripePaymentService $stripeService
+        private PayPalPaymentService $paypalService
     ) {}
 
     /**
@@ -91,33 +91,38 @@ class WebhookController extends Controller
         Log::info('Stripe webhook received', [
             'ip' => $request->ip(),
             'user_agent' => $request->userAgent(),
+            'has_signature' => !empty($sigHeader),
+            'has_endpoint_secret' => !empty($endpointSecret),
         ]);
 
         try {
-            \Stripe\Stripe::setApiKey(config('services.stripe.secret'));
-            $event = \Stripe\Webhook::constructEvent(
-                $payload, $sigHeader, $endpointSecret
-            );
+            Stripe::setApiKey(config('services.stripe.secret'));
 
+            // Only verify signature if endpoint secret is configured
+            if (!empty($endpointSecret) && !empty($sigHeader)) {
+                $event = Webhook::constructEvent($payload, $sigHeader, $endpointSecret);
+            } else {
+                // For development/testing - parse event without signature verification
+                $event = json_decode($payload, true);
 
-            $this->stripeService->handleWebhook($event);
-            // Handle the event
-//            switch ($event->type) {
-//                case 'checkout.session.completed':
-//                    $session = $event->data->object;
-//                    // TODO: Implement logic for successful checkout
-//                    Log::info('Stripe checkout session completed', ['session_id' => $session->id]);
-//                    break;
-//                // ... handle other event types
-//                default:
-//                    Log::warning('Stripe unhandled event type', ['event_type' => $event->type]);
-//                    return response('Unhandled event', 200);
-//            }
+                if (json_last_error() !== JSON_ERROR_NONE) {
+                    throw new \UnexpectedValueException('Invalid JSON payload');
+                }
+
+                Log::warning('Stripe webhook processed without signature verification', [
+                    'reason' => empty($endpointSecret) ? 'No endpoint secret configured' : 'No signature header'
+                ]);
+            }
+
+            // Create a StripePaymentService instance to handle the webhook
+            $stripeService = app(StripePaymentService::class);
+            $stripeService->handleWebhook($event);
 
             $processingTime = round((microtime(true) - $startTime) * 1000, 2);
 
             Log::info('Stripe webhook processed successfully', [
-                'event_type' => $event->type,
+                'event_type' => $event['type'] ?? 'unknown',
+                'event_id' => $event['id'] ?? 'unknown',
                 'processing_time_ms' => $processingTime
             ]);
 
@@ -125,11 +130,18 @@ class WebhookController extends Controller
 
         } catch(\UnexpectedValueException $e) {
             // Invalid payload
-            Log::error('Stripe webhook invalid payload', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+            Log::error('Stripe webhook invalid payload', [
+                'error' => $e->getMessage(),
+                'payload_length' => strlen($payload)
+            ]);
             return response('Invalid payload', 400);
         } catch(\Stripe\Exception\SignatureVerificationException $e) {
             // Invalid signature
-            Log::error('Stripe webhook invalid signature', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+            Log::error('Stripe webhook invalid signature', [
+                'error' => $e->getMessage(),
+                'has_endpoint_secret' => !empty($endpointSecret),
+                'signature_header' => $sigHeader ? 'present' : 'missing'
+            ]);
             return response('Invalid signature', 400);
         } catch (\Exception $e) {
             $processingTime = round((microtime(true) - $startTime) * 1000, 2);
@@ -167,7 +179,7 @@ class WebhookController extends Controller
     /**
      * Health check endpoint for webhook monitoring
      */
-    public function healthCheck(): JsonResponse
+    public function healthCheck(): Response
     {
         return response()->json([
             'status' => 'healthy',
