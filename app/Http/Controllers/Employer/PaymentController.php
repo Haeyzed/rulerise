@@ -332,7 +332,7 @@ class PaymentController extends Controller
     /**
      * Complete Stripe checkout session
      */
-    public function completeStripeCheckout(Request $request, string $sessionId): JsonResponse
+    public function completeStripeCheckout(Request $request): JsonResponse
     {
         try {
             $request->validate([
