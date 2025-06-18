@@ -732,12 +732,12 @@ class PaymentController extends Controller
         }
 
         // Additional validation: Check if it's actually an upgrade (higher price)
-        if ($newPlan->price <= $activeSubscription->plan->price) {
-            return [
-                'valid' => false,
-                'message' => 'You can only upgrade to a higher-tier plan. For downgrades, please contact support.'
-            ];
-        }
+//        if ($newPlan->price <= $activeSubscription->plan->price) {
+//            return [
+//                'valid' => false,
+//                'message' => 'You can only upgrade to a higher-tier plan. For downgrades, please contact support.'
+//            ];
+//        }
 
         return ['valid' => true];
     }
