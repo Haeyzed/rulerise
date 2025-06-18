@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Employer;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Employer\CreatePaymentRequest;
 use App\Http\Requests\Employer\CreateSubscriptionRequest;
+use App\Models\Employer;
 use App\Models\Plan;
 use App\Models\Subscription;
 use App\Notifications\SubscriptionCreated;
@@ -336,10 +337,11 @@ class PaymentController extends Controller
     {
         try {
             $request->validate([
-                'session_id' => 'sometimes|string'
+                'session_id' => 'required|string'
             ]);
 
-            $result = $this->stripeService->completeCheckoutSession($request->session_id);
+            $sessionId = $request->input('session_id');
+            $result = $this->stripeService->completeCheckoutSession($sessionId);
 
             if (!$result['success']) {
                 return response()->json([
@@ -349,7 +351,7 @@ class PaymentController extends Controller
             }
 
             Log::info('Stripe checkout completed successfully', [
-                'session_id' => $request->session_id,
+                'session_id' => $sessionId,
                 'employer_id' => Auth::user()->employer->id ?? null
             ]);
 
@@ -361,7 +363,6 @@ class PaymentController extends Controller
 
         } catch (\Exception $e) {
             Log::error('Failed to complete Stripe checkout', [
-                'session_id' => $request->session_id,
                 'error' => $e->getMessage()
             ]);
 
@@ -563,7 +564,10 @@ class PaymentController extends Controller
                 'order_id' => 'required|string'
             ]);
 
-            $result = $this->paypalService->capturePayment($request->order_id);
+            // Clean the order ID by removing any extra quotes
+            $orderId = trim($request->order_id, '"\'');
+
+            $result = $this->paypalService->capturePayment($orderId);
 
             if (!$result['success']) {
                 return response()->json([
@@ -573,7 +577,7 @@ class PaymentController extends Controller
             }
 
             Log::info('PayPal payment captured successfully', [
-                'order_id' => $request->order_id,
+                'order_id' => $orderId,
                 'employer_id' => Auth::user()->employer->id ?? null
             ]);
 

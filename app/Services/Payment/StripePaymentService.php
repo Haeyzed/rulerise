@@ -758,30 +758,49 @@ class StripePaymentService implements PaymentServiceInterface
         }
     }
 
-    private function handleSubscriptionCheckout(Subscription $subscription, array $session): void
+    private function handleSubscriptionCheckout(Subscription $subscription, $session): void
     {
+        // Convert session to array if it's a Stripe object
+        $sessionData = is_array($session) ? $session : $session->toArray();
+
+        // Get subscription ID from session data
+        $subscriptionId = $sessionData['subscription'] ?? null;
+
+        if (!$subscriptionId) {
+            Log::error('No subscription ID found in session data', [
+                'session_id' => $sessionData['id'] ?? 'unknown'
+            ]);
+            return;
+        }
+
         // Get full subscription details from Stripe
         $stripeSubscription = $this->stripe->subscriptions->retrieve(
-            $session['subscription'],
+            $subscriptionId,
             ['expand' => ['latest_invoice.payment_intent']]
         );
 
-        // Determine trial status
+        // Replace the existing timestamp handling with null-safe versions:
         $isInTrial = $stripeSubscription->status === 'trialing';
-        $trialStart = $isInTrial && $stripeSubscription->trial_start
+        $trialStart = $isInTrial && isset($stripeSubscription->trial_start) && $stripeSubscription->trial_start
             ? Carbon::createFromTimestamp($stripeSubscription->trial_start)
             : null;
-        $trialEnd = $isInTrial && $stripeSubscription->trial_end
+        $trialEnd = $isInTrial && isset($stripeSubscription->trial_end) && $stripeSubscription->trial_end
             ? Carbon::createFromTimestamp($stripeSubscription->trial_end)
             : null;
 
-        // Update subscription record
+        // Update subscription record with null-safe timestamp handling
         $updateData = [
             'subscription_id' => $stripeSubscription->id,
             'status' => $this->mapStripeStatus($stripeSubscription->status),
-            'start_date' => Carbon::createFromTimestamp($stripeSubscription->current_period_start),
-            'end_date' => Carbon::createFromTimestamp($stripeSubscription->current_period_end),
-            'next_billing_date' => Carbon::createFromTimestamp($stripeSubscription->current_period_end),
+            'start_date' => isset($stripeSubscription->current_period_start)
+                ? Carbon::createFromTimestamp($stripeSubscription->current_period_start)
+                : now(),
+            'end_date' => isset($stripeSubscription->current_period_end)
+                ? Carbon::createFromTimestamp($stripeSubscription->current_period_end)
+                : now()->addMonth(),
+            'next_billing_date' => isset($stripeSubscription->current_period_end)
+                ? Carbon::createFromTimestamp($stripeSubscription->current_period_end)
+                : now()->addMonth(),
             'trial_start_date' => $trialStart,
             'trial_end_date' => $trialEnd,
             'is_trial' => $isInTrial,
@@ -796,19 +815,22 @@ class StripePaymentService implements PaymentServiceInterface
         $subscription->activate($stripeSubscription->toArray());
     }
 
-    private function handleOneTimePaymentCheckout(Subscription $subscription, array $session): void
+    private function handleOneTimePaymentCheckout(Subscription $subscription, $session): void
     {
+        // Convert session to array if it's a Stripe object
+        $sessionData = is_array($session) ? $session : $session->toArray();
+
         $subscription->update([
-            'subscription_id' => $session['id'],
+            'subscription_id' => $sessionData['id'],
             'status' => Subscription::STATUS_ACTIVE,
             'is_active' => true,
             'metadata' => array_merge($subscription->metadata ?? [], [
-                'checkout_session' => $session,
+                'checkout_session' => $sessionData,
                 'payment_completed_at' => now()->toISOString(),
             ]),
         ]);
 
-        $subscription->activate($session);
+        $subscription->activate($sessionData);
     }
 
     private function handleInvoicePaymentSucceeded(array $invoice): void
