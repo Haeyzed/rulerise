@@ -396,7 +396,7 @@ class PaymentController extends Controller
             // Cancel subscription based on payment provider
             $success = match ($subscription->payment_provider) {
                 'stripe' => $this->stripeService->cancelSubscription($subscription),
-                'paypal' => $this->paypalService->cancelSubscription($subscription),
+                'paypal' => $this->paypalService->cancelSubscription($subscription, true),
                 default => throw new PaymentException('Unsupported payment provider: ' . $subscription->payment_provider)
             };
 
