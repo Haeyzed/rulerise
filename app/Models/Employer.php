@@ -136,8 +136,7 @@ class Employer extends Model
     {
         return $this->hasOne(Subscription::class)
             ->where('is_active', true)
-            ->orWhere('is_suspended', true)
-            ->whereIn('status', [Subscription::STATUS_ACTIVE, Subscription::STATUS_SUSPENDED])
+            ->where('status', Subscription::STATUS_ACTIVE)
             ->where(function ($query) {
                 $query->whereNull('end_date')
                     ->orWhere('end_date', '>=', now());
