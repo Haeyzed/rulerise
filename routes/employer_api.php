@@ -141,19 +141,19 @@ Route::post('/webhooks/paypal', [WebhookController::class, 'handlePayPalWebhook'
 // WEBHOOK ROUTES (No Authentication)
 // ========================================
 
-Route::prefix('webhooks')->name('webhooks.')->group(function () {
-    // PayPal webhook endpoint
-    Route::post('paypal', [WebhookController::class, 'handlePayPalWebhook'])
-        ->name('paypal');
-
-    // Stripe webhook endpoint
-    Route::post('stripe', [WebhookController::class, 'handleStripeWebhook'])
-        ->name('stripe');
-
-    // Health check for webhook monitoring
-    Route::get('health', [WebhookController::class, 'healthCheck'])
-        ->name('health');
-});
+//Route::prefix('webhooks')->name('webhooks.')->group(function () {
+//    // PayPal webhook endpoint
+//    Route::post('paypal', [WebhookController::class, 'handlePayPalWebhook'])
+//        ->name('paypal');
+//
+//    // Stripe webhook endpoint
+//    Route::post('stripe', [WebhookController::class, 'handleStripeWebhook'])
+//        ->name('stripe');
+//
+//    // Health check for webhook monitoring
+//    Route::get('health', [WebhookController::class, 'healthCheck'])
+//        ->name('health');
+//});
 
 // ========================================
 // EMPLOYER ROUTES (Authenticated)
