@@ -393,7 +393,12 @@ class PaymentController extends Controller
                 ], 404);
             }
 
-            $success = $this->paypalService->cancelSubscription($subscription);
+            // Cancel subscription based on payment provider
+            $success = match ($subscription->payment_provider) {
+                'stripe' => $this->stripeService->cancelSubscription($subscription),
+                'paypal' => $this->paypalService->cancelSubscription($subscription),
+                default => throw new PaymentException('Unsupported payment provider: ' . $subscription->payment_provider)
+            };
 
             if (!$success) {
                 return response()->json([
@@ -404,13 +409,25 @@ class PaymentController extends Controller
 
             Log::info('Subscription cancelled successfully', [
                 'employer_id' => $employer->id,
-                'subscription_id' => $subscription->id
+                'subscription_id' => $subscription->id,
+                'payment_provider' => $subscription->payment_provider
             ]);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Subscription cancelled successfully'
             ]);
+
+        } catch (PaymentException $e) {
+            Log::error('Payment provider error during subscription cancellation', [
+                'error' => $e->getMessage(),
+                'employer_id' => Auth::user()->employer->id ?? null
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 400);
 
         } catch (\Exception $e) {
             Log::error('Failed to cancel subscription', [
@@ -441,7 +458,12 @@ class PaymentController extends Controller
                 ], 404);
             }
 
-            $success = $this->paypalService->suspendSubscription($subscription);
+            // Suspend subscription based on payment provider
+            $success = match ($subscription->payment_provider) {
+                'stripe' => $this->stripeService->suspendSubscription($subscription),
+                'paypal' => $this->paypalService->suspendSubscription($subscription),
+                default => throw new PaymentException('Unsupported payment provider: ' . $subscription->payment_provider)
+            };
 
             if (!$success) {
                 return response()->json([
@@ -450,10 +472,27 @@ class PaymentController extends Controller
                 ], 400);
             }
 
+            Log::info('Subscription suspended successfully', [
+                'employer_id' => $employer->id,
+                'subscription_id' => $subscription->id,
+                'payment_provider' => $subscription->payment_provider
+            ]);
+
             return response()->json([
                 'success' => true,
                 'message' => 'Subscription suspended successfully'
             ]);
+
+        } catch (PaymentException $e) {
+            Log::error('Payment provider error during subscription suspension', [
+                'error' => $e->getMessage(),
+                'employer_id' => Auth::user()->employer->id ?? null
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 400);
 
         } catch (\Exception $e) {
             Log::error('Failed to suspend subscription', [
@@ -489,7 +528,12 @@ class PaymentController extends Controller
                 ], 404);
             }
 
-            $success = $this->paypalService->resumeSubscription($subscription);
+            // Resume subscription based on payment provider
+            $success = match ($subscription->payment_provider) {
+                'stripe' => $this->stripeService->resumeSubscription($subscription),
+                'paypal' => $this->paypalService->resumeSubscription($subscription),
+                default => throw new PaymentException('Unsupported payment provider: ' . $subscription->payment_provider)
+            };
 
             if (!$success) {
                 return response()->json([
@@ -498,10 +542,27 @@ class PaymentController extends Controller
                 ], 400);
             }
 
+            Log::info('Subscription resumed successfully', [
+                'employer_id' => $employer->id,
+                'subscription_id' => $subscription->id,
+                'payment_provider' => $subscription->payment_provider
+            ]);
+
             return response()->json([
                 'success' => true,
                 'message' => 'Subscription resumed successfully'
             ]);
+
+        } catch (PaymentException $e) {
+            Log::error('Payment provider error during subscription resumption', [
+                'error' => $e->getMessage(),
+                'employer_id' => Auth::user()->employer->id ?? null
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 400);
 
         } catch (\Exception $e) {
             Log::error('Failed to resume subscription', [
@@ -713,17 +774,31 @@ class PaymentController extends Controller
      */
     private function cancelExistingSubscription(Subscription $subscription): void
     {
-        $success = $this->paypalService->cancelSubscription($subscription);
+        try {
+            $success = match ($subscription->payment_provider) {
+                'stripe' => $this->stripeService->cancelSubscription($subscription),
+                'paypal' => $this->paypalService->cancelSubscription($subscription),
+                default => false
+            };
 
-        if ($success) {
-            Log::info('Existing subscription cancelled during upgrade', [
+            if ($success) {
+                Log::info('Existing subscription cancelled during upgrade', [
+                    'subscription_id' => $subscription->id,
+                    'employer_id' => $subscription->employer_id,
+                    'payment_provider' => $subscription->payment_provider
+                ]);
+            } else {
+                Log::error('Failed to cancel existing subscription during upgrade', [
+                    'subscription_id' => $subscription->id,
+                    'employer_id' => $subscription->employer_id,
+                    'payment_provider' => $subscription->payment_provider
+                ]);
+            }
+        } catch (\Exception $e) {
+            Log::error('Error cancelling existing subscription during upgrade', [
                 'subscription_id' => $subscription->id,
-                'employer_id' => $subscription->employer_id
-            ]);
-        } else {
-            Log::error('Failed to cancel existing subscription during upgrade', [
-                'subscription_id' => $subscription->id,
-                'employer_id' => $subscription->employer_id
+                'employer_id' => $subscription->employer_id,
+                'error' => $e->getMessage()
             ]);
         }
     }
@@ -733,17 +808,31 @@ class PaymentController extends Controller
      */
     private function suspendExistingSubscription(Subscription $subscription): void
     {
-        $success = $this->paypalService->suspendSubscription($subscription);
+        try {
+            $success = match ($subscription->payment_provider) {
+                'stripe' => $this->stripeService->suspendSubscription($subscription),
+                'paypal' => $this->paypalService->suspendSubscription($subscription),
+                default => false
+            };
 
-        if ($success) {
-            Log::info('Existing subscription suspended during upgrade', [
+            if ($success) {
+                Log::info('Existing subscription suspended during upgrade', [
+                    'subscription_id' => $subscription->id,
+                    'employer_id' => $subscription->employer_id,
+                    'payment_provider' => $subscription->payment_provider
+                ]);
+            } else {
+                Log::error('Failed to suspend existing subscription during upgrade', [
+                    'subscription_id' => $subscription->id,
+                    'employer_id' => $subscription->employer_id,
+                    'payment_provider' => $subscription->payment_provider
+                ]);
+            }
+        } catch (\Exception $e) {
+            Log::error('Error suspending existing subscription during upgrade', [
                 'subscription_id' => $subscription->id,
-                'employer_id' => $subscription->employer_id
-            ]);
-        } else {
-            Log::error('Failed to suspend existing subscription during upgrade', [
-                'subscription_id' => $subscription->id,
-                'employer_id' => $subscription->employer_id
+                'employer_id' => $subscription->employer_id,
+                'error' => $e->getMessage()
             ]);
         }
     }
