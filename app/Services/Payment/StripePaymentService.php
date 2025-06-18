@@ -507,10 +507,10 @@ class StripePaymentService implements PaymentServiceInterface
                 // Cancel at period end
                 $this->stripe->subscriptions->update($subscription->subscription_id, [
                     'cancel_at_period_end' => true,
-                    'metadata' => array_merge($subscription->metadata ?? [], [
+                    'metadata' => [
                         'cancelled_at' => now()->toISOString(),
                         'cancel_reason' => 'user_requested',
-                    ]),
+                    ],
                 ]);
             }
 
@@ -552,10 +552,10 @@ class StripePaymentService implements PaymentServiceInterface
                 'pause_collection' => [
                     'behavior' => 'void', // Don't collect payments
                 ],
-                'metadata' => array_merge($subscription->metadata ?? [], [
+                'metadata' => [
                     'suspended_at' => now()->toISOString(),
                     'suspended_reason' => 'user_requested',
-                ]),
+                ],
             ]);
 
             $subscription->suspend();
@@ -593,9 +593,9 @@ class StripePaymentService implements PaymentServiceInterface
             // Resume the subscription by removing pause collection
             $this->stripe->subscriptions->update($subscription->subscription_id, [
                 'pause_collection' => null, // Remove pause
-                'metadata' => array_merge($subscription->metadata ?? [], [
+                'metadata' => [
                     'resumed_at' => now()->toISOString(),
-                ]),
+                ],
             ]);
 
             $subscription->resume();
@@ -921,8 +921,8 @@ class StripePaymentService implements PaymentServiceInterface
                 'next_billing_date' => Carbon::createFromTimestamp($subscription['current_period_end']),
                 'is_active' => in_array($subscription['status'], ['active', 'trialing']),
                 'metadata' => array_merge($subscriptionRecord->metadata ?? [], [
-                    'stripe_subscription_updated' => $subscription,
                     'last_updated_at' => now()->toISOString(),
+                    'stripe_status' => $subscription['status'],
                 ]),
             ];
 
