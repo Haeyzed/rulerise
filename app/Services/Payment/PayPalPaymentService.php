@@ -696,7 +696,7 @@ class PayPalPaymentService implements PaymentServiceInterface
 
         $subscriptionRecord->update([
             'status' => Subscription::STATUS_SUSPENDED,
-            'is_active' => false,
+            'is_active' => true,
             'is_suspended' => true,
             'metadata' => array_merge($subscriptionRecord->metadata ?? [], $subscription),
         ]);

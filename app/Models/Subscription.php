@@ -186,7 +186,7 @@ class Subscription extends Model
     {
         $this->update([
             'status' => self::STATUS_SUSPENDED,
-            'is_active' => false,
+            'is_active' => true,
             'is_suspended' => true,
         ]);
 
