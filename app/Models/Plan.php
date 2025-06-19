@@ -22,7 +22,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int|null $job_posts_limit
  * @property int $featured_jobs_limit
  * @property int $resume_views_limit
- * @property bool $candidate_database_access
+ * @property bool $candidate_search
  * @property bool $analytics_access
  * @property bool $priority_support
  * @property array|null $features
@@ -61,7 +61,7 @@ class Plan extends Model
         'billing_cycle',
         'job_posts_limit',
         'featured_jobs_limit',
-        'candidate_database_access',
+        'candidate_search',
         'analytics_access',
         'priority_support',
         'resume_views_limit',
@@ -78,7 +78,7 @@ class Plan extends Model
 
     protected $casts = [
         'price' => 'decimal:2',
-        'candidate_database_access' => 'boolean',
+        'candidate_search' => 'boolean',
         'analytics_access' => 'boolean',
         'priority_support' => 'boolean',
         'features' => 'array',
@@ -191,7 +191,7 @@ class Plan extends Model
                 : "{$this->resume_views_limit} resume views";
         }
 
-        if ($this->candidate_database_access) {
+        if ($this->candidate_search) {
             $features[] = 'Candidate database access';
         }
 

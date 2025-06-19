@@ -21,7 +21,7 @@ return new class extends Migration
             $table->enum('billing_cycle', ['monthly', 'yearly', 'one_time']);
             $table->integer('job_posts_limit')->nullable();
             $table->integer('featured_jobs_limit')->default(0);
-            $table->boolean('candidate_database_access')->default(false);
+            $table->boolean('candidate_search')->default(false);
             $table->boolean('analytics_access')->default(false);
             $table->boolean('priority_support')->default(false);
             $table->integer('resume_views_limit')->default(0);
