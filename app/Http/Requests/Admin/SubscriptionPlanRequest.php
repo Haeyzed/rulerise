@@ -29,7 +29,7 @@ class SubscriptionPlanRequest extends FormRequest
             'description' => 'nullable|string',
             'price' => 'nullable|numeric|min:0',
             'currency' => 'nullable|string|size:3',
-            'duration_days' => 'nullable|integer|min:1',
+            'trial_days' => 'nullable|integer|min:1',
             'job_posts_limit' => 'nullable|integer|min:0',
             'featured_jobs_limit' => 'nullable|integer|min:0',
             'resume_views_limit' => 'nullable|integer|min:0',
@@ -41,7 +41,7 @@ class SubscriptionPlanRequest extends FormRequest
             'is_active' => 'nullable|boolean',
             'is_featured' => 'nullable|boolean',
             'features' => 'nullable|array',
-            'payment_type' => ['nullable', 'string', Rule::in([Plan::BILLING_ONE_TIME, Plan::BILLING_MONTHLY, Plan::BILLING_YEARLY])],
+            'billing_cycle' => ['nullable', 'string', Rule::in([Plan::BILLING_ONE_TIME, Plan::BILLING_MONTHLY, Plan::BILLING_YEARLY])],
         ];
     }
 
@@ -63,7 +63,7 @@ class SubscriptionPlanRequest extends FormRequest
             'support_level' => 'support level',
             'is_active' => 'active status',
             'is_featured' => 'featured status',
-            'payment_type' => 'payment type',
+            'billing_cycle' => 'billing cycle',
         ];
     }
 }
