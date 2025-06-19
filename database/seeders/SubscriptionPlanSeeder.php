@@ -2,7 +2,7 @@
 
 namespace Database\Seeders;
 
-use App\Models\SubscriptionPlan;
+use App\Models\Plan;
 use Illuminate\Database\Seeder;
 
 class SubscriptionPlanSeeder extends Seeder
@@ -13,10 +13,10 @@ class SubscriptionPlanSeeder extends Seeder
     public function run(): void
     {
         // Clear existing plans if needed
-        SubscriptionPlan::query()->delete();
+        Plan::query()->delete();
 
         // Create 20 Resume Package (One-time) with configurable trial
-        SubscriptionPlan::query()->create([
+        Plan::query()->create([
             'name' => '20 Resume Package',
             'description' => 'One-time purchase of 20 resume views with configurable trial period, no expiration',
             'price' => 200.00,
@@ -32,10 +32,10 @@ class SubscriptionPlanSeeder extends Seeder
             'support_level' => 'standard',
             'is_active' => true,
             'is_featured' => false,
-            'payment_type' => SubscriptionPlan::PAYMENT_TYPE_ONE_TIME,
+            'payment_type' => Plan::PAYMENT_TYPE_ONE_TIME,
             'has_trial' => true,
             'trial_period_days' => 7, // Configurable trial period
-            'interval_unit' => SubscriptionPlan::INTERVAL_UNIT_YEAR,
+            'interval_unit' => Plan::INTERVAL_UNIT_YEAR,
             'interval_count' => 1,
             'total_cycles' => 1, // One-time payment
             'payment_gateway_config' => [
@@ -52,7 +52,7 @@ class SubscriptionPlanSeeder extends Seeder
         ]);
 
         // Create Monthly Unlimited Resumes OldSubscription with configurable trial
-        SubscriptionPlan::query()->create([
+        Plan::query()->create([
             'name' => 'Unlimited Resume Access',
             'description' => 'Monthly subscription with unlimited resume views, configurable trial period, and enhanced features',
             'price' => 300.00,
@@ -68,10 +68,10 @@ class SubscriptionPlanSeeder extends Seeder
             'support_level' => 'premium',
             'is_active' => true,
             'is_featured' => true,
-            'payment_type' => SubscriptionPlan::PAYMENT_TYPE_RECURRING,
+            'payment_type' => Plan::BILLING_MONTHLY,
             'has_trial' => true,
             'trial_period_days' => 7, // Different trial period for this plan
-            'interval_unit' => SubscriptionPlan::INTERVAL_UNIT_MONTH,
+            'interval_unit' => Plan::INTERVAL_UNIT_MONTH,
             'interval_count' => 1,
             'total_cycles' => 0, // Infinite cycles for recurring
             'payment_gateway_config' => [

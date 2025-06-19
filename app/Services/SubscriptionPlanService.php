@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Models\SubscriptionPlan;
+use App\Models\Plan;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 
@@ -18,7 +18,7 @@ class SubscriptionPlanService
      */
     public function getActivePlans(): Collection
     {
-        return SubscriptionPlan::query()->where('is_active', true)->get();
+        return Plan::query()->where('is_active', true)->get();
     }
 
     /**
@@ -29,29 +29,29 @@ class SubscriptionPlanService
      */
     public function getAllPlans(int $perPage = 10): LengthAwarePaginator
     {
-        return SubscriptionPlan::query()->orderBy('price')->paginate($perPage);
+        return Plan::query()->orderBy('price')->paginate($perPage);
     }
 
     /**
      * Get a specific subscription plan
      *
      * @param int $id
-     * @return SubscriptionPlan
+     * @return Plan
      */
-    public function getPlan(int $id): SubscriptionPlan
+    public function getPlan(int $id): Plan
     {
-        return SubscriptionPlan::query()->findOrFail($id);
+        return Plan::query()->findOrFail($id);
     }
 
     /**
      * Create a new subscription plan
      *
      * @param array $data
-     * @return SubscriptionPlan
+     * @return Plan
      */
-    public function createPlan(array $data): SubscriptionPlan
+    public function createPlan(array $data): Plan
     {
-        return SubscriptionPlan::query()->create($data);
+        return Plan::query()->create($data);
     }
 
     /**
@@ -59,9 +59,9 @@ class SubscriptionPlanService
      *
      * @param int $id
      * @param array $data
-     * @return SubscriptionPlan
+     * @return Plan
      */
-    public function updatePlan(int $id, array $data): SubscriptionPlan
+    public function updatePlan(int $id, array $data): Plan
     {
         $plan = $this->getPlan($id);
         $plan->update($data);
@@ -73,9 +73,9 @@ class SubscriptionPlanService
      *
      * @param int $id
      * @param bool $isActive
-     * @return SubscriptionPlan
+     * @return Plan
      */
-    public function togglePlanStatus(int $id, bool $isActive): SubscriptionPlan
+    public function togglePlanStatus(int $id, bool $isActive): Plan
     {
         $plan = $this->getPlan($id);
         $plan->is_active = $isActive;
@@ -104,11 +104,11 @@ class SubscriptionPlanService
     /**
      * Compare two subscription plans
      *
-     * @param SubscriptionPlan $planA
-     * @param SubscriptionPlan $planB
+     * @param Plan $planA
+     * @param Plan $planB
      * @return array
      */
-    public function comparePlans(SubscriptionPlan $planA, SubscriptionPlan $planB): array
+    public function comparePlans(Plan $planA, Plan $planB): array
     {
         return [
             'price_difference' => $planB->price - $planA->price,

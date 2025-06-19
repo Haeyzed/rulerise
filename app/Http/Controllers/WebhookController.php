@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\Payment\PayPalPaymentService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Log;
@@ -179,7 +180,7 @@ class WebhookController extends Controller
     /**
      * Health check endpoint for webhook monitoring
      */
-    public function healthCheck(): Response
+    public function healthCheck(): JsonResponse
     {
         return response()->json([
             'status' => 'healthy',

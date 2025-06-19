@@ -8,8 +8,8 @@ use App\Models\GeneralSetting;
 use App\Models\Job;
 use App\Models\JobApplication;
 use App\Models\JobCategory;
-use App\Models\OldSubscription;
-use App\Models\SubscriptionPlan;
+use App\Models\Subscription;
+use App\Models\Plan;
 use App\Models\User;
 use App\Models\WebsiteCustomization;
 use App\Services\Storage\StorageService;
@@ -53,7 +53,7 @@ class AdminService
         $totalJobs = Job::query()->count();
         $totalJobCategories = JobCategory::query()->count();
         $totalApplications = JobApplication::query()->count();
-        $totalRevenue = OldSubscription::query()->sum('amount_paid');
+        $totalRevenue = Subscription::query()->sum('amount_paid');
 
         $recentUsers = User::query()->latest()->limit(5)->get();
         $recentJobs = Job::with('employer')->latest()->limit(5)->get();
@@ -105,35 +105,35 @@ class AdminService
      * Create a new subscription plan.
      *
      * @param array $data
-     * @return SubscriptionPlan
+     * @return Plan
      */
-    public function createSubscriptionPlan(array $data): SubscriptionPlan
+    public function createSubscriptionPlan(array $data): Plan
     {
-        return SubscriptionPlan::create($data);
+        return Plan::create($data);
     }
 
     /**
      * Update an existing subscription plan.
      *
-     * @param SubscriptionPlan $subscriptionPlan
+     * @param Plan $plan
      * @param array $data
-     * @return SubscriptionPlan
+     * @return Plan
      */
-    public function updateSubscriptionPlan(SubscriptionPlan $subscriptionPlan, array $data): SubscriptionPlan
+    public function updateSubscriptionPlan(Plan $plan, array $data): Plan
     {
-        $subscriptionPlan->update($data);
-        return $subscriptionPlan;
+        $plan->update($data);
+        return $plan;
     }
 
 
     /**
      * Set subscription plan active status
      *
-     * @param SubscriptionPlan $plan
+     * @param Plan $plan
      * @param bool $isActive
-     * @return SubscriptionPlan
+     * @return Plan
      */
-    public function setSubscriptionPlanStatus(SubscriptionPlan $plan, bool $isActive): SubscriptionPlan
+    public function setSubscriptionPlanStatus(Plan $plan, bool $isActive): Plan
     {
         $plan->is_active = $isActive;
         $plan->save();

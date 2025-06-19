@@ -2,7 +2,7 @@
 
 namespace App\Http\Requests\Admin;
 
-use App\Models\SubscriptionPlan;
+use App\Models\Plan;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -41,7 +41,7 @@ class SubscriptionPlanRequest extends FormRequest
             'is_active' => 'nullable|boolean',
             'is_featured' => 'nullable|boolean',
             'features' => 'nullable|array',
-            'payment_type' => ['nullable', 'string', Rule::in([SubscriptionPlan::PAYMENT_TYPE_ONE_TIME, SubscriptionPlan::PAYMENT_TYPE_RECURRING])],
+            'payment_type' => ['nullable', 'string', Rule::in([Plan::BILLING_ONE_TIME, Plan::BILLING_MONTHLY, Plan::BILLING_YEARLY])],
         ];
     }
 

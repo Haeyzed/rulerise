@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\SubscriptionPlanRequest;
-use App\Models\SubscriptionPlan;
+use App\Models\Plan;
 use App\Services\AdminAclService;
 use App\Services\AdminService;
 use Exception;
@@ -69,7 +69,7 @@ class SubscriptionPlansController extends Controller implements HasMiddleware
                 return response()->forbidden($errorMessage);
             }
 
-            $plans = SubscriptionPlan::all();
+            $plans = Plan::all();
 
             return response()->success($plans, 'OldSubscription Plans retrieved successfully.');
         } catch (Exception $e) {
@@ -117,7 +117,7 @@ class SubscriptionPlansController extends Controller implements HasMiddleware
                 return response()->forbidden($errorMessage);
             }
 
-            $plan = SubscriptionPlan::query()->findOrFail($id);
+            $plan = Plan::query()->findOrFail($id);
 
             return response()->success($plan, 'OldSubscription plan retrieved successfully');
         } catch (Exception $e) {
@@ -140,7 +140,7 @@ class SubscriptionPlansController extends Controller implements HasMiddleware
                 return response()->forbidden($errorMessage);
             }
 
-            $plan = SubscriptionPlan::query()->findOrFail($id);
+            $plan = Plan::query()->findOrFail($id);
             $plan = $this->adminService->updateSubscriptionPlan($plan, $request->validated());
             return response()->success($plan, 'OldSubscription plan updated successfully');
         } catch (Exception $e) {
@@ -163,7 +163,7 @@ class SubscriptionPlansController extends Controller implements HasMiddleware
                 return response()->forbidden($errorMessage);
             }
 
-            $plan = SubscriptionPlan::query()->findOrFail($id);
+            $plan = Plan::query()->findOrFail($id);
             $plan->delete();
 
             return response()->success(null, 'OldSubscription plan deleted successfully');
@@ -190,7 +190,7 @@ class SubscriptionPlansController extends Controller implements HasMiddleware
             $id = $request->input('id');
             $isActive = $request->input('is_active', true);
 
-            $plan = SubscriptionPlan::query()->findOrFail($id);
+            $plan = Plan::query()->findOrFail($id);
 
             $plan = $this->adminService->setSubscriptionPlanStatus($plan, $isActive);
 
