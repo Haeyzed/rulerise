@@ -63,6 +63,7 @@ class Plan extends Model
         'featured_jobs_limit',
         'candidate_search',
         'analytics_access',
+        'resume_access',
         'priority_support',
         'resume_views_limit',
         'features',

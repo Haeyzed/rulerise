@@ -23,6 +23,7 @@ class PlanSeeder extends Seeder
                 'featured_jobs_limit' => 1,
                 'candidate_search' => true,
                 'analytics_access' => true,
+                'resume_access' => true,
                 'priority_support' => true,
                 'resume_views_limit' => 999999,
                 'features' => [
@@ -47,6 +48,7 @@ class PlanSeeder extends Seeder
                 'featured_jobs_limit' => 0,
                 'candidate_search' => true,
                 'analytics_access' => false,
+                'resume_access' => false,
                 'priority_support' => false,
                 'resume_views_limit' => 20,
                 'features' => [

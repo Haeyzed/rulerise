@@ -117,6 +117,7 @@ Route::middleware(['auth:api', 'role:employer,employer_staff'])->group(function 
         Route::post('/', [JobNotificationTemplatesController::class, 'updateTemplate']);
         Route::get('/', [JobNotificationTemplatesController::class, 'index']);
     });
+    Route::post('/subscriptions/cv-download', [ResumeController::class, 'updateCVDownloadUsage']);
 });
 
 // Routes that require employer role (not staff)

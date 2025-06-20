@@ -23,6 +23,7 @@ return new class extends Migration
             $table->integer('featured_jobs_limit')->default(0);
             $table->boolean('candidate_search')->default(false);
             $table->boolean('analytics_access')->default(false);
+            $table->boolean('resume_access')->default(true);
             $table->boolean('priority_support')->default(false);
             $table->integer('resume_views_limit')->default(0);
             $table->json('features')->nullable();

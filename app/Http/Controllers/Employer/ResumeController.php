@@ -111,6 +111,29 @@ class ResumeController extends Controller implements HasMiddleware
     }
 
     /**
+     * Update CV download usage
+     *
+     * @return JsonResponse
+     */
+    public function updateCVDownloadUsage(): JsonResponse
+    {
+        $user = auth()->user();
+        $employer = $user->employer;
+
+        try {
+            $result = $this->resumeService->decrementCvDownloadsLeft($employer);
+
+            if (!$result) {
+                return response()->badRequest('No CV downloads left or no active subscription');
+            }
+
+            return response()->success('CV download usage updated successfully');
+        } catch (\Exception $e) {
+            return response()->badRequest($e->getMessage());
+        }
+    }
+
+    /**
      * Download a resume
      *
      * @param int $id
