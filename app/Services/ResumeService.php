@@ -235,6 +235,28 @@ class ResumeService
     }
 
     /**
+     * Decrement the remaining CV downloads for the employer's active subscription.
+     *
+     * @param Employer $employer
+     * @return bool True if decremented successfully, false otherwise.
+     */
+    public function decrementCvDownloadsLeft(Employer $employer): bool
+    {
+        $subscription = $employer->getActiveSubscription();
+
+        if (
+            !$subscription ||
+            !$subscription->isActive() ||
+            $subscription->cv_downloads_left <= 0
+        ) {
+            return false;
+        }
+
+        $subscription->decrement('cv_downloads_left');
+        return true;
+    }
+
+    /**
      * Record candidate view by employer
      *
      * @param Candidate $candidate
