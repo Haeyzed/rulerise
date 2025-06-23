@@ -155,6 +155,112 @@ class Subscription extends Model
             $this->trial_end_date->isPast();
     }
 
+    public function isOneTime(): bool
+    {
+        return $this->plan->billing_cycle === Plan::BILLING_ONE_TIME;
+    }
+
+    public function isMonthly(): bool
+    {
+        return $this->plan->billing_cycle === Plan::BILLING_MONTHLY;
+    }
+
+    public function isYearly(): bool
+    {
+        return $this->plan->billing_cycle === Plan::BILLING_YEARLY;
+    }
+
+    /**
+     * Check if the subscription is expired.
+     *
+     * @return bool
+     */
+    public function isExpired(): bool
+    {
+        // One-time payments don't expire
+        if ($this->isOneTime()) {
+            return false;
+        }
+
+        // If end_date is null, it doesn't expire
+        if ($this->end_date === null) {
+            return false;
+        }
+
+        return $this->end_date < now();
+    }
+
+    /**
+     * Check if the subscription has job posts left.
+     *
+     * @return bool
+     */
+    public function hasJobPostsLeft(): bool
+    {
+        return $this->job_posts_left > 0;
+    }
+
+    /**
+     * Check if the subscription has featured jobs left.
+     *
+     * @return bool
+     */
+    public function hasFeaturedJobsLeft(): bool
+    {
+        return $this->featured_jobs_left > 0;
+    }
+
+    /**
+     * Check if the subscription has CV downloads left.
+     *
+     * @return bool
+     */
+    public function hasCvDownloadsLeft(): bool
+    {
+        return $this->cv_downloads_left > 0;
+    }
+
+    /**
+     * Get days remaining in the subscription.
+     *
+     * @return int
+     */
+    public function daysRemaining(): int
+    {
+        // One-time payments don't have a remaining days count
+        if ($this->isOneTime()) {
+            return PHP_INT_MAX; // Effectively infinite
+        }
+
+        if ($this->isExpired()) {
+            return 0;
+        }
+
+        return now()->diffInDays($this->end_date);
+    }
+
+    /**
+     * Get subscription status text.
+     *
+     * @return string
+     */
+    public function getStatusText(): string
+    {
+        if (!$this->is_active) {
+            return 'Cancelled';
+        }
+
+        if ($this->is_suspended) {
+            return 'Suspended';
+        }
+
+        if ($this->isExpired() && !$this->isOneTime()) {
+            return 'Expired';
+        }
+
+        return 'Active';
+    }
+
     // ========================================
     // STATUS MANAGEMENT METHODS
     // ========================================

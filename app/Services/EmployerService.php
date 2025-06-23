@@ -276,7 +276,7 @@ class EmployerService
      */
     public function getEmployerTransactions(int $employerId, array $filters = []): LengthAwarePaginator
     {
-        $query = Subscription::where('employer_id', $employerId)
+        $query = Subscription::query()->where('employer_id', $employerId)
             ->with('plan');
 
         // Apply search filter
