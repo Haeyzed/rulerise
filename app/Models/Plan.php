@@ -249,4 +249,56 @@ class Plan extends Model
     {
         return $query->where('billing_cycle', $cycle);
     }
+
+    /**
+     * Get formatted duration.
+     *
+     * @return string
+     */
+    public function getFormattedDuration(): string
+    {
+        if ($this->isOneTime()) {
+            return 'No expiration';
+        }
+
+        if (!$this->duration_days) {
+            return 'N/A';
+        }
+
+        if ($this->duration_days % 30 === 0) {
+            $months = $this->duration_days / 30;
+            return $months === 1 ? '1 month' : "$months months";
+        }
+
+        if ($this->duration_days % 7 === 0) {
+            $weeks = $this->duration_days / 7;
+            return $weeks === 1 ? '1 week' : "$weeks weeks";
+        }
+
+        return $this->duration_days === 1 ? '1 day' : "{$this->duration_days} days";
+    }
+
+    /**
+     * Get formatted trial period.
+     *
+     * @return string|null
+     */
+    public function getFormattedTrialPeriod(): ?string
+    {
+        if (!$this->hasTrial()) {
+            return null;
+        }
+
+        if ($this->trial_days % 30 === 0) {
+            $months = $this->trial_days / 30;
+            return $months === 1 ? '1 month trial' : "$months months trial";
+        }
+
+        if ($this->trial_days % 7 === 0) {
+            $weeks = $this->trial_days / 7;
+            return $weeks === 1 ? '1 week trial' : "$weeks weeks trial";
+        }
+
+        return $this->trial_days === 1 ? '1 day trial' : "{$this->trial_days} days trial";
+    }
 }
