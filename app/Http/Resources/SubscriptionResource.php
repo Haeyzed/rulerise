@@ -23,7 +23,7 @@ class SubscriptionResource extends JsonResource
             'end_date' => $this->end_date,
             'amount_paid' => $this->amount_paid,
             'currency' => $this->currency,
-            'payment_method' => $this->payment_method,
+            'payment_method' => $this->payment_provider,
             'transaction_id' => $this->transaction_id,
             'payment_reference' => $this->payment_reference,
             'subscription_id' => $this->subscription_id,
