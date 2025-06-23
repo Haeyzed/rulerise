@@ -42,7 +42,7 @@ class SubscriptionResource extends JsonResource
             'status_text' => $this->getStatusText(),
 
             // Related data
-            'plan' => new SubscriptionPlanResource($this->whenLoaded('plan')),
+            'plan' => new PlanResource($this->whenLoaded('plan')),
         ];
     }
 }

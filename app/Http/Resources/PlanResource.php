@@ -5,7 +5,7 @@ namespace App\Http\Resources;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-class SubscriptionPlanResource extends JsonResource
+class PlanResource extends JsonResource
 {
     /**
      * Transform the resource into an array.
@@ -35,7 +35,7 @@ class SubscriptionPlanResource extends JsonResource
             'features' => $this->features,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
-            
+
             // Computed properties
             'formatted_duration' => $this->getFormattedDuration(),
             'formatted_price' => $this->getFormattedPrice(),
